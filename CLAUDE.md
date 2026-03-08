@@ -79,6 +79,11 @@ src/
 
 ## Recent Changes (Jan 2026 - Mar 2026)
 
+### AI Parser Bug Fixes (Mar 2026)
+- **Ingredient scaling fix**: Text-extracted recipes now correctly split `name` and `quantity` — scaler works on serving change. Parser uses 4 cascading strategies (see [AGENTS.md](AGENTS.md) §7)
+- **Metadata extraction fix**: Prep/cook times no longer show N/A — parser accepts both `**Label:**` (bold) and `Label:` (plain) metadata headers from Claude
+- **`format-recipe` prompt**: Ingredient format changed to `"nome, quantità"` (e.g., `"Pasta, 200 g"`) for correct parser split
+
 ### AI Extractor: Free-Text Input (Mar 2026)
 - **New tab "Testo libero"**: Users type/paste recipe in any format; Claude reformats it
 - **New endpoint** `POST /api/format-recipe`: text → Claude → same markdown as PDF pipeline

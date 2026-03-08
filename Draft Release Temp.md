@@ -29,6 +29,11 @@ You can now assign multiple seasons to a single recipe. Perfect for dishes that 
 ### 📱 Apple Home Screen Icon
 When adding Il Mio Ricettario to your iPad home screen, you'll now see the custom recipe book icon instead of a generic screenshot.
 
+## 🐛 Bug Fixes
+
+- Fixed ingredient quantities not updating when changing the number of servings for recipes added via the "Free text" tab in the AI Extractor
+- Fixed preparation and cooking times showing as N/A for some PDF-extracted recipes
+
 ## 🔧 Improvements
 
 - **Upgraded AI model**: All AI features now use Claude Sonnet 4.6 for improved quality and accuracy

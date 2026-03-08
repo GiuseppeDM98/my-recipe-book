@@ -66,8 +66,8 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 - Capitalizza correttamente (es: "Pasta al Pomodoro" → "Pasta al pomodoro")
 
 ### 2. INGREDIENTI
-- Struttura ogni ingrediente come: quantità + unità di misura + nome
-- Esempio: "200 g di pasta", "2 spicchi d'aglio", "q.b. di sale"
+- Struttura ogni ingrediente come: nome, quantità con unità di misura
+- Esempio: "Pasta, 200 g", "Aglio, 2 spicchi", "Sale, q.b."
 - Se l'utente non ha indicato quantità, usa giudizio culinario ragionevole o scrivi "q.b."
 - Usa le unità metriche italiane (g, kg, ml, l, cucchiai, cucchiaini)
 - Usa decimali con virgola: 1,5 kg (NON 1.5 kg)

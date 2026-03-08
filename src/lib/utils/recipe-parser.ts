@@ -91,31 +91,32 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
       continue;
     }
 
-    // Check for metadata
-    if (line.startsWith('**Porzioni:**')) {
-      const match = line.match(/\*\*Porzioni:\*\*\s*(\d+)/);
+    // Check for metadata — tolerate both "**Label:**" (bold) and "Label:" (plain text)
+    // Claude's no-markdown rule sometimes causes it to omit bold markers on metadata headers
+    if (/^\*?\*?Porzioni:\*?\*?/i.test(line)) {
+      const match = line.match(/Porzioni[*:]+\s*(\d+)/i);
       if (match) servings = parseInt(match[1]);
       continue;
     }
 
-    if (line.startsWith('**Tempo di preparazione:**')) {
-      const match = line.match(/\*\*Tempo di preparazione:\*\*\s*(.+)/);
+    if (/^\*?\*?Tempo di preparazione:/i.test(line)) {
+      const match = line.match(/Tempo di preparazione[*:]+\s*(.+)/i);
       if (match) {
         prepTime = parseTimeToMinutes(match[1]);
       }
       continue;
     }
 
-    if (line.startsWith('**Tempo di cottura')) {
-      const match = line.match(/\*\*Tempo di cottura[^:]*:\*\*\s*(.+)/);
+    if (/^\*?\*?Tempo di cottura/i.test(line)) {
+      const match = line.match(/Tempo di cottura[^:]*[*:]+\s*(.+)/i);
       if (match) {
         cookTime = parseTimeToMinutes(match[1]);
       }
       continue;
     }
 
-    if (line.startsWith('**Note aggiuntive:**')) {
-      const notesText = line.replace(/\*\*Note aggiuntive:\*\*\s*/, '');
+    if (/^\*?\*?Note aggiuntive:/i.test(line)) {
+      const notesText = line.replace(/\*?\*?Note aggiuntive:\*?\*?\s*/i, '');
       if (notesText) notes += notesText + '\n';
       continue;
     }
@@ -193,11 +194,10 @@ function parseIngredientLine(line: string, section: string | null): Ingredient |
 
   if (!line || line.length < 2) return null;
 
-  // Try to split by comma first
+  // Strategy 1: comma split — "Pasta, 200 g" (preferred output from format-recipe prompt)
   let parts = line.split(',').map(p => p.trim());
 
   if (parts.length >= 2) {
-    // Format: "Name, quantity"
     return {
       id: uuidv4(),
       name: parts[0],
@@ -206,7 +206,32 @@ function parseIngredientLine(line: string, section: string | null): Ingredient |
     };
   }
 
-  // Try to extract quantity from end of string
+  // Strategy 2: colon split — "Riso Carnaroli: 280g", "Cipolla bianca: 1 piccola" (common in PDF output)
+  const colonParts = line.split(':').map(p => p.trim());
+  if (colonParts.length === 2 && colonParts[0] && colonParts[1]) {
+    return {
+      id: uuidv4(),
+      name: colonParts[0],
+      quantity: colonParts[1],
+      section: section || null,
+    };
+  }
+
+  // Strategy 3: quantity-first — "500 g di farina", "q.b. di sale" (old text-extracted recipes)
+  // Matches a leading measurement unit or q.b., optionally followed by "di"/"d'"
+  const qtyFirstMatch = line.match(
+    /^([\d,\.]+\s*(?:g|kg|ml|l|cl|cucchiai[oa]?|cucchiaini?|pezzi?|spicchi?|rametti?|fette?|foglie?|mazzetti?|litri?)|q\.b\.?)\s+(?:d[i']\s*)?(.+)$/i
+  );
+  if (qtyFirstMatch) {
+    return {
+      id: uuidv4(),
+      name: qtyFirstMatch[2].trim(),
+      quantity: qtyFirstMatch[1].trim(),
+      section: section || null,
+    };
+  }
+
+  // Strategy 4: quantity at end of string — "Farina 500 g", "Sale q.b." (legacy regex)
   // Patterns: "500 g", "1 kg", "q.b.", "1 cucchiaio", "100-150 g"
   const quantityMatch = line.match(/^(.+?)\s+([\d\-]+\s*(?:g|kg|ml|l|cucchiai?|cucchiaini?|pezzi?|spicchi?|rametti?)(?:\s*circa)?|q\.?b\.?)$/i);
 

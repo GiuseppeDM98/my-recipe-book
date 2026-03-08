@@ -168,6 +168,24 @@ Tutte le `page.tsx` hanno `'use client'`. Attenzione a hydration mismatch.
 
 ---
 
+## 7. AI Recipe Parser
+
+### Formato ingredienti → strategie parser in cascata
+
+`parseIngredientLine` in `recipe-parser.ts` tenta in ordine:
+1. **Comma**: `"Pasta, 200 g"` ← formato preferito dal prompt `format-recipe`
+2. **Colon**: `"Riso Carnaroli: 280g"` ← output naturale PDF
+3. **Quantity-first**: `"500 g di farina"` ← fallback / ricette vecchie
+4. **Quantity at end (regex)**: `"Farina 500 g"` ← legacy
+
+**Se cambi il formato ingredienti nel prompt Claude, verifica che una delle strategie lo copra.**
+
+### Metadata bold/plain inconsistente nei PDF
+
+Il prompt di estrazione PDF vieta gli asterischi nel testo, ma Claude a volte applica la regola anche agli header metadata (`Porzioni`, `Tempo di preparazione`, ecc.). Il parser accetta entrambi i formati. **Non aggiungere mai `startsWith('**...')`** per nuovi campi metadata — usare sempre regex tipo `/^\*?\*?Label:/i`.
+
+---
+
 ## References
 
 - Architettura: [CLAUDE.md](CLAUDE.md)
