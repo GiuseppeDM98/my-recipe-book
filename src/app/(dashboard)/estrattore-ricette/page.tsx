@@ -4,24 +4,29 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { RecipeExtractorUpload } from '@/components/recipe/recipe-extractor-upload';
+import { RecipeTextInput } from '@/components/recipe/recipe-text-input';
 import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
 import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Category, Season } from '@/types';
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
  *
- * Workflow: Upload → Extract → Preview → Save
- * 1. User uploads PDF file
- * 2. Claude API extracts recipes (markdown format)
+ * Workflow: Input → Extract/Format → Preview → Save
+ * 1. User uploads a PDF OR types/pastes a recipe in free text
+ * 2. Claude API extracts/formats recipes (markdown format)
  * 3. AI suggests categories/seasons for each recipe
  * 4. User reviews and saves individually or in bulk
+ *
+ * Input modes:
+ * - PDF: Multi-recipe extraction from uploaded document
+ * - Text: Single recipe formatting from free-form text input
  *
  * State management: Per-recipe saving states for bulk operations (optimistic UI).
  *
@@ -32,12 +37,15 @@ export default function RecipeExtractorPage() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const [inputMode, setInputMode] = useState<'pdf' | 'text'>('pdf');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedRecipes, setExtractedRecipes] = useState<ParsedRecipe[]>([]);
   const [savingStates, setSavingStates] = useState<Map<number, boolean>>(new Map());
   const [savedStates, setSavedStates] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [userCategories, setUserCategories] = useState<Category[]>([]);
+  // Track source type to set the correct recipe.source on save
+  const [currentSourceType, setCurrentSourceType] = useState<'pdf' | 'manual'>('pdf');
 
   // Test account is blocked from AI extraction because:
   // - Prevents API cost abuse on publicly accessible demo account
@@ -61,11 +69,65 @@ export default function RecipeExtractorPage() {
   }, [user]);
 
   /**
+   * Switches between input modes, clearing any previous results.
+   *
+   * Reset is intentional: results from a PDF extraction would be confusing
+   * to show while the user is preparing a text submission, and vice versa.
+   */
+  const handleModeSwitch = (mode: 'pdf' | 'text') => {
+    setInputMode(mode);
+    setExtractedRecipes([]);
+    setError(null);
+    setSavingStates(new Map());
+    setSavedStates(new Set());
+  };
+
+  /**
+   * Shared post-processing pipeline for both PDF and text input modes.
+   *
+   * After Claude returns markdown (either from PDF extraction or text formatting),
+   * this function: parses the markdown → fetches AI category/season suggestions
+   * in parallel → updates state with enriched recipes.
+   *
+   * @param markdownText - Claude's markdown output (same format regardless of source)
+   * @param emptyMessage - Error message to show if no recipes are parsed
+   */
+  const processExtractedMarkdown = async (markdownText: string, emptyMessage: string) => {
+    const parsedRecipes = parseExtractedRecipes(markdownText);
+
+    if (parsedRecipes.length === 0) {
+      throw new Error(emptyMessage);
+    }
+
+    // Two-phase AI workflow:
+    // Phase 1: Extract/format recipes (Claude) → returns markdown
+    // Phase 2: Suggest categories (Claude text analysis) → one call per recipe
+    // Phase 2 is parallelized (Promise.all) for speed.
+    // Total AI calls: 1 extraction/format + N suggestions (N = number of recipes)
+    toast.success(`${parsedRecipes.length} ricett${parsedRecipes.length === 1 ? 'a trovata' : 'e trovate'}! Ottenimento suggerimenti AI...`);
+
+    const recipesWithSuggestions = await Promise.all(
+      parsedRecipes.map(async (recipe) => {
+        const suggestion = await getAISuggestionForRecipe(
+          recipe.title,
+          recipe.ingredients,
+          userCategories.map(c => ({ name: c.name }))
+        );
+        return {
+          ...recipe,
+          aiSuggestion: suggestion || undefined
+        };
+      })
+    );
+
+    setExtractedRecipes(recipesWithSuggestions);
+    toast.success('Suggerimenti AI pronti!');
+  };
+
+  /**
    * Uploads PDF and processes extracted recipes.
    *
    * Validation: Blocks test account, file type/size checks (handled by API).
-   *
-   * Post-processing: Fetches AI suggestions for each recipe in parallel (Promise.all).
    *
    * Side effects: Multiple API calls (1 extraction + N category suggestions)
    */
@@ -75,7 +137,6 @@ export default function RecipeExtractorPage() {
       return;
     }
 
-    // Block test account from using AI extraction
     if (user.email === 'test@test.com') {
       toast.error('L\'estrazione AI è disabilitata per l\'account di test');
       return;
@@ -86,6 +147,7 @@ export default function RecipeExtractorPage() {
     setExtractedRecipes([]);
     setSavingStates(new Map());
     setSavedStates(new Set());
+    setCurrentSourceType('pdf');
 
     try {
       const formData = new FormData();
@@ -108,40 +170,68 @@ export default function RecipeExtractorPage() {
         throw new Error('Nessuna ricetta trovata nel PDF');
       }
 
-      // Parse the markdown output into structured recipes
-      const parsedRecipes = parseExtractedRecipes(data.extractedRecipes);
-
-      if (parsedRecipes.length === 0) {
-        throw new Error('Non è stato possibile estrarre ricette valide dal PDF');
-      }
-
-      // Two-phase AI workflow:
-      // Phase 1: Extract recipes (Claude PDF analysis) → returns markdown
-      // Phase 2: Suggest categories (Claude text analysis) → one call per recipe
-      // Phase 2 is parallelized (Promise.all) for speed.
-      // Total AI calls: 1 extraction + N suggestions (N = number of recipes)
-      toast.success(`${parsedRecipes.length} ricett${parsedRecipes.length === 1 ? 'a estratta' : 'e estratte'}! Ottenimento suggerimenti AI...`);
-
-      const recipesWithSuggestions = await Promise.all(
-        parsedRecipes.map(async (recipe) => {
-          const suggestion = await getAISuggestionForRecipe(
-            recipe.title,
-            recipe.ingredients,
-            userCategories.map(c => ({ name: c.name }))
-          );
-          return {
-            ...recipe,
-            aiSuggestion: suggestion || undefined
-          };
-        })
-      );
-
-      setExtractedRecipes(recipesWithSuggestions);
-      toast.success(`Suggerimenti AI pronti!`);
+      await processExtractedMarkdown(data.extractedRecipes, 'Non è stato possibile estrarre ricette valide dal PDF');
     } catch (err: any) {
       console.error('Error extracting recipes:', err);
       setError(err.message || 'Errore durante l\'estrazione delle ricette');
       toast.error(err.message || 'Errore durante l\'estrazione');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  /**
+   * Submits free-form recipe text for AI formatting.
+   *
+   * Sends text to /api/format-recipe, which returns structured markdown in the
+   * same format as /api/extract-recipes, so the same parsing pipeline applies.
+   *
+   * Side effects: Multiple API calls (1 format + 1 category suggestion)
+   */
+  const handleTextSubmit = async (text: string) => {
+    if (!user) {
+      toast.error('Devi effettuare il login per usare questa funzionalità');
+      return;
+    }
+
+    if (user.email === 'test@test.com') {
+      toast.error('La formattazione AI è disabilitata per l\'account di test');
+      return;
+    }
+
+    setIsExtracting(true);
+    setError(null);
+    setExtractedRecipes([]);
+    setSavingStates(new Map());
+    setSavedStates(new Set());
+    setCurrentSourceType('manual');
+
+    try {
+      const response = await fetch('/api/format-recipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          userCategories: userCategories.map(c => ({ name: c.name })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Errore durante la formattazione');
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.extractedRecipes) {
+        throw new Error('Non è stato possibile formattare la ricetta');
+      }
+
+      await processExtractedMarkdown(data.extractedRecipes, 'Non è stato possibile formattare la ricetta dal testo fornito');
+    } catch (err: any) {
+      console.error('Error formatting recipe:', err);
+      setError(err.message || 'Errore durante la formattazione della ricetta');
+      toast.error(err.message || 'Errore durante la formattazione');
     } finally {
       setIsExtracting(false);
     }
@@ -160,11 +250,9 @@ export default function RecipeExtractorPage() {
   const handleSaveRecipe = async (recipe: ParsedRecipe, categoryName: string, seasons: Season[], index: number) => {
     if (!user) return;
 
-    // Set saving state
     setSavingStates(prev => new Map(prev).set(index, true));
 
     try {
-      // Create category if it doesn't exist
       let categoryId = '';
       if (categoryName && categoryName.trim()) {
         categoryId = await createCategoryIfNotExists(user.uid, categoryName.trim());
@@ -181,22 +269,20 @@ export default function RecipeExtractorPage() {
         steps: recipe.steps,
         categoryId: categoryId,
         subcategoryId: '',
-        seasons: seasons.length > 0 ? seasons : undefined, // Multiple seasons support
+        seasons: seasons.length > 0 ? seasons : undefined,
         aiSuggested: recipe.aiSuggestion ? true : false,
         difficulty: 'media' as const,
         tags: [],
         techniqueIds: [],
-        source: {
-          type: 'pdf' as const,
-          name: 'Estratto da PDF con AI',
-        },
+        source: currentSourceType === 'pdf'
+          ? { type: 'pdf' as const, name: 'Estratto da PDF con AI' }
+          : { type: 'manual' as const, name: 'Formattata con AI da testo' },
         notes: recipe.notes || '',
         images: [],
       };
 
-      const recipeId = await createRecipe(user.uid, recipeData);
+      await createRecipe(user.uid, recipeData);
 
-      // Mark as saved
       setSavedStates(prev => new Set(prev).add(index));
       toast.success(`"${recipe.title}" salvata con successo!`);
 
@@ -210,7 +296,6 @@ export default function RecipeExtractorPage() {
       console.error('Error saving recipe:', error);
       toast.error(`Errore nel salvataggio di "${recipe.title}"`);
     } finally {
-      // Clear saving state
       setSavingStates(prev => {
         const newMap = new Map(prev);
         newMap.delete(index);
@@ -225,11 +310,6 @@ export default function RecipeExtractorPage() {
    * Logic: Saves sequentially (await in loop) instead of Promise.all to avoid
    * Firebase write rate limits per user. Sequential saves are more reliable
    * for bulk operations.
-   *
-   * State: Marks each recipe as saved progressively (optimistic UI with
-   * per-recipe saving states).
-   *
-   * Progress feedback: Saves appear one by one (clearer than all at once).
    */
   const handleSaveAll = async () => {
     if (!user || extractedRecipes.length === 0) return;
@@ -242,7 +322,6 @@ export default function RecipeExtractorPage() {
       if (!savedStates.has(i)) {
         const recipe = extractedRecipes[i];
         const categoryName = recipe.aiSuggestion?.categoryName || '';
-        // Convert AI-suggested single season to array for multi-season support
         const seasons: Season[] = recipe.aiSuggestion?.season ? [recipe.aiSuggestion.season] : ['tutte_stagioni'];
         await handleSaveRecipe(recipe, categoryName, seasons, i);
       }
@@ -250,6 +329,13 @@ export default function RecipeExtractorPage() {
 
     toast.success('Tutte le ricette sono state salvate!');
   };
+
+  // ========================================
+  // Loading message varies by input mode
+  // ========================================
+  const loadingMessage = inputMode === 'pdf'
+    ? 'Analisi del PDF in corso...'
+    : 'Formattazione ricetta in corso...';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -260,7 +346,7 @@ export default function RecipeExtractorPage() {
           <h1 className="text-3xl font-bold">Estrattore di Ricette AI</h1>
         </div>
         <p className="text-gray-600">
-          Carica un PDF contenente ricette e l'intelligenza artificiale le estrarrà automaticamente per te.
+          Carica un PDF con le tue ricette oppure scrivi una ricetta in formato libero: l'AI la estrarrà e la strutturerà automaticamente.
         </p>
       </div>
 
@@ -271,32 +357,68 @@ export default function RecipeExtractorPage() {
           <div>
             <h3 className="font-semibold text-yellow-900">Funzionalità AI Disabilitata</h3>
             <p className="text-sm text-yellow-700 mt-1">
-              L'estrazione AI è disabilitata per l'account di test per proteggere le risorse API.
-              
+              L'estrazione e la formattazione AI sono disabilitate per l'account di test per proteggere le risorse API.
             </p>
           </div>
         </div>
       )}
 
-      {/* Upload Section */}
-      <div className="bg-white rounded-lg border p-6">
-        <RecipeExtractorUpload
-          onFileSelected={handleFileSelected}
-          isLoading={isExtracting}
-          disabled={isTestAccount}
-        />
+      {/* Input Card with Tab Switcher */}
+      <div className="bg-white rounded-lg border">
+        {/* Tab switcher */}
+        <div className="flex border-b">
+          <button
+            onClick={() => handleModeSwitch('pdf')}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+              ${inputMode === 'pdf'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            <FileText className="w-4 h-4" />
+            Carica PDF
+          </button>
+          <button
+            onClick={() => handleModeSwitch('text')}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+              ${inputMode === 'text'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            <PenLine className="w-4 h-4" />
+            Testo libero
+          </button>
+        </div>
 
-        {isExtracting && (
-          <div className="mt-6 text-center">
-            <div className="inline-flex items-center gap-2 text-primary">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-              <span className="font-medium">Analisi del PDF in corso...</span>
+        {/* Input content */}
+        <div className="p-6">
+          {inputMode === 'pdf' ? (
+            <RecipeExtractorUpload
+              onFileSelected={handleFileSelected}
+              isLoading={isExtracting}
+              disabled={isTestAccount}
+            />
+          ) : (
+            <RecipeTextInput
+              onTextSubmit={handleTextSubmit}
+              isLoading={isExtracting}
+              disabled={isTestAccount}
+            />
+          )}
+
+          {isExtracting && (
+            <div className="mt-6 text-center">
+              <div className="inline-flex items-center gap-2 text-primary">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                <span className="font-medium">{loadingMessage}</span>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                Questo processo può richiedere alcuni secondi
+              </p>
             </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Questo processo può richiedere alcuni secondi
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Error Display */}
@@ -304,7 +426,7 @@ export default function RecipeExtractorPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-red-900">Errore nell'estrazione</h3>
+            <h3 className="font-semibold text-red-900">Errore</h3>
             <p className="text-sm text-red-700 mt-1">{error}</p>
           </div>
         </div>
@@ -318,10 +440,10 @@ export default function RecipeExtractorPage() {
               <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-green-900">
-                  {extractedRecipes.length} ricett{extractedRecipes.length === 1 ? 'a estratta' : 'e estratte'}
+                  {extractedRecipes.length} ricett{extractedRecipes.length === 1 ? 'a trovata' : 'e trovate'}
                 </h3>
                 <p className="text-sm text-green-700 mt-1">
-                  Controlla i dettagli di ogni ricetta e salvale nel tuo ricettario
+                  Controlla i dettagli e salvale nel tuo ricettario
                 </p>
               </div>
             </div>
@@ -337,7 +459,9 @@ export default function RecipeExtractorPage() {
       {/* Extracted Recipes List */}
       {extractedRecipes.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Ricette Estratte</h2>
+          <h2 className="text-xl font-semibold">
+            {inputMode === 'pdf' ? 'Ricette Estratte' : 'Ricetta Formattata'}
+          </h2>
           {extractedRecipes.map((recipe, index) => (
             <ExtractedRecipePreview
               key={index}
@@ -354,16 +478,26 @@ export default function RecipeExtractorPage() {
       {/* Help Section */}
       {extractedRecipes.length === 0 && !isExtracting && !error && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-900 mb-2">Come funziona?</h3>
-          <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-            <li>Carica un file PDF contenente una o più ricette</li>
-            <li>L'AI di Claude analizzerà il documento ed estrarrà automaticamente tutte le ricette</li>
-            <li>Controlla le ricette estratte e modificale se necessario</li>
-            <li>Salva le ricette nel tuo ricettario personale</li>
-          </ol>
+          <h3 className="font-semibold text-blue-900 mb-3">Come funziona?</h3>
+          {inputMode === 'pdf' ? (
+            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+              <li>Carica un file PDF contenente una o più ricette</li>
+              <li>L'AI di Claude analizzerà il documento ed estrarrà automaticamente tutte le ricette</li>
+              <li>Controlla le ricette estratte e modificale se necessario</li>
+              <li>Salva le ricette nel tuo ricettario personale</li>
+            </ol>
+          ) : (
+            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+              <li>Scrivi o incolla il testo di una ricetta, anche in formato grezzo o non strutturato</li>
+              <li>L'AI di Claude interpreterà il testo e lo formatterà in modo preciso e completo</li>
+              <li>Controlla la ricetta formattata e modifica i dettagli se necessario</li>
+              <li>Salvala nel tuo ricettario personale</li>
+            </ol>
+          )}
           <p className="text-xs text-blue-600 mt-4">
-            💡 Suggerimento: I PDF con ricette ben strutturate (con sezioni chiare per ingredienti e procedimento)
-            daranno risultati migliori.
+            {inputMode === 'pdf'
+              ? '💡 Suggerimento: I PDF con ricette ben strutturate daranno risultati migliori.'
+              : '💡 Suggerimento: Anche una ricetta scritta in modo informale ("pasta al pomodoro: 400g pasta, pomodori...") verrà formattata correttamente.'}
           </p>
         </div>
       )}

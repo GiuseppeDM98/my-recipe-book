@@ -140,7 +140,7 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
 
       // Parse step line (starts with - or a number)
       if (line.startsWith('-') || line.match(/^\d+\./)) {
-        const description = line.replace(/^-\s*/, '').replace(/^\d+\.\s*/, '').trim();
+        const description = stripMarkdown(line.replace(/^-\s*/, '').replace(/^\d+\.\s*/, '').trim());
         if (description) {
           steps.push({
             id: uuidv4(),
@@ -188,8 +188,8 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
  * Parse ingredient line into structured format
  */
 function parseIngredientLine(line: string, section: string | null): Ingredient | null {
-  // Remove leading bullets/dashes
-  line = line.replace(/^[-•]\s*/, '').trim();
+  // Remove leading bullets/dashes and strip markdown formatting
+  line = stripMarkdown(line.replace(/^[-•]\s*/, '').trim());
 
   if (!line || line.length < 2) return null;
 
@@ -272,6 +272,22 @@ function capitalizeSectionName(sectionName: string | null): string | null {
   }
 
   return sectionName;
+}
+
+/**
+ * Strip markdown inline formatting from a string.
+ *
+ * Claude occasionally wraps labels in bold (**Fase 1:**) or italic (*nota*).
+ * The app stores plain text and doesn't render markdown in recipe fields,
+ * so we clean these up at parse time rather than in the UI.
+ *
+ * Only removes inline formatting (** and *); structural markdown like
+ * headers (##) and bullet points (-) are intentionally kept for parsing.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // **bold** → bold
+    .replace(/\*(.+?)\*/g, '$1');      // *italic* → italic
 }
 
 /**

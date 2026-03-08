@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-01-29
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-03-08
 
 ## Quick Reference
 
@@ -14,7 +14,7 @@
 
 ## Project Overview
 
-Digital recipe book with AI-powered PDF extraction. Text-focused, privacy-first, optimized for actual cooking use. Italian cuisine focus with seasonal ingredient classification.
+Digital recipe book with AI-powered PDF extraction and free-text recipe formatting. Text-focused, privacy-first, optimized for actual cooking use. Italian cuisine focus with seasonal ingredient classification.
 
 **Target users**: Home cooks digitizing recipe collections, users with PDF cookbooks.
 
@@ -25,7 +25,7 @@ Digital recipe book with AI-powered PDF extraction. Text-focused, privacy-first,
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 16.1.6, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
-| Backend | Firebase Auth + Firestore, Claude API (claude-sonnet-4-5) |
+| Backend | Firebase Auth + Firestore, Claude API (claude-sonnet-4-6) |
 | Key Utils | `nosleep.js` (wake lock), `ingredient-scaler.ts` (quantity scaling) |
 
 ---
@@ -37,10 +37,10 @@ src/
 ├── app/
 │   ├── (auth)/           # Login, Register
 │   ├── (dashboard)/      # Ricette, Categorie, Cotture, Estrattore
-│   └── api/              # extract-recipes, suggest-category
+│   └── api/              # extract-recipes, format-recipe, suggest-category
 ├── components/
 │   ├── ui/               # Button, Card, Dialog, Sheet, etc.
-│   ├── recipe/           # RecipeForm, RecipeCard, CategorySelector
+│   ├── recipe/           # RecipeForm, RecipeCard, RecipeTextInput, CategorySelector
 │   └── layout/           # Header, Sidebar, BottomNavigation
 ├── lib/
 │   ├── constants/        # seasons.ts (centralized season constants)
@@ -71,29 +71,27 @@ src/
 - Setup screen pattern (no useEffect creation)
 - Auto-delete at 100% progress
 
+### AI Recipe Parser
+- `stripMarkdown()` in `recipe-parser.ts` strips `**bold**` / `*italic*` at parse time
+- Always store plain text in Firebase — never markdown in recipe fields
+
 ---
 
-## Recent Changes (Dec 2025 - Jan 2026)
+## Recent Changes (Jan 2026 - Mar 2026)
+
+### AI Extractor: Free-Text Input (Mar 2026)
+- **New tab "Testo libero"**: Users type/paste recipe in any format; Claude reformats it
+- **New endpoint** `POST /api/format-recipe`: text → Claude → same markdown as PDF pipeline
+- **New component** `RecipeTextInput`: textarea with 50-char minimum, char counter
+- **`source.type`**: text recipes saved as `'manual'`, PDF recipes as `'pdf'`
+- **Shared pipeline**: `processExtractedMarkdown()` reused by both PDF and text modes
+- **Model**: all endpoints updated to `claude-sonnet-4-6`
 
 ### Recipe Search & Multiple Seasons (Jan 2026)
 - **Recipe search**: Client-side title search with Italian character support (à, è, ì, ò, ù)
-- **Unicode NFD normalization**: Accent-insensitive matching for Italian cuisine
-- **Multiple seasons**: Recipes can now have multiple season tags (e.g., Pasta e Fagioli = autunno + inverno)
-- **Lazy migration**: Backward-compatible migration from single `season` to `seasons[]` array
-- **Centralized constants**: Season icons/labels in single source (`lib/constants/seasons.ts`)
-
-### Cooking Mode Enhancements
-- **Setup screen pattern**: Prevents duplicate session creation
-- **Servings selection**: Real-time ingredient scaling with Italian decimal format (1,5 kg)
-- **Auto-deletion**: Sessions delete at 100% completion
-
-### Navigation Refactor
-- Orientation-based navigation (portrait/landscape/desktop)
-- Breakpoint changed from 1024px to **1440px**
-- New components: `BottomNavigation`, `MoreSheet`
-
-### Security Updates
-- Package overrides: `glob >= 10.4.6`, `undici >= 6.21.2`
+- **Multiple seasons**: Recipes can have multiple season tags (e.g., autunno + inverno)
+- **Lazy migration**: Backward-compatible from single `season` to `seasons[]` array
+- **Centralized constants**: Season icons/labels in `lib/constants/seasons.ts`
 
 ---
 
@@ -136,6 +134,7 @@ All documents require `userId` field. Security rules enforce ownership.
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /api/extract-recipes` | PDF -> Claude -> Markdown (max 4.4MB) |
+| `POST /api/format-recipe` | Free text -> Claude -> Markdown (single recipe) |
 | `POST /api/suggest-category` | Recipe -> Category + Season suggestion |
 
 ---

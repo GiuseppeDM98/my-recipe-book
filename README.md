@@ -92,28 +92,35 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Progress At-A-Glance**: See how far you've progressed in each recipe
 - **Real-Time Updates**: Session progress updates instantly across all devices
 
-### AI-Powered PDF Extraction
+### AI-Powered Recipe Extraction & Formatting
 
 <img width="1162" height="761" alt="image" src="https://github.com/user-attachments/assets/ada5b7e2-a646-49c9-a8d2-b4ef5d8e7457" />
 
 
-The standout feature that sets Il Mio Ricettario apart:
+The standout feature that sets Il Mio Ricettario apart — two ways to get recipes in:
 
+**PDF Extraction:**
 - **Automatic Recipe Extraction**: Upload PDF cookbooks and Claude AI extracts all recipes automatically
 - **Multi-Page Support**: Processes entire PDF documents, extracting every recipe found
+- Maximum file size: 4.4MB (Vercel request body limit)
+
+**Free-Text Formatting (new):**
+- **Type or paste any recipe**: Write rough notes, copy from a website, or dictate informally
+- **Claude reformats it**: Structures ingredients, steps, sections, and metadata automatically
+- No file required — just text
+
+**Both modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
 - **Intelligent Categorization**: AI suggests appropriate categories (using existing ones or proposing new ones)
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
 - **Smart Normalization**: Converts times to minutes, capitalizes section headers, standardizes formatting
-- **Editable Preview**: Review and modify all extracted recipes before saving
-- **Selective Save**: Choose which recipes to save, or save all at once
+- **Editable Preview**: Review and modify all recipes before saving
 - **Transparency**: Recipes and categories suggested by AI are clearly marked with badges
 
 **Technical Details**:
-- Powered by Claude Sonnet 4.5 (200K token context window)
+- Powered by Claude Sonnet 4.6 (200K token context window)
 - Native PDF support with base64 encoding
-- Maximum file size: 4.4MB (Vercel request body limit)
-- Endpoint: `/api/extract-recipes`
+- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text)
 
 **Italian Seasonal Ingredient Database**:
 - **Primavera (Spring)**: Asparagus, artichokes, fava beans, peas, strawberries

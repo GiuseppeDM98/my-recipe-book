@@ -121,6 +121,13 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 - Non omettere nessuna ricetta, anche se breve o semplice
 - Se il documento contiene un indice, usa quello come riferimento per verificare di aver estratto tutto
 
+### 10. FORMATTAZIONE TESTO - REGOLA ASSOLUTA
+- NON usare MAI asterischi (**testo**, *testo*), underscore (__testo__) o altri simboli markdown nel testo degli step, ingredienti o note
+- Scrivi SOLO testo semplice (plain text)
+- Se vuoi enfatizzare una parola, usa le maiuscole: "A TEMPERATURA AMBIENTE" invece di "**A temperatura ambiente**"
+- Esempio SBAGLIATO: "**Fase 1:** cuocere a 180°C"
+- Esempio CORRETTO: "Fase 1: cuocere a 180°C"
+
 ---`;
 
 /**
@@ -216,7 +223,7 @@ async function suggestCategoryAndSeason(
     const prompt = createCategorizationPrompt(recipeTitle, ingredients, userCategories);
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 500,
       messages: [
         {
@@ -321,7 +328,7 @@ export async function POST(request: NextRequest) {
 
     // Call Claude API with native PDF support
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 16000,
       system: 'Sei un esperto estrattore di ricette culinarie. Il tuo compito è preservare fedelmente la struttura, i nomi delle sezioni e tutti i dettagli esattamente come appaiono nel documento originale.',
       messages: [
@@ -356,7 +363,7 @@ export async function POST(request: NextRequest) {
       extractedRecipes: extractedText,
       userCategories: userCategories, // Pass back for client-side processing
       metadata: {
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         fileSize: file.size,
       },
     });

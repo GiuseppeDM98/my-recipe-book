@@ -157,9 +157,14 @@ Tutte le `page.tsx` hanno `'use client'`. Attenzione a hydration mismatch.
 
 **Endpoints:**
 - `POST /api/extract-recipes` - PDF → Claude → Markdown
+- `POST /api/format-recipe` - Testo libero → Claude → Markdown (stessa struttura)
 - `POST /api/suggest-category` - Recipe → Category + Season
 
 **API key**: `ANTHROPIC_API_KEY` solo server-side (NO `NEXT_PUBLIC_`)
+
+**Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti e tre se si cambia.
+
+**Markdown nel testo**: Claude può produrre `**grassetto**` nelle descrizioni. `stripMarkdown()` in `recipe-parser.ts` lo rimuove. Aggiornare anche i prompt se si aggiungono nuovi endpoint.
 
 ---
 
