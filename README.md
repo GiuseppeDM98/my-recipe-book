@@ -38,7 +38,7 @@ Designed for home cooks who want to digitize their recipe collections without co
 
 - **Text-Focused Design**: No image uploads required. Focus on what matters while cooking: ingredients, steps, and techniques.
 - **Privacy-First Architecture**: Your recipes, your data. All data is stored in your own Firebase account with owner-based security rules.
-- **AI-Powered Extraction**: Upload PDF cookbooks and automatically extract all recipes with intelligent categorization and seasonal classification.
+- **AI-Powered**: Upload PDFs, paste free text, or chat with an AI chef to get new recipe suggestions — all with intelligent categorization and seasonal classification.
 - **Cooking-Optimized**: Screen wake lock, progress tracking, and mobile-first design make it perfect for actual kitchen use.
 - **Open Source**: AGPL-3.0 licensed to ensure the project and its improvements remain open and available to everyone.
 
@@ -92,24 +92,30 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Progress At-A-Glance**: See how far you've progressed in each recipe
 - **Real-Time Updates**: Session progress updates instantly across all devices
 
-### AI-Powered Recipe Extraction & Formatting
+### AI Assistant (Assistente Ricette AI)
 
 <img width="1162" height="761" alt="image" src="https://github.com/user-attachments/assets/ada5b7e2-a646-49c9-a8d2-b4ef5d8e7457" />
 
 
-The standout feature that sets Il Mio Ricettario apart — two ways to get recipes in:
+Three ways to get recipes in — all powered by Claude AI:
 
 **PDF Extraction:**
 - **Automatic Recipe Extraction**: Upload PDF cookbooks and Claude AI extracts all recipes automatically
 - **Multi-Page Support**: Processes entire PDF documents, extracting every recipe found
 - Maximum file size: 4.4MB (Vercel request body limit)
 
-**Free-Text Formatting (new):**
+**Free-Text Formatting:**
 - **Type or paste any recipe**: Write rough notes, copy from a website, or dictate informally
 - **Claude reformats it**: Structures ingredients, steps, sections, and metadata automatically
 - No file required — just text
 
-**Both modes share:**
+**AI Chat Recipe Generation (new):**
+- **Ask the AI chef**: Describe ingredients you have, request a cuisine style, or ask for something new
+- **Cookbook-aware**: The AI knows your existing recipes and avoids suggesting duplicates
+- **Multi-turn**: Refine suggestions with follow-up messages ("make it lighter", "add more vegetables")
+- Generated recipes appear as preview cards, ready to save with one click
+
+**All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
 - **Intelligent Categorization**: AI suggests appropriate categories (using existing ones or proposing new ones)
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
@@ -120,7 +126,7 @@ The standout feature that sets Il Mio Ricettario apart — two ways to get recip
 **Technical Details**:
 - Powered by Claude Sonnet 4.6 (200K token context window)
 - Native PDF support with base64 encoding
-- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text)
+- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat)
 
 **Italian Seasonal Ingredient Database**:
 - **Primavera (Spring)**: Asparagus, artichokes, fava beans, peas, strawberries
@@ -497,7 +503,7 @@ src/
 │   │   │   └── new/         # Create recipe page
 │   │   ├── categorie/       # Category management
 │   │   ├── cotture-in-corso/ # Active cooking sessions dashboard
-│   │   └── estrattore-ricette/ # AI PDF extractor interface
+│   │   └── assistente-ai/    # AI Assistant (PDF, free-text, chat)
 │   └── api/                 # Server-side API routes
 │       ├── extract-recipes/ # PDF extraction endpoint
 │       └── suggest-category/ # AI categorization endpoint

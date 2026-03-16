@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { RecipeExtractorUpload } from '@/components/recipe/recipe-extractor-upload';
 import { RecipeTextInput } from '@/components/recipe/recipe-text-input';
+import { RecipeChatInput } from '@/components/recipe/recipe-chat-input';
 import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
 import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
+import { useRecipes } from '@/lib/hooks/useRecipes';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Category, Season } from '@/types';
 
@@ -27,8 +29,10 @@ import { Category, Season } from '@/types';
  * Input modes:
  * - PDF: Multi-recipe extraction from uploaded document
  * - Text: Single recipe formatting from free-form text input
+ * - Chat: Conversational AI recipe generation with existing cookbook context
  *
  * State management: Per-recipe saving states for bulk operations (optimistic UI).
+ * Chat mode appends recipes across turns; PDF/text modes replace on each submission.
  *
  * Feature gating: Test account blocked from AI to protect API costs.
  * Test account can still browse and use all other features.
@@ -37,7 +41,7 @@ export default function RecipeExtractorPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const [inputMode, setInputMode] = useState<'pdf' | 'text'>('pdf');
+  const [inputMode, setInputMode] = useState<'pdf' | 'text' | 'chat'>('pdf');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedRecipes, setExtractedRecipes] = useState<ParsedRecipe[]>([]);
   const [savingStates, setSavingStates] = useState<Map<number, boolean>>(new Map());
@@ -45,7 +49,10 @@ export default function RecipeExtractorPage() {
   const [error, setError] = useState<string | null>(null);
   const [userCategories, setUserCategories] = useState<Category[]>([]);
   // Track source type to set the correct recipe.source on save
-  const [currentSourceType, setCurrentSourceType] = useState<'pdf' | 'manual'>('pdf');
+  const [currentSourceType, setCurrentSourceType] = useState<'pdf' | 'manual' | 'chat'>('pdf');
+
+  // User's existing recipes — passed to chat mode so AI avoids duplicate suggestions
+  const { recipes: existingRecipes } = useRecipes();
 
   // Test account is blocked from AI extraction because:
   // - Prevents API cost abuse on publicly accessible demo account
@@ -71,10 +78,10 @@ export default function RecipeExtractorPage() {
   /**
    * Switches between input modes, clearing any previous results.
    *
-   * Reset is intentional: results from a PDF extraction would be confusing
-   * to show while the user is preparing a text submission, and vice versa.
+   * Reset is intentional: results from one mode would be confusing to show
+   * while preparing a submission in another mode.
    */
-  const handleModeSwitch = (mode: 'pdf' | 'text') => {
+  const handleModeSwitch = (mode: 'pdf' | 'text' | 'chat') => {
     setInputMode(mode);
     setExtractedRecipes([]);
     setError(null);
@@ -122,6 +129,39 @@ export default function RecipeExtractorPage() {
 
     setExtractedRecipes(recipesWithSuggestions);
     toast.success('Suggerimenti AI pronti!');
+  };
+
+  /**
+   * Handles recipes returned by the chat AI.
+   *
+   * Unlike processExtractedMarkdown (which replaces the recipe list), this
+   * handler APPENDS recipes across chat turns — each chat response adds to
+   * the existing list so the user can accumulate recipes in one session.
+   *
+   * @param markdownText - Recipe markdown from /api/chat-recipe
+   *
+   * Side effects: Appends to extractedRecipes, fetches AI category suggestions
+   */
+  const handleChatRecipesExtracted = async (markdownText: string) => {
+    const parsedRecipes = parseExtractedRecipes(markdownText);
+    if (parsedRecipes.length === 0) return;
+
+    setCurrentSourceType('chat');
+
+    const recipesWithSuggestions = await Promise.all(
+      parsedRecipes.map(async (recipe) => {
+        const suggestion = await getAISuggestionForRecipe(
+          recipe.title,
+          recipe.ingredients,
+          userCategories.map((c) => ({ name: c.name }))
+        );
+        return { ...recipe, aiSuggestion: suggestion || undefined };
+      })
+    );
+
+    // Append (not replace) so chat turns accumulate recipes in the preview list
+    setExtractedRecipes((prev) => [...prev, ...recipesWithSuggestions]);
+    toast.success(`${parsedRecipes.length} ricett${parsedRecipes.length === 1 ? 'a generata' : 'e generate'} dall'AI!`);
   };
 
   /**
@@ -276,6 +316,8 @@ export default function RecipeExtractorPage() {
         techniqueIds: [],
         source: currentSourceType === 'pdf'
           ? { type: 'pdf' as const, name: 'Estratto da PDF con AI' }
+          : currentSourceType === 'chat'
+          ? { type: 'manual' as const, name: 'Generata con Chat AI' }
           : { type: 'manual' as const, name: 'Formattata con AI da testo' },
         notes: recipe.notes || '',
         images: [],
@@ -335,7 +377,9 @@ export default function RecipeExtractorPage() {
   // ========================================
   const loadingMessage = inputMode === 'pdf'
     ? 'Analisi del PDF in corso...'
-    : 'Formattazione ricetta in corso...';
+    : inputMode === 'text'
+    ? 'Formattazione ricetta in corso...'
+    : 'L\'AI sta generando le ricette...';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -343,10 +387,10 @@ export default function RecipeExtractorPage() {
       <div>
         <div className="flex items-center gap-3 mb-2">
           <Sparkles className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Estrattore di Ricette AI</h1>
+          <h1 className="text-3xl font-bold">Assistente Ricette AI</h1>
         </div>
         <p className="text-gray-600">
-          Carica un PDF con le tue ricette oppure scrivi una ricetta in formato libero: l'AI la estrarrà e la strutturerà automaticamente.
+          Carica un PDF, scrivi una ricetta in formato libero, oppure chatta con l'AI per farti suggerire nuove ricette.
         </p>
       </div>
 
@@ -357,7 +401,7 @@ export default function RecipeExtractorPage() {
           <div>
             <h3 className="font-semibold text-yellow-900">Funzionalità AI Disabilitata</h3>
             <p className="text-sm text-yellow-700 mt-1">
-              L'estrazione e la formattazione AI sono disabilitate per l'account di test per proteggere le risorse API.
+              L'estrazione, la formattazione e la Chat AI sono disabilitate per l'account di test per proteggere le risorse API.
             </p>
           </div>
         </div>
@@ -389,6 +433,17 @@ export default function RecipeExtractorPage() {
             <PenLine className="w-4 h-4" />
             Testo libero
           </button>
+          <button
+            onClick={() => handleModeSwitch('chat')}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+              ${inputMode === 'chat'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Chat AI
+          </button>
         </div>
 
         {/* Input content */}
@@ -399,15 +454,27 @@ export default function RecipeExtractorPage() {
               isLoading={isExtracting}
               disabled={isTestAccount}
             />
-          ) : (
+          ) : inputMode === 'text' ? (
             <RecipeTextInput
               onTextSubmit={handleTextSubmit}
               isLoading={isExtracting}
               disabled={isTestAccount}
             />
+          ) : (
+            <RecipeChatInput
+              onRecipesExtracted={handleChatRecipesExtracted}
+              disabled={isTestAccount}
+              existingRecipes={existingRecipes.map((r) => ({
+                title: r.title,
+                ingredients: r.ingredients,
+                seasons: r.seasons ?? [],
+              }))}
+            />
           )}
 
-          {isExtracting && (
+          {/* Loading indicator: shown for PDF/text modes only.
+              Chat mode has its own inline typing indicator in RecipeChatInput. */}
+          {isExtracting && inputMode !== 'chat' && (
             <div className="mt-6 text-center">
               <div className="inline-flex items-center gap-2 text-primary">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
@@ -460,7 +527,11 @@ export default function RecipeExtractorPage() {
       {extractedRecipes.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">
-            {inputMode === 'pdf' ? 'Ricette Estratte' : 'Ricetta Formattata'}
+            {inputMode === 'pdf'
+              ? 'Ricette Estratte'
+              : inputMode === 'text'
+              ? 'Ricetta Formattata'
+              : 'Ricette Generate dall\'AI'}
           </h2>
           {extractedRecipes.map((recipe, index) => (
             <ExtractedRecipePreview
@@ -475,8 +546,8 @@ export default function RecipeExtractorPage() {
         </div>
       )}
 
-      {/* Help Section */}
-      {extractedRecipes.length === 0 && !isExtracting && !error && (
+      {/* Help Section — not shown in chat mode (RecipeChatInput has its own welcome state) */}
+      {extractedRecipes.length === 0 && !isExtracting && !error && inputMode !== 'chat' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="font-semibold text-blue-900 mb-3">Come funziona?</h3>
           {inputMode === 'pdf' ? (

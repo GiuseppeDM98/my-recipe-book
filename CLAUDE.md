@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-03-08
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-03-16
 
 ## Quick Reference
 
@@ -14,9 +14,9 @@
 
 ## Project Overview
 
-Digital recipe book with AI-powered PDF extraction and free-text recipe formatting. Text-focused, privacy-first, optimized for actual cooking use. Italian cuisine focus with seasonal ingredient classification.
+Digital recipe book with AI-powered PDF extraction, free-text recipe formatting, and AI chat recipe generation. Text-focused, privacy-first, optimized for actual cooking use. Italian cuisine focus with seasonal ingredient classification.
 
-**Target users**: Home cooks digitizing recipe collections, users with PDF cookbooks.
+**Target users**: Home cooks digitizing recipe collections, users with PDF cookbooks, anyone wanting AI-generated recipe suggestions.
 
 ---
 
@@ -36,11 +36,11 @@ Digital recipe book with AI-powered PDF extraction and free-text recipe formatti
 src/
 ├── app/
 │   ├── (auth)/           # Login, Register
-│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Estrattore
-│   └── api/              # extract-recipes, format-recipe, suggest-category
+│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI
+│   └── api/              # extract-recipes, format-recipe, suggest-category, chat-recipe
 ├── components/
 │   ├── ui/               # Button, Card, Dialog, Sheet, etc.
-│   ├── recipe/           # RecipeForm, RecipeCard, RecipeTextInput, CategorySelector
+│   ├── recipe/           # RecipeForm, RecipeCard, RecipeTextInput, RecipeChatInput
 │   └── layout/           # Header, Sidebar, BottomNavigation
 ├── lib/
 │   ├── constants/        # seasons.ts (centralized season constants)
@@ -79,18 +79,20 @@ src/
 
 ## Recent Changes (Jan 2026 - Mar 2026)
 
-### AI Parser Bug Fixes (Mar 2026)
-- **Ingredient scaling fix**: Text-extracted recipes now correctly split `name` and `quantity` — scaler works on serving change. Parser uses 4 cascading strategies (see [AGENTS.md](AGENTS.md) §7)
-- **Metadata extraction fix**: Prep/cook times no longer show N/A — parser accepts both `**Label:**` (bold) and `Label:` (plain) metadata headers from Claude
-- **`format-recipe` prompt**: Ingredient format changed to `"nome, quantità"` (e.g., `"Pasta, 200 g"`) for correct parser split
+### AI Assistant: Chat Recipe Generation (Mar 2026)
+- **Page renamed**: `/estrattore-ricette` → `/assistente-ai`, title "Assistente Ricette AI"
+- **New tab "Chat AI"**: Conversational AI chef that suggests new recipes based on user requests and existing cookbook context
+- **New endpoint** `POST /api/chat-recipe`: multi-turn conversation, returns `{ reply, extractedRecipes }` via `[RISPOSTA]/[RICETTE]` delimiters
+- **New component** `RecipeChatInput`: chat UI with history, auto-scroll, typing indicator, starter prompt chips
+- **Context injection**: Existing recipes passed on first turn so AI avoids duplicate suggestions
+- **Chat appends recipes**: Unlike PDF/text modes, chat accumulates cards across turns
+- **`source.name`**: Chat recipes saved as `'Generata con Chat AI'`
+- **Parser fix**: `parseRecipeSection` now uses `findIndex` for `#` title (was assuming `lines[0]`)
 
 ### AI Extractor: Free-Text Input (Mar 2026)
-- **New tab "Testo libero"**: Users type/paste recipe in any format; Claude reformats it
-- **New endpoint** `POST /api/format-recipe`: text → Claude → same markdown as PDF pipeline
-- **New component** `RecipeTextInput`: textarea with 50-char minimum, char counter
+- **Tab "Testo libero"**: Users type/paste recipe in any format; Claude reformats it
+- **Endpoint** `POST /api/format-recipe`: text → Claude → same markdown as PDF pipeline
 - **`source.type`**: text recipes saved as `'manual'`, PDF recipes as `'pdf'`
-- **Shared pipeline**: `processExtractedMarkdown()` reused by both PDF and text modes
-- **Model**: all endpoints updated to `claude-sonnet-4-6`
 
 ### Recipe Search & Multiple Seasons (Jan 2026)
 - **Recipe search**: Client-side title search with Italian character support (à, è, ì, ò, ù)
@@ -141,6 +143,7 @@ All documents require `userId` field. Security rules enforce ownership.
 | `POST /api/extract-recipes` | PDF -> Claude -> Markdown (max 4.4MB) |
 | `POST /api/format-recipe` | Free text -> Claude -> Markdown (single recipe) |
 | `POST /api/suggest-category` | Recipe -> Category + Season suggestion |
+| `POST /api/chat-recipe` | Chat message + history -> Claude -> reply + recipe markdown |
 
 ---
 

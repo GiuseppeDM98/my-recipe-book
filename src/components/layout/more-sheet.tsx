@@ -13,7 +13,7 @@ interface MoreSheetProps {
 export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
   const menuItems = [
     { label: 'Categorie', icon: Grid3x3, href: '/categorie' },
-    { label: 'Estrattore AI', icon: Sparkles, href: '/estrattore-ricette' },
+    { label: 'Assistente AI', icon: Sparkles, href: '/assistente-ai' },
   ];
 
   return (

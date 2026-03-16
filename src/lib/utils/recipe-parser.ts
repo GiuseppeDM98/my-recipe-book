@@ -44,8 +44,11 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
 
   if (lines.length === 0) return null;
 
-  // Extract title (first # heading)
-  const titleMatch = lines[0].match(/^#\s+(.+)$/);
+  // Extract title — find the first line starting with # (skip leading --- separators)
+  const titleIndex = lines.findIndex(l => /^#\s+.+$/.test(l));
+  if (titleIndex === -1) return null;
+
+  const titleMatch = lines[titleIndex].match(/^#\s+(.+)$/);
   if (!titleMatch) return null;
 
   const title = toTitleCase(titleMatch[1].trim());
@@ -63,7 +66,7 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
   let sectionOrder = 0;
   let currentSectionOrder = 0;
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = titleIndex + 1; i < lines.length; i++) {
     const line = lines[i];
 
     // Check for section headers

@@ -159,12 +159,15 @@ Tutte le `page.tsx` hanno `'use client'`. Attenzione a hydration mismatch.
 - `POST /api/extract-recipes` - PDF → Claude → Markdown
 - `POST /api/format-recipe` - Testo libero → Claude → Markdown (stessa struttura)
 - `POST /api/suggest-category` - Recipe → Category + Season
+- `POST /api/chat-recipe` - Messaggio utente + history → Claude → `{ reply, extractedRecipes }`
 
 **API key**: `ANTHROPIC_API_KEY` solo server-side (NO `NEXT_PUBLIC_`)
 
-**Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti e tre se si cambia.
+**Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti e quattro se si cambia.
 
 **Markdown nel testo**: Claude può produrre `**grassetto**` nelle descrizioni. `stripMarkdown()` in `recipe-parser.ts` lo rimuove. Aggiornare anche i prompt se si aggiungono nuovi endpoint.
+
+**Chat-recipe output format**: Claude risponde con blocchi `[RISPOSTA]...[/RISPOSTA]` e `[RICETTE]...[/RICETTE]`. Il parsing usa regex case-insensitive con fallback. Il componente `RecipeChatInput` applica `cleanReply()` come secondo livello di difesa — utile se Claude non segue il formato esatto.
 
 ---
 
@@ -183,6 +186,10 @@ Tutte le `page.tsx` hanno `'use client'`. Attenzione a hydration mismatch.
 ### Metadata bold/plain inconsistente nei PDF
 
 Il prompt di estrazione PDF vieta gli asterischi nel testo, ma Claude a volte applica la regola anche agli header metadata (`Porzioni`, `Tempo di preparazione`, ecc.). Il parser accetta entrambi i formati. **Non aggiungere mai `startsWith('**...')`** per nuovi campi metadata — usare sempre regex tipo `/^\*?\*?Label:/i`.
+
+### Parser assume titolo alla prima riga — RISOLTO
+
+`parseRecipeSection` ora cerca il primo `#` con `findIndex` invece di assumere `lines[0]`. Il formato markdown di tutti gli endpoint inizia con `---` prima del titolo, che veniva trovato per primo causando `return null` silenzioso. **Se aggiungi nuovi campi pre-titolo nel formato ricetta, il parser li salta automaticamente.**
 
 ---
 

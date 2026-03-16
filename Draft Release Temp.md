@@ -2,6 +2,15 @@
 
 ## ✨ New Features
 
+### 💬 AI Chat Recipe Generation
+You can now ask the AI to suggest new recipes through a chat interface. Describe what ingredients you have, request a specific cuisine or dietary style, or simply ask for something different from what's already in your cookbook — the AI will propose one or more recipes you can save instantly.
+
+- Added "Chat AI" tab in the AI Assistant page
+- The AI knows your existing cookbook and avoids suggesting duplicates
+- Multi-turn conversation: refine the recipe with follow-up messages ("make it vegetarian", "reduce the cooking time")
+- Generated recipes appear as preview cards below the chat, ready to review and save
+- Works like PDF and free-text extraction: AI suggests category and season automatically
+
 ### 🖊️ Free-Text Recipe Input in AI Extractor
 You can now type or paste a recipe in any format directly into the AI Extractor — no PDF needed. Just write something like "pasta al pomodoro: 400g spaghetti, a can of tomatoes, garlic..." and Claude will turn it into a perfectly structured recipe ready to save.
 
@@ -36,6 +45,7 @@ When adding Il Mio Ricettario to your iPad home screen, you'll now see the custo
 
 ## 🔧 Improvements
 
+- **Renamed AI Extractor to AI Assistant**: The page is now called "Assistente Ricette AI" to reflect its expanded capabilities beyond just PDF extraction
 - **Upgraded AI model**: All AI features now use Claude Sonnet 4.6 for improved quality and accuracy
 - **Cleaner recipe text**: Fixed an issue where AI would sometimes include formatting symbols (asterisks) in step descriptions — all recipe text is now stored as clean plain text
 - **Centralized Season Management**: Season labels and icons are now consistent across the entire application

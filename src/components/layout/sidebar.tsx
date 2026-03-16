@@ -32,7 +32,7 @@ const navItems = [
   { href: '/categorie', label: 'Categorie', icon: Grid3x3 },
   { href: '/cotture-in-corso', label: 'Cotture in corso', icon: Flame },
   { href: '/ricette/new', label: 'Nuova ricetta', icon: PlusCircle },
-  { href: '/estrattore-ricette', label: '✨ Estrattore AI', icon: Sparkles },
+  { href: '/assistente-ai', label: '✨ Assistente AI', icon: Sparkles },
 ];
 
 interface SidebarProps {
