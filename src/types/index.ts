@@ -291,7 +291,102 @@ export interface ParsedRecipe {
   servings?: number;
   prepTime?: number;
   cookTime?: number;
+  notes?: string;
   ingredients: Ingredient[];
   steps: Step[];
   aiSuggestion?: AISuggestion; // AI-generated category and season suggestion
+}
+
+// ============================================
+// Meal Planner Types
+// ============================================
+
+/**
+ * Italian daily meal types for the weekly planner.
+ *
+ * CONVENTION:
+ * - colazione (breakfast): light, typically 7–9am
+ * - pranzo (lunch): main meal of the day, typically 12:30–2pm
+ * - cena (dinner): second main meal, typically 7:30–9pm
+ */
+/**
+ * Meal types include both traditional meal slots (colazione/pranzo/cena) and
+ * Italian course types (primo/secondo/contorno/dolce).
+ *
+ * Course types are optional rows added in advanced setup, each optionally
+ * associated with a preferred category so the AI picks appropriate recipes.
+ */
+export type MealType = 'colazione' | 'pranzo' | 'cena' | 'primo' | 'secondo' | 'contorno' | 'dolce';
+
+/**
+ * A single slot in the weekly meal plan.
+ *
+ * SLOT IDENTITY: dayIndex (0=Mon … 6=Sun) + mealType = unique key per plan.
+ *
+ * RECIPE REFERENCE STRATEGY:
+ * - existingRecipeId: points to a recipe already in the user's cookbook
+ * - newRecipe: AI-generated ParsedRecipe not yet saved to the cookbook
+ * Exactly one of the two is non-null; both null means the slot is empty.
+ *
+ * WHY recipeTitle IS DENORMALIZED:
+ * The 7×3 calendar grid renders 21 cells on every re-render. Without
+ * denormalization each cell would need to scan the full recipes array by ID.
+ * Storing the title here makes rendering O(1) per cell.
+ */
+export interface MealSlot {
+  dayIndex: number;              // 0 = Lunedì, 6 = Domenica
+  mealType: MealType;
+  existingRecipeId: string | null;  // null if slot uses newRecipe or is empty
+  newRecipe: ParsedRecipe | null;   // AI-generated recipe not yet in cookbook; null if existingRecipeId set
+  recipeTitle: string | null;       // Denormalized for fast render without recipe lookup
+  /** AI-suggested category name for new recipes (not an ID — the AI knows names, not IDs). */
+  suggestedCategoryName?: string;
+  /** AI-suggested seasons for new recipes. */
+  suggestedSeasons?: Season[];
+}
+
+/**
+ * A complete weekly meal plan document stored in Firestore (collection: meal_plans).
+ *
+ * PLAN IDENTITY:
+ * weekStartDate is always the Monday of the target week (ISO "YYYY-MM-DD").
+ * Users can have multiple plans; the UI shows the most recent by default.
+ *
+ * SLOT STORAGE:
+ * Slots are a flat array. A missing slot = empty meal for that day/type.
+ * Flat array is used instead of a nested map for Firestore compatibility.
+ *
+ * AI vs MANUAL:
+ * generatedByAI = true if the plan was created by /api/plan-meals.
+ * Users can edit AI plans manually; the flag is only for analytics/display.
+ */
+export interface MealPlan {
+  id: string;
+  userId: string;
+  weekStartDate: string;           // "YYYY-MM-DD", always a Monday
+  slots: MealSlot[];
+  activeMealTypes: MealType[];     // Meal types the user included (controls calendar rows)
+  season: Season;
+  generatedByAI: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Setup configuration collected before plan generation.
+ * Passed verbatim to /api/plan-meals.
+ */
+export interface MealPlanSetupConfig {
+  season: Season;
+  activeMealTypes: MealType[];
+  excludedCategoryIds: string[];
+  /** Total new AI-generated recipes (sum of newRecipePerMeal values). */
+  newRecipeCount: number;
+  weekStartDate: string;           // "YYYY-MM-DD", always a Monday
+  /** Maps any meal type to preferred category ID.
+   *  Includes base types (colazione/pranzo/cena) and course types (primo/secondo/…). */
+  courseCategoryMap?: Partial<Record<MealType, string>>;
+  /** Per-meal breakdown of how many AI-generated recipes to include.
+   *  If present, overrides the global newRecipeCount in the AI prompt. */
+  newRecipePerMeal?: Partial<Record<MealType, number>>;
 }

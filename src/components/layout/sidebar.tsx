@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
-import { Book, Grid3x3, Flame, PlusCircle, Sparkles } from 'lucide-react';
+import { Book, Grid3x3, Flame, PlusCircle, Sparkles, CalendarDays } from 'lucide-react';
 
 /**
  * Sidebar - Orientation-based responsive navigation
@@ -33,6 +33,7 @@ const navItems = [
   { href: '/cotture-in-corso', label: 'Cotture in corso', icon: Flame },
   { href: '/ricette/new', label: 'Nuova ricetta', icon: PlusCircle },
   { href: '/assistente-ai', label: '✨ Assistente AI', icon: Sparkles },
+  { href: '/pianificatore', label: 'Pianificatore', icon: CalendarDays },
 ];
 
 interface SidebarProps {

@@ -38,10 +38,26 @@ You can now assign multiple seasons to a single recipe. Perfect for dishes that 
 ### 📱 Apple Home Screen Icon
 When adding Il Mio Ricettario to your iPad home screen, you'll now see the custom recipe book icon instead of a generic screenshot.
 
+### 📅 Weekly Meal Planner
+Plan your meals for the entire week — powered by AI or built manually slot by slot.
+
+- Added new "Pianificatore" page accessible from the sidebar and "More" menu
+- Choose between AI-generated planning or manual mode (fill slots yourself by clicking)
+- AI picks recipes from your existing cookbook and optionally generates brand-new ones
+- Configure how many new AI recipes you want per meal type (breakfast, lunch, dinner)
+- Filter by season; optionally assign a preferred category to each meal type so the AI picks more relevant recipes
+- AI automatically suggests category and season for each newly generated recipe — pre-filled in the save form
+- Edit any slot after generation: click a cell to swap the recipe
+- Green cells (existing cookbook recipes) show a "Go to recipe" link for quick access
+- Purple cells (AI-generated, not yet saved) show a "Save to cookbook" button that opens the save panel directly
+- Plans are saved to Firebase and restored automatically on the next visit
+
 ## 🐛 Bug Fixes
 
 - Fixed ingredient quantities not updating when changing the number of servings for recipes added via the "Free text" tab in the AI Extractor
 - Fixed preparation and cooking times showing as N/A for some PDF-extracted recipes
+- Fixed "Save to cookbook" button in meal planner calendar cells not opening the save panel (it scrolled to the card but left it collapsed)
+- Fixed meal plans not restoring on page reload due to a missing Firestore composite index
 
 ## 🔧 Improvements
 

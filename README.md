@@ -135,6 +135,19 @@ Three ways to get recipes in — all powered by Claude AI:
 - **Inverno (Winter)**: Black cabbage, citrus, turnip greens, fennel
 - **Tutte le stagioni (All seasons)**: For recipes without strong seasonal ingredients
 
+### Weekly Meal Planner
+
+Plan your meals for the week — AI-assisted or fully manual.
+
+- **AI-generated plans**: The AI selects recipes from your cookbook and optionally creates new ones tailored to the season
+- **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
+- **Per-meal control**: Set how many new AI-generated recipes to include for each meal type (breakfast, lunch, dinner)
+- **Category hints**: Tell the AI which category to prefer for each meal type
+- **Edit after generation**: Click any slot to swap the recipe at any time
+- **Save AI recipes**: Newly generated recipes (shown in purple) can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
+- **Quick navigation**: Green cells link directly to the full recipe page
+- **Persistent**: Plans are saved to Firebase and restored automatically on your next visit
+
 ### Mobile-First Responsive Design
 
 <img width="373" height="829" alt="image" src="https://github.com/user-attachments/assets/0b0bd5b9-97dd-49be-b784-1cc0b0c81eb4" />

@@ -63,3 +63,43 @@ export const ALL_SEASONS: Season[] = [
   'inverno',
   'tutte_stagioni'
 ];
+
+/**
+ * Returns the current Italian meteorological season based on month.
+ *
+ * Italian meteorological seasons (calendar-based, not astronomical):
+ * - Primavera: March, April, May
+ * - Estate:    June, July, August
+ * - Autunno:   September, October, November
+ * - Inverno:   December, January, February
+ *
+ * WHY NOT tutte_stagioni:
+ * This function provides a planning default, not a recipe tag.
+ * "All seasons" has no meaning as a planning constraint.
+ *
+ * Used by the meal planner setup form to pre-select the current season.
+ */
+export function getCurrentSeason(): Exclude<Season, 'tutte_stagioni'> {
+  const month = new Date().getMonth(); // 0-based (0 = January)
+  if (month >= 2 && month <= 4) return 'primavera';
+  if (month >= 5 && month <= 7) return 'estate';
+  if (month >= 8 && month <= 10) return 'autunno';
+  return 'inverno'; // months 11 (Dec), 0 (Jan), 1 (Feb)
+}
+
+/**
+ * Returns the ISO date string (YYYY-MM-DD) for the Monday of the current calendar week.
+ *
+ * Always returns a Monday because meal plans are week-aligned starting Monday,
+ * matching the Italian/European convention (ISO 8601 week starts Monday).
+ *
+ * Used by the meal planner setup form to pre-fill the week selector.
+ */
+export function getCurrentWeekMonday(): string {
+  const today = new Date();
+  const day = today.getDay(); // 0 = Sunday, 1 = Monday, ...
+  const diff = day === 0 ? -6 : 1 - day; // shift so Monday = offset 0
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diff);
+  return monday.toISOString().slice(0, 10);
+}

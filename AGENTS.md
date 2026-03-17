@@ -10,10 +10,12 @@
 |--------|----------|-----------|
 | Orientation classes | `portrait:` applica anche a desktop | Usare `max-lg:portrait:` |
 | Firebase optional | `undefined` causa errore silenzioso | Usare `null` |
+| Firestore composite index | query `where + orderBy` fallisce silenziosamente | Aggiungere indice in `firestore.indexes.json` |
 | Cooking sessions | Duplicate se create in useEffect | Setup screen pattern |
 | Quantity format | Frazioni confuse (`1 1/2`) | Decimali (`1,5`) |
 | Sheet a11y | Warning Radix | Aggiungere `SheetDescription` |
 | File upload | Request troppo grande | Max 4.4MB |
+| useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` per sync |
 
 ---
 
@@ -34,17 +36,6 @@ className="max-lg:portrait:flex max-lg:landscape:hidden"
 - Mobile portrait: Bottom navigation (4 tab)
 - Mobile landscape: Hamburger + sidebar sliding
 
-**Viewport reset** - Layout resetta stato su cambio orientamento:
-```tsx
-useEffect(() => {
-  const handleResize = () => {
-    if (window.innerWidth >= 1440 || portrait) setSidebarOpen(false);
-  };
-  window.addEventListener('resize', handleResize);
-  return () => window.removeEventListener('resize', handleResize);
-}, []);
-```
-
 **iOS Safe Area** - Bottom nav richiede: `className="pb-safe"`
 
 ---
@@ -60,6 +51,28 @@ Firebase **rifiuta** `undefined`. Usare sempre `null` per campi opzionali:
 // ✅ { servings: servings || null }
 ```
 
+### Composite Index (CRITICAL)
+
+Query con `where('userId') + orderBy('altrocampo')` richiedono un indice composito esplicito. **Senza indice la query fallisce silenziosamente** se l'errore è catturato da un `catch` generico — nessun segnale visibile all'utente.
+
+```json
+// firebase/firestore.indexes.json
+{
+  "indexes": [
+    {
+      "collectionGroup": "meal_plans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "weekStartDate", "order": "DESCENDING" }
+      ]
+    }
+  ]
+}
+```
+
+Deployare con `firebase deploy --only firestore` (aggiorna sia rules che indexes).
+
 ### Data Ownership
 
 Ogni documento ha `userId`. **Tutte le query** devono filtrare:
@@ -69,33 +82,38 @@ query(collection(db, 'recipes'), where('userId', '==', userId))
 
 ---
 
-## 3. Cooking Mode
+## 3. React State Patterns
+
+### useState con prop iniziale
+
+`useState(propValue)` usa il valore **solo al primo render**. Se la prop cambia dopo il mount, lo state non si aggiorna automaticamente.
+
+```typescript
+// ❌ Non reagisce ai cambi di prop
+const [expanded, setExpanded] = useState(forceExpanded);
+
+// ✅ useEffect per sincronizzare
+const [expanded, setExpanded] = useState(forceExpanded);
+useEffect(() => { if (forceExpanded) setExpanded(true); }, [forceExpanded]);
+```
+
+---
+
+## 4. Cooking Mode
 
 ### Setup Screen Pattern
 
 **NON creare sessioni in useEffect** - causa duplicati.
 
 ```typescript
-// ❌ SBAGLIATO
-useEffect(() => { if (!session) createCookingSession(...); }, []);
-
 // ✅ CORRETTO - Setup screen
 useEffect(() => {
   const session = await getCookingSession(recipeId, userId);
-  setIsSetupMode(!session);  // Show setup if no session
+  setIsSetupMode(!session);
 }, []);
 
 // Sessione creata SOLO su click utente
 const handleStart = () => createCookingSession(recipeId, userId, servings);
-```
-
-### Auto-delete a 100%
-
-```typescript
-if (progress >= 1.0) {
-  await deleteCookingSession(sessionId);
-  router.push('/cotture-in-corso');
-}
 ```
 
 ### Italian Quantity Format
@@ -103,37 +121,23 @@ if (progress >= 1.0) {
 - Decimali con **virgola**: `1,5 kg` (non `1.5 kg`)
 - No frazioni: `0,5` (non `1/2`)
 - Range preservati: `2-3` → `4-6`
-- Invariate: `q.b.`, `quanto basta`
 
 ---
 
-## 4. Recipe Data Structure
+## 5. Recipe Data Structure
 
 **Array flat con `section` opzionale:**
 
 ```typescript
-interface Ingredient {
-  id: string;
-  name: string;
-  quantity: string;
-  section?: string | null;  // "Per la pasta"
-}
-
-interface Step {
-  id: string;
-  order: number;
-  description: string;
-  section?: string | null;
-  sectionOrder?: number;    // Ordine PDF originale
-}
+interface Ingredient { id; name; quantity; section?: string | null; }
+interface Step { id; order; description; section?: string | null; sectionOrder?: number; }
 ```
 
 **sectionOrder** preserva ordine sezioni dal PDF.
-**Normalizzazione**: `"per la pasta"` → `"Per la pasta"`
 
 ---
 
-## 5. UI Components
+## 6. UI Components
 
 ### Sheet Accessibility
 
@@ -145,51 +149,35 @@ Radix richiede `SheetDescription`:
 </SheetHeader>
 ```
 
-### Client Components
-
-Tutte le `page.tsx` hanno `'use client'`. Attenzione a hydration mismatch.
-
 ---
 
-## 6. API Routes
+## 7. API Routes
 
 **Limite file**: 4.4MB (Vercel edge). Validare client-side.
 
-**Endpoints:**
-- `POST /api/extract-recipes` - PDF → Claude → Markdown
-- `POST /api/format-recipe` - Testo libero → Claude → Markdown (stessa struttura)
-- `POST /api/suggest-category` - Recipe → Category + Season
-- `POST /api/chat-recipe` - Messaggio utente + history → Claude → `{ reply, extractedRecipes }`
+**Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti se si cambia.
 
-**API key**: `ANTHROPIC_API_KEY` solo server-side (NO `NEXT_PUBLIC_`)
+**Markdown nel testo**: `stripMarkdown()` in `recipe-parser.ts` rimuove `**grassetto**`. Aggiornare i prompt se si aggiungono endpoint.
 
-**Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti e quattro se si cambia.
+### Meal Planner AI (`plan-meals`)
 
-**Markdown nel testo**: Claude può produrre `**grassetto**` nelle descrizioni. `stripMarkdown()` in `recipe-parser.ts` lo rimuove. Aggiornare anche i prompt se si aggiungono nuovi endpoint.
+Output Claude a due blocchi: `[PIANO]...[/PIANO]` (una riga JSON per slot) + `[RICETTE_NUOVE]...[/RICETTE_NUOVE]` (markdown ricette).
 
-**Chat-recipe output format**: Claude risponde con blocchi `[RISPOSTA]...[/RISPOSTA]` e `[RICETTE]...[/RICETTE]`. Il parsing usa regex case-insensitive con fallback. Il componente `RecipeChatInput` applica `cleanReply()` come secondo livello di difesa — utile se Claude non segue il formato esatto.
+**Assegnazione ricette nuove per ordine** (non per titolo): `parsedNewRecipes[newRecipeIndex++]`. Il title-matching è fragile perché Claude può usare maiuscole/punteggiatura diverse tra i due blocchi.
+
+**Suggerimenti categoria/stagione**: inclusi nel JSON del `[PIANO]` per slot `type="new"` (`"category"`, `"seasons"`). Vengono parsati e salvati in `MealSlot.suggestedCategoryName` / `suggestedSeasons`.
 
 ---
 
-## 7. AI Recipe Parser
+## 8. AI Recipe Parser
 
-### Formato ingredienti → strategie parser in cascata
+`parseIngredientLine` tenta in ordine:
+1. **Comma**: `"Pasta, 200 g"` ← formato preferito
+2. **Colon**: `"Riso: 280g"`
+3. **Quantity-first**: `"500 g di farina"`
+4. **Quantity at end (regex)**: `"Farina 500 g"`
 
-`parseIngredientLine` in `recipe-parser.ts` tenta in ordine:
-1. **Comma**: `"Pasta, 200 g"` ← formato preferito dal prompt `format-recipe`
-2. **Colon**: `"Riso Carnaroli: 280g"` ← output naturale PDF
-3. **Quantity-first**: `"500 g di farina"` ← fallback / ricette vecchie
-4. **Quantity at end (regex)**: `"Farina 500 g"` ← legacy
-
-**Se cambi il formato ingredienti nel prompt Claude, verifica che una delle strategie lo copra.**
-
-### Metadata bold/plain inconsistente nei PDF
-
-Il prompt di estrazione PDF vieta gli asterischi nel testo, ma Claude a volte applica la regola anche agli header metadata (`Porzioni`, `Tempo di preparazione`, ecc.). Il parser accetta entrambi i formati. **Non aggiungere mai `startsWith('**...')`** per nuovi campi metadata — usare sempre regex tipo `/^\*?\*?Label:/i`.
-
-### Parser assume titolo alla prima riga — RISOLTO
-
-`parseRecipeSection` ora cerca il primo `#` con `findIndex` invece di assumere `lines[0]`. Il formato markdown di tutti gli endpoint inizia con `---` prima del titolo, che veniva trovato per primo causando `return null` silenzioso. **Se aggiungi nuovi campi pre-titolo nel formato ricetta, il parser li salta automaticamente.**
+`parseRecipeSection` usa `findIndex` per il primo `#` — non assume che sia `lines[0]`.
 
 ---
 
