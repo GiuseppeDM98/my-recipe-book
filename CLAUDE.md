@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-03-17
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-10
 
 ## Quick Reference
 
@@ -73,7 +73,7 @@ src/
 
 ---
 
-## Recent Changes (Mar 2026)
+## Recent Changes (Mar-Apr 2026)
 
 ### Weekly Meal Planner (Mar 2026)
 - **New page** `/pianificatore`: 3-step flow (setup → generating → calendar)
@@ -96,6 +96,24 @@ src/
 ### AI Extractor: Free-Text Input (Mar 2026)
 - **Tab "Testo libero"**: type/paste any format → `POST /api/format-recipe` → structured recipe
 
+### Deployment: Vercel + Docker Compose (Apr 2026)
+- **Dual deployment path**: project now documents two first-class deployment options
+  - `Vercel` for managed hosting
+  - `Docker Compose` for self-hosting on a local machine or VPS
+- **New artifacts**: `Dockerfile`, `compose.yaml`, `.dockerignore`
+- **Next standalone runtime**: existing `output: 'standalone'` is now documented as the production container strategy
+- **Docker build fix**: standalone container build now tolerates repositories without a `public/` directory
+- **Env model documented**:
+  - `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` are build-time sensitive in Docker
+  - `ANTHROPIC_API_KEY` remains runtime-only
+- **Compose workflow documented**:
+  - `build`, `up --build`, `up --build -d`, `up -d`, `logs -f app`, `down`
+- **Google OAuth clarification**:
+  - No auth code changes required for Docker
+  - Self-hosted production requires the deployed public hostname in Firebase Auth → `Authorized domains`
+  - Fallback for installs without OAuth setup: `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
+- **Docs updated**: `README.md` and `SETUP.md` now include self-hosted Docker Compose setup, env instructions, troubleshooting, and reverse-proxy notes
+
 ---
 
 ## Environment Variables
@@ -113,6 +131,11 @@ src/
 |---------|-------------|
 | `npm run dev` | Start dev server (localhost:3000) |
 | `npm run build` | Production build |
+| `docker compose --env-file .env.local build` | Build the self-hosted production image only |
+| `docker compose --env-file .env.local up --build` | Build and run self-hosted production container locally |
+| `docker compose --env-file .env.local up -d` | Start the already-built self-hosted container in background |
+| `docker compose --env-file .env.local logs -f app` | Follow app container logs |
+| `docker compose --env-file .env.local down` | Stop and remove self-hosted containers |
 | `firebase deploy --only firestore` | Deploy rules + indexes |
 
 ---

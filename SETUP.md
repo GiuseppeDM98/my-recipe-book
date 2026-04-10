@@ -81,7 +81,26 @@ Before you begin, ensure you have:
 
 ---
 
-**Recommendation**: Use Vercel for full functionality with minimal setup. This guide focuses on Vercel deployment first, with Firebase Hosting as an alternative at the end.
+### Option 3: Docker Compose (Self-Hosted)
+
+**Best for**: Users who want to deploy the full app on a single machine or VPS without Vercel
+
+**Advantages**:
+- Full Next.js app with server-side API routes
+- No platform lock-in
+- Works on any machine that can run Docker Compose
+- Easy to move between local machine, NAS, or VPS
+
+**Limitations**:
+- You manage TLS, reverse proxy, logs, and updates
+- `NEXT_PUBLIC_*` Firebase values must be present at image build time
+- Google sign-in in production requires a public hostname added to Firebase Auth authorized domains
+
+**When to choose**: You want a self-hosted deployment with the same application behavior as Vercel
+
+---
+
+**Recommendation**: Use Vercel for the simplest managed deployment, or Docker Compose if you want to self-host the full application. This guide covers Vercel first, then Docker Compose, with Firebase Hosting as a static alternative at the end.
 
 ---
 
@@ -854,6 +873,41 @@ Common deployment issues and solutions.
    - Firebase Console → Authentication → Sign-in method → Google
    - Ensure project support email is set
 
+**For Docker/self-hosted deployments**:
+5. **Authorize the public hostname you actually use**:
+   - Add `recipes.yourdomain.com` or your VPS hostname to Firebase → Authentication → Settings → Authorized domains
+   - If you access the container through a reverse proxy, authorize the external hostname, not the internal container name
+6. **Use HTTPS in production**:
+   - Google sign-in is reliable in production only when the app is served from its real public URL over HTTPS
+7. **Fallback if you do not want OAuth setup**:
+   - Set `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
+   - This disables new registrations and hides the Google sign-in path in the UI
+
+---
+
+### Docker Environment or Build Problems
+
+**Symptom**:
+- Firebase config is `undefined` inside the browser
+- Login page loads but Google/email auth fails immediately
+- Container starts, but AI endpoints return "API key not configured"
+
+**Solutions**:
+
+1. **Build with the public Firebase variables present**:
+   - `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` must exist when `docker build` runs
+   - `docker compose --env-file .env.local up --build` handles this automatically from your env file
+
+2. **Keep `ANTHROPIC_API_KEY` at runtime**:
+   - Pass it through Compose `environment:` or `docker run -e`
+   - Do not convert it to `NEXT_PUBLIC_`
+
+3. **Rebuild after changing public env**:
+   - Changes to `NEXT_PUBLIC_*` require a fresh image build because the client bundle is already compiled
+
+4. **Verify the Firebase project values match the project you deployed rules to**:
+   - Wrong `projectId` or `authDomain` can look like a networking issue while actually pointing the app at the wrong backend
+
 ---
 
 ### PDF Extraction Not Working
@@ -938,6 +992,175 @@ Common deployment issues and solutions.
 3. **Clear Vercel cache and redeploy**
 
 4. **Test in different browsers** (Chrome, Firefox, Safari)
+
+---
+
+## Docker Compose (Self-Hosted)
+
+Deploy the full Next.js application on your own machine or VPS with Docker Compose.
+
+### Prerequisites
+
+- Docker Engine + Docker Compose plugin installed
+- Firebase project configured
+- Anthropic API key if you want AI features
+- A public hostname and HTTPS if you want Google sign-in in production
+
+**Recommended use cases**:
+- Single VPS deployment
+- Home server or NAS deployment
+- Local production-like environment on your own machine
+
+---
+
+### Step 1: Prepare Environment Variables
+
+Copy the example file:
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in all values in `.env.local`.
+
+**Important runtime model**:
+- `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` are consumed at **build time** by Next.js and must be present when the Docker image is built
+- `ANTHROPIC_API_KEY` is consumed at **runtime** by the server
+
+**Why this matters**:
+- If you change any `NEXT_PUBLIC_*` value, you must rebuild the image
+- If you change only `ANTHROPIC_API_KEY`, restarting the container is enough
+
+---
+
+### Step 2: Build and Start the App
+
+From the project root:
+
+```bash
+docker compose --env-file .env.local up --build
+```
+
+This command:
+- builds the production image from `Dockerfile`
+- passes the Firebase public config as Docker build args
+- starts the app on port `3000`
+
+Open:
+
+- Local machine: `http://localhost:3000`
+- VPS with firewall opened: `http://your-server-ip:3000`
+
+To run in the background:
+
+```bash
+docker compose --env-file .env.local up --build -d
+```
+
+To stop:
+
+```bash
+docker compose --env-file .env.local down
+```
+
+To rebuild without starting:
+
+```bash
+docker compose --env-file .env.local build
+```
+
+To start an already-built image:
+
+```bash
+docker compose --env-file .env.local up -d
+```
+
+To inspect logs:
+
+```bash
+docker compose --env-file .env.local logs -f app
+```
+
+---
+
+### Step 3: Verify Local Self-Hosted Deployment
+
+Check these flows:
+
+- [ ] Login page loads
+- [ ] Email/password login works
+- [ ] Manual recipe creation works
+- [ ] AI endpoints work if `ANTHROPIC_API_KEY` is configured
+
+**For Google sign-in on localhost**:
+- `localhost` is usually already authorized in Firebase Auth
+- If needed, verify Firebase Console → Authentication → Settings → Authorized domains includes `localhost`
+
+---
+
+### Step 4: Enable Google Sign-In in Production
+
+Google sign-in is compatible with Docker deployments, but the deployed origin must be authorized.
+
+**Requirements**:
+- A stable public hostname such as `recipes.yourdomain.com`
+- HTTPS terminated by your reverse proxy or hosting platform
+- The exact hostname added to Firebase Auth authorized domains
+
+**Configuration steps**:
+1. Deploy the container behind a public hostname
+2. Configure HTTPS with your reverse proxy or hosting platform
+3. Open Firebase Console → **Authentication** → **Settings** → **Authorized domains**
+4. Add your hostname without protocol:
+   - `recipes.yourdomain.com`
+   - or `my-vps.example.net`
+5. Save and wait a few minutes for propagation
+
+**Important**:
+- Authorize the hostname users actually visit, not the Docker service name
+- If you use `https://recipes.yourdomain.com`, add `recipes.yourdomain.com`
+- Internal names like `app`, `container`, or `localhost` do not help for public production traffic
+
+---
+
+### Step 5: Fallback Without Google OAuth
+
+If you do not want to configure Google sign-in for self-hosted production:
+
+```env
+NEXT_PUBLIC_REGISTRATIONS_ENABLED=false
+```
+
+This is the supported fallback path. It hides the Google sign-in path and disables new registrations.
+
+**Use this when**:
+- the app is internal-only
+- you do not have a stable public hostname yet
+- you want to keep self-hosted access limited to existing accounts
+
+After changing this value, rebuild the image:
+
+```bash
+docker compose --env-file .env.local up --build
+```
+
+---
+
+### Step 6: Optional Reverse Proxy and Domain Setup
+
+For production, do not expose plain port `3000` directly unless this is an internal deployment.
+
+**Recommended pattern**:
+- Caddy, Nginx, Traefik, or your platform load balancer terminates HTTPS
+- Proxy traffic to `http://app:3000` on the Docker network or `http://127.0.0.1:3000` on the host
+
+**Benefits**:
+- HTTPS for Google sign-in and secure sessions
+- Stable public URL
+- Easier certificate management
+
+**Minimum rule**:
+- Keep one canonical public URL and add that same hostname to Firebase authorized domains
 
 ---
 
@@ -1208,6 +1431,21 @@ vercel env ls
 vercel logs
 ```
 
+**Docker Compose**:
+```bash
+# Build and run in foreground
+docker compose --env-file .env.local up --build
+
+# Build and run in background
+docker compose --env-file .env.local up --build -d
+
+# Stop services
+docker compose down
+
+# View logs
+docker compose logs -f
+```
+
 **Development**:
 ```bash
 # Local dev server
@@ -1243,6 +1481,15 @@ npx tsc --noEmit
 - [ ] Deployed successfully
 - [ ] Deployment URL copied
 - [ ] Vercel domain added to Firebase authorized domains
+
+**Docker Deployment**:
+- [ ] Docker and Docker Compose installed
+- [ ] `.env.local` created from `.env.example`
+- [ ] All Firebase variables set before image build
+- [ ] `ANTHROPIC_API_KEY` set for runtime if AI features are needed
+- [ ] `docker compose --env-file .env.local up --build` completed successfully
+- [ ] Public hostname added to Firebase authorized domains if Google sign-in is required
+- [ ] HTTPS configured if deployment is public
 
 **Post-Deployment**:
 - [ ] Login works (email/password)

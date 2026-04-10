@@ -58,6 +58,7 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Fixed preparation and cooking times showing as N/A for some PDF-extracted recipes
 - Fixed "Save to cookbook" button in meal planner calendar cells not opening the save panel (it scrolled to the card but left it collapsed)
 - Fixed meal plans not restoring on page reload due to a missing Firestore composite index
+- Fixed self-hosted Docker Compose startup failing on installations without a `public` assets folder
 
 ## 🔧 Improvements
 
@@ -67,7 +68,16 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - **Centralized Season Management**: Season labels and icons are now consistent across the entire application
 - **Backward Compatibility**: Existing recipes with single seasons continue to work perfectly
 - **Italian Character Support**: All text search functions now properly handle Italian diacritics
+- Added a self-hosted Docker deployment option alongside Vercel so users can run the app on their own machine or VPS
+- Added a documented fallback for self-hosted installations that do not want to configure Google sign-in
 
 ## 🔒 Security
 
 - Fixed 4 npm vulnerabilities: `fast-xml-parser` (critical), `minimatch` (high), `@isaacs/brace-expansion` (high), `ajv` (moderate)
+
+## 📚 Documentation
+
+- Added a full Docker Compose deployment guide for self-hosted setups
+- Added clearer setup notes for Google Sign-In on custom domains and self-hosted deployments
+- Added deployment guidance explaining which environment variables are required at build time versus runtime
+- Added the main Docker Compose workflows for self-hosted users, including build, start, stop, and log commands
