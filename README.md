@@ -1136,77 +1136,75 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 
 ### Option 3: Docker (Self-Hosted)
 
-**Best for**: Users who want full control or private infrastructure
+**Best for**: Users who want full control or want to run the app on their own machine/VPS
 
 **Advantages**:
 - Complete control over infrastructure
 - No vendor lock-in
 - Can deploy anywhere (AWS, GCP, Azure, DigitalOcean, etc.)
 - Customizable resource allocation
+- Same Next.js application codebase as Vercel
 
-**Dockerfile**:
-```dockerfile
-FROM node:18-alpine AS base
+**Limitations**:
+- You manage updates, logs, TLS, backups, and uptime
+- Google sign-in in production requires a public hostname and Firebase authorized-domain setup
+- If you deploy behind a reverse proxy, you must keep the external app URL stable
 
-# Install dependencies
-FROM base AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+**Recommended path**: Docker Compose on a single machine
 
-# Build application
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build
+**Quick Start**:
+```bash
+# 1. Copy the example env file
+cp .env.example .env.local
 
-# Production image
-FROM base AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
-EXPOSE 3000
-
-ENV PORT 3000
-
-CMD ["node", "server.js"]
+# 2. Fill in Firebase + Anthropic values
+# 3. Build and run
+docker compose --env-file .env.local up --build
 ```
 
-**Build and Run**:
-```bash
-# Build image
-docker build -t il-mio-ricettario .
+Open [http://localhost:3000](http://localhost:3000).
 
-# Run container
-docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_FIREBASE_API_KEY=your_key \
-  -e ANTHROPIC_API_KEY=your_key \
+**Environment model**:
+- `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` are **build-time sensitive** in Next.js because they are embedded in the client bundle during `next build`
+- `ANTHROPIC_API_KEY` is **runtime-only** and stays server-side
+- `compose.yaml` passes the public Firebase values as Docker build args and keeps the same values at runtime so the deployment contract stays explicit
+- Use `--env-file .env.local` because Docker Compose reads `.env` automatically, but not `.env.local`
+
+**Google sign-in note**:
+- Local Docker on `localhost` works if `localhost` is already authorized in Firebase Auth
+- Self-hosted production works only when your public hostname is added to Firebase Authentication → **Authorized domains**
+- Docker is not the blocker; the deployed origin is
+- If you do not want to configure Google OAuth for self-hosted installs, set `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
+
+**Direct Docker run**:
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=your_key \
+  --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com \
+  --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id \
+  --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com \
+  --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id \
+  --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id \
+  --build-arg NEXT_PUBLIC_REGISTRATIONS_ENABLED=true \
+  -t il-mio-ricettario .
+
+docker run --rm -p 3000:3000 \
+  -e ANTHROPIC_API_KEY=your_anthropic_api_key_here \
   il-mio-ricettario
 ```
 
-**Docker Compose**:
+**Compose service**:
 ```yaml
-version: '3.8'
 services:
   app:
-    build: .
+    build:
+      context: .
     ports:
       - "3000:3000"
-    env_file:
-      - .env.local
     restart: unless-stopped
 ```
+
+**Full guide**: [SETUP.md - Docker Compose](SETUP.md#docker-compose-self-hosted)
 
 ---
 

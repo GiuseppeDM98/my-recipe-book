@@ -67,7 +67,15 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - **Centralized Season Management**: Season labels and icons are now consistent across the entire application
 - **Backward Compatibility**: Existing recipes with single seasons continue to work perfectly
 - **Italian Character Support**: All text search functions now properly handle Italian diacritics
+- Added a self-hosted Docker deployment option alongside Vercel so users can run the app on their own machine or VPS
+- Added a documented fallback for self-hosted installations that do not want to configure Google sign-in
 
 ## 🔒 Security
 
 - Fixed 4 npm vulnerabilities: `fast-xml-parser` (critical), `minimatch` (high), `@isaacs/brace-expansion` (high), `ajv` (moderate)
+
+## 📚 Documentation
+
+- Added a full Docker Compose deployment guide for self-hosted setups
+- Added clearer setup notes for Google Sign-In on custom domains and self-hosted deployments
+- Added deployment guidance explaining which environment variables are required at build time versus runtime

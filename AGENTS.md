@@ -16,6 +16,8 @@
 | Sheet a11y | Warning Radix | Aggiungere `SheetDescription` |
 | File upload | Request troppo grande | Max 4.4MB |
 | useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` per sync |
+| Docker env | `docker compose` non legge `.env.local` automaticamente | Usare `docker compose --env-file .env.local ...` |
+| Google OAuth self-hosted | Login Google fallisce su dominio custom | Aggiungere il dominio pubblico a Firebase Auth `Authorized domains` |
 
 ---
 
@@ -79,6 +81,15 @@ Ogni documento ha `userId`. **Tutte le query** devono filtrare:
 ```typescript
 query(collection(db, 'recipes'), where('userId', '==', userId))
 ```
+
+### Google OAuth on Self-Hosted Deployments
+
+Docker **non richiede** workaround nel codice auth. Il vincolo reale e` l'origine pubblica dell'app.
+
+- `localhost` funziona in locale se autorizzato in Firebase
+- Deploy self-hosted pubblici richiedono il dominio esterno reale in Firebase Auth -> `Authorized domains`
+- Nomi interni come `app`, `container`, `localhost` non servono per il traffico pubblico
+- Se non vuoi configurare Google OAuth per self-hosting, usa `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
 
 ---
 
@@ -178,6 +189,34 @@ Output Claude a due blocchi: `[PIANO]...[/PIANO]` (una riga JSON per slot) + `[R
 4. **Quantity at end (regex)**: `"Farina 500 g"`
 
 `parseRecipeSection` usa `findIndex` per il primo `#` — non assume che sia `lines[0]`.
+
+---
+
+## 9. Deployment
+
+### Docker Compose env loading
+
+`docker compose` legge `.env` automaticamente, **non** `.env.local`.
+
+```bash
+# ❌ SBAGLIATO - .env.local non viene letto da Compose
+docker compose up --build
+
+# ✅ CORRETTO
+docker compose --env-file .env.local up --build
+```
+
+### Next.js public env in Docker
+
+Le variabili `NEXT_PUBLIC_*` sono **build-time sensitive**: Next.js le incorpora nel client bundle durante `next build`.
+
+- Passarle come build args in Docker
+- Ricostruire l'immagine se cambiano
+- `ANTHROPIC_API_KEY` resta runtime-only
+
+### Corporate network gotcha
+
+Se Docker fallisce su `node:20-alpine` con errore `http: server gave HTTP response to HTTPS client`, il problema e` tipicamente **proxy/rete aziendale**, non del `Dockerfile`.
 
 ---
 
