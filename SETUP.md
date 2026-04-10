@@ -1060,7 +1060,25 @@ docker compose --env-file .env.local up --build -d
 To stop:
 
 ```bash
-docker compose down
+docker compose --env-file .env.local down
+```
+
+To rebuild without starting:
+
+```bash
+docker compose --env-file .env.local build
+```
+
+To start an already-built image:
+
+```bash
+docker compose --env-file .env.local up -d
+```
+
+To inspect logs:
+
+```bash
+docker compose --env-file .env.local logs -f app
 ```
 
 ---

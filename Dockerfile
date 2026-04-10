@@ -22,6 +22,8 @@ ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 ENV NEXT_PUBLIC_REGISTRATIONS_ENABLED=$NEXT_PUBLIC_REGISTRATIONS_ENABLED
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Keep the runtime COPY stable even when the project has no public assets yet.
+RUN mkdir -p public
 RUN npm run build
 
 FROM node:20-alpine AS runner

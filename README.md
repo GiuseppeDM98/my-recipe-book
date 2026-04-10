@@ -1193,6 +1193,29 @@ docker run --rm -p 3000:3000 \
   il-mio-ricettario
 ```
 
+**Common Docker Compose commands**:
+```bash
+# Build the image only
+docker compose --env-file .env.local build
+
+# Build and run in the foreground
+docker compose --env-file .env.local up --build
+
+# Build and run in the background
+docker compose --env-file .env.local up --build -d
+
+# Start without rebuilding
+docker compose --env-file .env.local up -d
+
+# Stop and remove the container
+docker compose --env-file .env.local down
+
+# Follow logs
+docker compose --env-file .env.local logs -f app
+```
+
+Use `--env-file .env.local` on Compose commands for consistency, since the project keeps Docker variables in `.env.local` instead of `.env`.
+
 **Compose service**:
 ```yaml
 services:
@@ -1716,6 +1739,31 @@ FirebaseError: Missing or insufficient permissions
 1. Try smaller PDF first (1-2 pages)
 2. Check Vercel function logs for errors
 3. Increase function timeout (Vercel Pro only)
+
+---
+
+### Docker Compose Build Fails
+
+**Symptom**:
+```text
+COPY --from=builder /app/public ./public
+... "/app/public": not found
+```
+
+**Cause**: The production image expects a `public/` directory in the final runtime copy, but some installations may not have any public assets yet.
+
+**Solutions**:
+1. Pull the latest version of the repository, which includes the Docker fix for projects without a `public/` folder
+2. Always run Docker Compose with:
+   ```bash
+   docker compose --env-file .env.local up --build
+   ```
+3. If you changed any `NEXT_PUBLIC_*` value, rebuild the image instead of only restarting the container
+4. Check the container state with:
+   ```bash
+   docker compose --env-file .env.local ps
+   docker compose --env-file .env.local logs -f app
+   ```
 
 ---
 

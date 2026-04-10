@@ -58,6 +58,7 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Fixed preparation and cooking times showing as N/A for some PDF-extracted recipes
 - Fixed "Save to cookbook" button in meal planner calendar cells not opening the save panel (it scrolled to the card but left it collapsed)
 - Fixed meal plans not restoring on page reload due to a missing Firestore composite index
+- Fixed self-hosted Docker Compose startup failing on installations without a `public` assets folder
 
 ## 🔧 Improvements
 
@@ -79,3 +80,4 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Added a full Docker Compose deployment guide for self-hosted setups
 - Added clearer setup notes for Google Sign-In on custom domains and self-hosted deployments
 - Added deployment guidance explaining which environment variables are required at build time versus runtime
+- Added the main Docker Compose workflows for self-hosted users, including build, start, stop, and log commands

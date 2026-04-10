@@ -17,6 +17,7 @@
 | File upload | Request troppo grande | Max 4.4MB |
 | useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` per sync |
 | Docker env | `docker compose` non legge `.env.local` automaticamente | Usare `docker compose --env-file .env.local ...` |
+| Docker public dir | Build container fallisce su `COPY /app/public` | Creare `public/` nel build stage o rendere il copy opzionale |
 | Google OAuth self-hosted | Login Google fallisce su dominio custom | Aggiungere il dominio pubblico a Firebase Auth `Authorized domains` |
 
 ---
@@ -213,6 +214,38 @@ Le variabili `NEXT_PUBLIC_*` sono **build-time sensitive**: Next.js le incorpora
 - Passarle come build args in Docker
 - Ricostruire l'immagine se cambiano
 - `ANTHROPIC_API_KEY` resta runtime-only
+
+### Optional `public/` directory in standalone Docker builds
+
+Nei progetti Next.js la cartella `public/` puo' non esistere. Se il runtime stage fa:
+
+```dockerfile
+COPY --from=builder /app/public ./public
+```
+
+la build Docker fallisce se `/app/public` non e' presente.
+
+```dockerfile
+# ✅ CORRETTO - garantisce che il copy finale resti valido
+COPY . .
+RUN mkdir -p public
+RUN npm run build
+```
+
+Usare questo pattern se il `Dockerfile` copia `public/` nello stage finale.
+
+### Docker Compose workflow documentato
+
+Per questo repo i comandi documentati da preferire sono:
+
+```bash
+docker compose --env-file .env.local build
+docker compose --env-file .env.local up --build
+docker compose --env-file .env.local up --build -d
+docker compose --env-file .env.local up -d
+docker compose --env-file .env.local logs -f app
+docker compose --env-file .env.local down
+```
 
 ### Corporate network gotcha
 
