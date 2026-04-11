@@ -7,6 +7,7 @@ import {
   updateMealPlanSlots,
   getMealPlanByWeek,
 } from '@/lib/firebase/meal-plans';
+import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -115,7 +116,10 @@ export function useMealPlanner(): UseMealPlannerReturn {
 
       const response = await fetch('/api/plan-meals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getFirebaseAuthHeader()),
+        },
         body: JSON.stringify({ config, existingRecipes: recipeSummaries, categories }),
       });
 

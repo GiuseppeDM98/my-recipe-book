@@ -76,10 +76,14 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Added a documented fallback for self-hosted installations that do not want to configure Google sign-in
 - Improved the planner header to clearly separate "New plan" from "Delete plan"
 - Improved planner recovery when browsing weeks without a saved plan, making it easier to return to active plans
+- Improved AI features so they now consistently require a valid signed-in session before running
+- Improved self-hosted setup guidance for protected AI features by documenting the required Firebase Admin runtime credentials
 
 ## 🔒 Security
 
 - Fixed 4 npm vulnerabilities: `fast-xml-parser` (critical), `minimatch` (high), `@isaacs/brace-expansion` (high), `ajv` (moderate)
+- Added server-side authentication checks to all AI-powered endpoints to block unauthenticated access
+- Tightened Firebase Storage access rules so authenticated users are limited to their own recipe file paths
 
 ## 📚 Documentation
 
@@ -87,3 +91,4 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Added clearer setup notes for Google Sign-In on custom domains and self-hosted deployments
 - Added deployment guidance explaining which environment variables are required at build time versus runtime
 - Added the main Docker Compose workflows for self-hosted users, including build, start, stop, and log commands
+- Added setup guidance for Firebase Admin credentials required by protected AI routes in self-hosted deployments

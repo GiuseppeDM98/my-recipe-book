@@ -350,6 +350,15 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 # Anthropic AI Configuration (from Step 6)
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
+# Firebase Admin for server-side API auth verification
+# Recommended: base64-encoded service account JSON in one variable
+FIREBASE_ADMIN_CREDENTIALS_BASE64=your_base64_service_account_json
+
+# Fallback: or provide the same credentials split across these variables
+FIREBASE_ADMIN_PROJECT_ID=your_project_id
+FIREBASE_ADMIN_CLIENT_EMAIL=firebase-adminsdk-xxx@your_project.iam.gserviceaccount.com
+FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
 # Optional: Toggle user registrations
 NEXT_PUBLIC_REGISTRATIONS_ENABLED=true
 ```
@@ -365,13 +374,19 @@ NEXT_PUBLIC_REGISTRATIONS_ENABLED=true
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Yes | Client+Server | Firebase Cloud Messaging sender ID |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Yes | Client+Server | Firebase app identifier |
 | `ANTHROPIC_API_KEY` | Yes* | **Server Only** | Claude API key for PDF extraction |
+| `FIREBASE_ADMIN_CREDENTIALS_BASE64` | Yes** | **Server Only** | Base64-encoded Firebase service account JSON for API token verification |
+| `FIREBASE_ADMIN_PROJECT_ID` | Fallback | **Server Only** | Firebase Admin project ID when not using base64 credentials |
+| `FIREBASE_ADMIN_CLIENT_EMAIL` | Fallback | **Server Only** | Firebase Admin client email when not using base64 credentials |
+| `FIREBASE_ADMIN_PRIVATE_KEY` | Fallback | **Server Only** | Firebase Admin private key when not using base64 credentials |
 | `NEXT_PUBLIC_REGISTRATIONS_ENABLED` | No | Client+Server | Enable/disable new user registrations |
 
 \* Required for AI features. The app works without it for manual recipe entry.
+\** Required for AI features because all AI routes now verify the caller's Firebase ID token server-side.
 
 **Security Note**:
 - Variables with `NEXT_PUBLIC_` prefix are exposed to the browser
 - `ANTHROPIC_API_KEY` does NOT have this prefix—it's server-only for security
+- Firebase Admin credentials are server-only and must never use the `NEXT_PUBLIC_` prefix
 
 ### Step 8: Run the Application
 
@@ -1169,6 +1184,7 @@ Open [http://localhost:3000](http://localhost:3000).
 **Environment model**:
 - `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` are **build-time sensitive** in Next.js because they are embedded in the client bundle during `next build`
 - `ANTHROPIC_API_KEY` is **runtime-only** and stays server-side
+- `FIREBASE_ADMIN_CREDENTIALS_BASE64` (or the split `FIREBASE_ADMIN_*` fallback variables) is **runtime-only** and is required so the server can verify Firebase ID tokens on protected AI routes
 - `compose.yaml` passes the public Firebase values as Docker build args and keeps the same values at runtime so the deployment contract stays explicit
 - Use `--env-file .env.local` because Docker Compose reads `.env` automatically, but not `.env.local`
 
@@ -1192,6 +1208,7 @@ docker build \
 
 docker run --rm -p 3000:3000 \
   -e ANTHROPIC_API_KEY=your_anthropic_api_key_here \
+  -e FIREBASE_ADMIN_CREDENTIALS_BASE64=your_base64_service_account_json \
   il-mio-ricettario
 ```
 

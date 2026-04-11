@@ -7,7 +7,7 @@ import { auth } from './config';
  * Security Model:
  * - File paths scoped by userId to enable Storage security rules
  * - Path structure: recipes/{userId}/{recipeId}/{filename}
- * - Storage rules restrict access to user's own files
+ * - Storage rules restrict access to the user's own recipe path
  *
  * Upload Flow:
  * 1. Validate user authentication
@@ -32,6 +32,7 @@ const storage = getStorage();
  * - File path includes userId to scope files by user
  * - Storage rules restrict access to user's own recipes/{userId}/* paths
  * - Download URLs are public but unguessable (contain random tokens)
+ * - Direct Storage access remains limited to the authenticated owner path
  */
 export async function uploadRecipeImage(file: File, recipeId: string): Promise<string> {
   if (!auth.currentUser) {

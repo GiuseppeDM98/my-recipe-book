@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { requireAuthenticatedUser } from '@/lib/api/require-user';
 
 /**
  * Free-text Recipe Formatting API
@@ -123,6 +124,11 @@ Rispondi SOLO con la ricetta formattata, senza introduzioni o spiegazioni.`;
  */
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult.response) {
+      return authResult.response;
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {

@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Ingredient, Step, AISuggestion } from '@/types';
+import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 
 export interface ParsedRecipe {
   title: string;
@@ -418,6 +419,7 @@ export async function getAISuggestionForRecipe(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(await getFirebaseAuthHeader()),
       },
       body: JSON.stringify({
         recipeTitle,

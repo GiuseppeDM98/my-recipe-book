@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, Send, Sparkles, ChefHat } from 'lucide-react';
 import { Ingredient, Season } from '@/types';
+import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 
 /**
  * RecipeChatInput - Conversational AI recipe generation interface
@@ -136,7 +137,10 @@ export function RecipeChatInput({ onRecipesExtracted, disabled, existingRecipes 
     try {
       const response = await fetch('/api/chat-recipe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getFirebaseAuthHeader()),
+        },
         body: JSON.stringify({
           message: userApiContent,
           conversationHistory: apiHistory,

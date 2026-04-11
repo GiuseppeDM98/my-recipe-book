@@ -18,6 +18,9 @@
 | useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` per sync |
 | Docker env | `docker compose` non legge `.env.local` automaticamente | Usare `docker compose --env-file .env.local ...` |
 | Docker public dir | Build container fallisce su `COPY /app/public` | Creare `public/` nel build stage o rendere il copy opzionale |
+| AI route auth | Route AI chiamate senza bearer token rispondono `401` | Inviare sempre `Authorization: Bearer <idToken>` da `auth.currentUser.getIdToken()` |
+| Firebase Admin in Docker | Self-hosted AI rompe a runtime senza credenziali Admin | Configurare `FIREBASE_ADMIN_CREDENTIALS_BASE64` o il set `FIREBASE_ADMIN_*` |
+| Storage path ownership | Storage rules troppo larghe espongono file tra utenti autenticati | Limitare i path a `recipes/{userId}/{recipeId}/{filename}` con `request.auth.uid == userId` |
 | Google OAuth self-hosted | Login Google fallisce su dominio custom | Aggiungere il dominio pubblico a Firebase Auth `Authorized domains` |
 | Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
 
@@ -184,6 +187,32 @@ Radix richiede `SheetDescription`:
 
 **Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti se si cambia.
 
+### AI Route Authentication (CRITICAL)
+
+Tutte le route AI richiedono autenticazione Firebase **lato server**. Il solo gating client-side non basta.
+
+```typescript
+// ❌ SBAGLIATO - richiesta senza bearer token
+fetch('/api/format-recipe', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// ✅ CORRETTO - allega sempre il Firebase ID token
+const idToken = await auth.currentUser?.getIdToken();
+fetch('/api/format-recipe', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${idToken}`,
+  },
+});
+```
+
+- Le route protette rispondono `401` senza token valido
+- In self-hosted Docker la verifica token richiede Firebase Admin runtime env
+- Preferire un helper condiviso per l'header auth invece di duplicare la logica nei fetch
+
 **Markdown nel testo**: `stripMarkdown()` in `recipe-parser.ts` rimuove `**grassetto**`. Aggiornare i prompt se si aggiungono endpoint.
 
 ### Meal Planner AI (`plan-meals`)
@@ -229,6 +258,7 @@ Le variabili `NEXT_PUBLIC_*` sono **build-time sensitive**: Next.js le incorpora
 - Passarle come build args in Docker
 - Ricostruire l'immagine se cambiano
 - `ANTHROPIC_API_KEY` resta runtime-only
+- Le route AI protette richiedono anche Firebase Admin runtime env: preferire `FIREBASE_ADMIN_CREDENTIALS_BASE64`, fallback `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY`
 
 ### Optional `public/` directory in standalone Docker builds
 
@@ -269,6 +299,12 @@ docker compose --env-file .env.local build
 docker compose --env-file .env.local up --build -d
 docker compose --env-file .env.local ps
 docker compose --env-file .env.local logs -f app
+```
+
+Per verificare il codice in questo repo, se `npm run build` fallisce in sandbox con panic Turbopack su process/port binding, usare:
+
+```bash
+npx next build --webpack
 ```
 
 ### Corporate network gotcha

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { parseExtractedRecipes } from '@/lib/utils/recipe-parser';
+import { requireAuthenticatedUser } from '@/lib/api/require-user';
 import { MealPlanSetupConfig, MealSlot, MealType } from '@/types';
 
 /**
@@ -292,6 +293,11 @@ function parsePlanResponse(
  */
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult.response) {
+      return authResult.response;
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {

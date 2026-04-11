@@ -11,6 +11,7 @@ import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
+import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { useRecipes } from '@/lib/hooks/useRecipes';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine, MessageSquare } from 'lucide-react';
@@ -196,6 +197,7 @@ export default function RecipeExtractorPage() {
 
       const response = await fetch('/api/extract-recipes', {
         method: 'POST',
+        headers: await getFirebaseAuthHeader(),
         body: formData,
       });
 
@@ -249,7 +251,10 @@ export default function RecipeExtractorPage() {
     try {
       const response = await fetch('/api/format-recipe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getFirebaseAuthHeader()),
+        },
         body: JSON.stringify({
           text,
           userCategories: userCategories.map(c => ({ name: c.name })),

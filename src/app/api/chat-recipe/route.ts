@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { requireAuthenticatedUser } from '@/lib/api/require-user';
 
 /**
  * AI Recipe Chat API
@@ -159,6 +160,11 @@ function parseClaudeResponse(fullText: string): { reply: string; extractedRecipe
  */
 export async function POST(request: NextRequest) {
   try {
+    const authResult = await requireAuthenticatedUser(request);
+    if (authResult.response) {
+      return authResult.response;
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {

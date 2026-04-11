@@ -103,6 +103,7 @@ src/
 - **Env model documented**:
   - `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` are build-time sensitive in Docker
   - `ANTHROPIC_API_KEY` remains runtime-only
+  - protected AI routes also require Firebase Admin runtime credentials
 - **Compose workflow documented**:
   - `build`, `up --build`, `up --build -d`, `up -d`, `logs -f app`, `down`
 - **Runtime verified**:
@@ -115,6 +116,13 @@ src/
   - Fallback for installs without OAuth setup: `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
 - **Docs updated**: `README.md` and `SETUP.md` now include self-hosted Docker Compose setup, env instructions, troubleshooting, and reverse-proxy notes
 
+### Security Hardening: Firebase + AI APIs (Apr 2026)
+- **Server-side auth required on AI routes**: `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/plan-meals` now verify a Firebase ID token before processing requests
+- **Shared client auth header flow**: AI fetches now attach `Authorization: Bearer <idToken>` from the current Firebase session
+- **Firebase Admin runtime support**: self-hosted deployments can verify tokens via `FIREBASE_ADMIN_CREDENTIALS_BASE64` or the split `FIREBASE_ADMIN_*` env fallback
+- **Storage rules tightened**: Firebase Storage access is now scoped to `recipes/{userId}/{recipeId}/{filename}` instead of any authenticated path
+- **Planner history verified**: current implementation already matches the weekly history spec in `docs/pianificatore-storico-piani.md`
+
 ---
 
 ## Environment Variables
@@ -123,6 +131,10 @@ src/
 |----------|-------|---------|
 | `NEXT_PUBLIC_FIREBASE_*` | Client + Server | Firebase config (6 vars) |
 | `ANTHROPIC_API_KEY` | Server Only | Claude AI API |
+| `FIREBASE_ADMIN_CREDENTIALS_BASE64` | Server Only | Preferred Firebase Admin credential for protected AI routes |
+| `FIREBASE_ADMIN_PROJECT_ID` | Server Only | Firebase Admin fallback env |
+| `FIREBASE_ADMIN_CLIENT_EMAIL` | Server Only | Firebase Admin fallback env |
+| `FIREBASE_ADMIN_PRIVATE_KEY` | Server Only | Firebase Admin fallback env |
 
 ---
 
@@ -132,6 +144,7 @@ src/
 |---------|-------------|
 | `npm run dev` | Start dev server (localhost:3000) |
 | `npm run build` | Production build |
+| `npx next build --webpack` | Reliable build verification when Turbopack is blocked by the sandbox |
 | `docker compose --env-file .env.local build` | Build the self-hosted production image only |
 | `docker compose --env-file .env.local up --build` | Build and run self-hosted production container locally |
 | `docker compose --env-file .env.local up -d` | Start the already-built self-hosted container in background |
@@ -159,11 +172,11 @@ Composite index required: `meal_plans` on `(userId ASC, weekStartDate DESC)`.
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /api/extract-recipes` | PDF -> Claude -> Markdown (max 4.4MB) |
-| `POST /api/format-recipe` | Free text -> Claude -> Markdown |
-| `POST /api/suggest-category` | Recipe -> Category + Season suggestion |
-| `POST /api/chat-recipe` | Chat message + history -> reply + recipe markdown |
-| `POST /api/plan-meals` | Setup config + recipes -> weekly meal plan slots |
+| `POST /api/extract-recipes` | PDF -> Claude -> Markdown (max 4.4MB, authenticated) |
+| `POST /api/format-recipe` | Free text -> Claude -> Markdown (authenticated) |
+| `POST /api/suggest-category` | Recipe -> Category + Season suggestion (authenticated) |
+| `POST /api/chat-recipe` | Chat message + history -> reply + recipe markdown (authenticated) |
+| `POST /api/plan-meals` | Setup config + recipes -> weekly meal plan slots (authenticated) |
 
 ---
 
