@@ -51,6 +51,9 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Green cells (existing cookbook recipes) show a "Go to recipe" link for quick access
 - Purple cells (AI-generated, not yet saved) show a "Save to cookbook" button that opens the save panel directly
 - Plans are saved to Firebase and restored automatically on the next visit
+- Added weekly plan history, so multiple saved weeks can coexist instead of replacing the previous plan
+- Added real week-to-week navigation in the planner, including empty weeks that open a pre-filled setup screen
+- Added saved-week shortcuts during plan creation, so you can reopen an existing weekly plan without leaving setup
 
 ## 🐛 Bug Fixes
 
@@ -59,6 +62,7 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - Fixed "Save to cookbook" button in meal planner calendar cells not opening the save panel (it scrolled to the card but left it collapsed)
 - Fixed meal plans not restoring on page reload due to a missing Firestore composite index
 - Fixed self-hosted Docker Compose startup failing on installations without a `public` assets folder
+- Fixed weekly planner navigation sometimes opening the wrong week or suggesting a new plan for an existing saved week
 
 ## 🔧 Improvements
 
@@ -70,6 +74,8 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 - **Italian Character Support**: All text search functions now properly handle Italian diacritics
 - Added a self-hosted Docker deployment option alongside Vercel so users can run the app on their own machine or VPS
 - Added a documented fallback for self-hosted installations that do not want to configure Google sign-in
+- Improved the planner header to clearly separate "New plan" from "Delete plan"
+- Improved planner recovery when browsing weeks without a saved plan, making it easier to return to active plans
 
 ## 🔒 Security
 

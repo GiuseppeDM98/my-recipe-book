@@ -5,7 +5,7 @@ import { MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season, Recipe } fro
 import {
   createMealPlan,
   updateMealPlanSlots,
-  deleteMealPlan,
+  getMealPlanByWeek,
 } from '@/lib/firebase/meal-plans';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
@@ -44,6 +44,7 @@ interface UseMealPlannerReturn {
   saveNewRecipeToCookbook: (slot: MealSlot, categoryName: string, seasons: Season[]) => Promise<string>;
   resetToSetup: () => void;
   loadPlan: (plan: MealPlan) => void;
+  loadPlanForWeek: (weekStartDate: string) => Promise<void>;
 }
 
 export function useMealPlanner(): UseMealPlannerReturn {
@@ -62,6 +63,27 @@ export function useMealPlanner(): UseMealPlannerReturn {
     setStep('calendar');
     setError(null);
   }, []);
+
+  /**
+   * Load the plan for a specific week.
+   *
+   * WHY THIS PATH:
+   * Week navigation must not create or delete data implicitly. If the target
+   * week has no saved plan yet, the UI falls back to setup prefilled for that week.
+   */
+  const loadPlanForWeek = useCallback(async (weekStartDate: string) => {
+    if (!user) return;
+
+    const plan = await getMealPlanByWeek(user.uid, weekStartDate);
+    if (plan) {
+      loadPlan(plan);
+      return;
+    }
+
+    setCurrentPlan(null);
+    setStep('setup');
+    setError(null);
+  }, [user, loadPlan]);
 
   /**
    * Call /api/plan-meals, create MealPlan from response, save to Firebase.
@@ -293,18 +315,12 @@ export function useMealPlanner(): UseMealPlannerReturn {
     return newRecipeId;
   }, [user, currentPlan]);
 
-  /** Delete the current plan and return to setup step. */
+  /** Return to setup without deleting the current plan from Firebase. */
   const resetToSetup = useCallback(() => {
-    if (currentPlan) {
-      // Fire-and-forget: delete from Firebase in the background
-      deleteMealPlan(currentPlan.id).catch(err =>
-        console.error('Errore nell\'eliminazione del piano:', err)
-      );
-    }
     setCurrentPlan(null);
     setStep('setup');
     setError(null);
-  }, [currentPlan]);
+  }, []);
 
   return {
     step,
@@ -318,5 +334,6 @@ export function useMealPlanner(): UseMealPlannerReturn {
     saveNewRecipeToCookbook,
     resetToSetup,
     loadPlan,
+    loadPlanForWeek,
   };
 }

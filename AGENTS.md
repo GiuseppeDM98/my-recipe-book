@@ -19,6 +19,7 @@
 | Docker env | `docker compose` non legge `.env.local` automaticamente | Usare `docker compose --env-file .env.local ...` |
 | Docker public dir | Build container fallisce su `COPY /app/public` | Creare `public/` nel build stage o rendere il copy opzionale |
 | Google OAuth self-hosted | Login Google fallisce su dominio custom | Aggiungere il dominio pubblico a Firebase Auth `Authorized domains` |
+| Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
 
 ---
 
@@ -108,6 +109,20 @@ const [expanded, setExpanded] = useState(forceExpanded);
 const [expanded, setExpanded] = useState(forceExpanded);
 useEffect(() => { if (forceExpanded) setExpanded(true); }, [forceExpanded]);
 ```
+
+### Viewed state vs loaded entity
+
+Quando una pagina naviga tra entita' opzionali (es. piano settimanale che puo' non esistere), **non** legare la navigazione solo all'entita' caricata.
+
+```typescript
+// ❌ SBAGLIATO - se il piano non esiste perdi il contesto di navigazione
+const viewedWeek = currentPlan?.weekStartDate;
+
+// ✅ CORRETTO - mantieni uno stato indipendente della settimana visualizzata
+const viewedWeek = currentPlan?.weekStartDate ?? setupWeekStartDate;
+```
+
+Usare questo pattern nel meal planner: la settimana visualizzata resta navigabile anche quando lo step e' `setup`.
 
 ---
 
@@ -245,6 +260,15 @@ docker compose --env-file .env.local up --build -d
 docker compose --env-file .env.local up -d
 docker compose --env-file .env.local logs -f app
 docker compose --env-file .env.local down
+```
+
+Verificati in sessione:
+
+```bash
+docker compose --env-file .env.local build
+docker compose --env-file .env.local up --build -d
+docker compose --env-file .env.local ps
+docker compose --env-file .env.local logs -f app
 ```
 
 ### Corporate network gotcha

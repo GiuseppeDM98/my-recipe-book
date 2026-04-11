@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-10
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-11
 
 ## Quick Reference
 
@@ -75,7 +75,7 @@ src/
 
 ## Recent Changes (Mar-Apr 2026)
 
-### Weekly Meal Planner (Mar 2026)
+### Weekly Meal Planner (Mar-Apr 2026)
 - **New page** `/pianificatore`: 3-step flow (setup → generating → calendar)
 - **AI generation**: `POST /api/plan-meals` — Claude picks from existing cookbook + generates new recipes
 - **Two-block AI output**: `[PIANO]` (one JSON line per slot) + `[RICETTE_NUOVE]` (markdown)
@@ -87,14 +87,11 @@ src/
 - **MealType**: `'colazione' | 'pranzo' | 'cena' | 'primo' | 'secondo' | 'contorno' | 'dolce'` (course types wired but not shown in form UI yet)
 - **New collection**: `meal_plans` — requires composite Firestore index `(userId ASC, weekStartDate DESC)`
 - **Firebase rules**: `meal_plans` security rules added to `firebase/firestore.rules`
-
-### AI Assistant: Chat Recipe Generation (Mar 2026)
-- **Page renamed**: `/estrattore-ricette` → `/assistente-ai`
-- **New endpoint** `POST /api/chat-recipe`: `[RISPOSTA]/[RICETTE]` delimiter format
-- **Context injection**: Existing recipes passed on first turn to avoid duplicates
-
-### AI Extractor: Free-Text Input (Mar 2026)
-- **Tab "Testo libero"**: type/paste any format → `POST /api/format-recipe` → structured recipe
+- **Weekly history**: one plan per week can coexist in Firebase; "Nuovo piano" no longer deletes the current week
+- **Week-aware restore**: page mount loads the current week, not the latest plan overall
+- **Real week navigation**: prev/next arrows load adjacent weeks and fall back to setup when a week has no saved plan
+- **Setup recovery UX**: setup keeps the viewed week, shows saved plan shortcuts, and can reopen existing weeks without leaving the form
+- **Date handling fix**: week keys now use local date formatting helpers instead of `toISOString()` to avoid timezone drift in Europe/Rome
 
 ### Deployment: Vercel + Docker Compose (Apr 2026)
 - **Dual deployment path**: project now documents two first-class deployment options
@@ -108,6 +105,10 @@ src/
   - `ANTHROPIC_API_KEY` remains runtime-only
 - **Compose workflow documented**:
   - `build`, `up --build`, `up --build -d`, `up -d`, `logs -f app`, `down`
+- **Runtime verified**:
+  - `docker compose --env-file .env.local build` passes
+  - `docker compose --env-file .env.local up --build -d` starts successfully
+  - app responds on port `3000`
 - **Google OAuth clarification**:
   - No auth code changes required for Docker
   - Self-hosted production requires the deployed public hostname in Firebase Auth → `Authorized domains`

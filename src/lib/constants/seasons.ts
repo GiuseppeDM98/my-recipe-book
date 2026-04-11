@@ -65,6 +65,41 @@ export const ALL_SEASONS: Season[] = [
 ];
 
 /**
+ * Format a Date using the local calendar day instead of UTC.
+ *
+ * WHY NOT toISOString():
+ * Meal plans are keyed by local week dates like "2026-04-13". Converting a
+ * midnight local Date to ISO can shift to the previous UTC day in European
+ * timezones, causing week navigation and lookups to miss existing plans.
+ */
+export function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Return the Monday for the week containing the given local calendar date.
+ */
+export function getWeekMonday(date: Date): string {
+  const monday = new Date(date);
+  const day = monday.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  monday.setDate(monday.getDate() + diff);
+  return formatLocalDate(monday);
+}
+
+/**
+ * Add or subtract whole weeks from a local "YYYY-MM-DD" date string.
+ */
+export function addWeeksToDateString(dateString: string, weeks: number): string {
+  const date = new Date(dateString + 'T00:00:00');
+  date.setDate(date.getDate() + (weeks * 7));
+  return formatLocalDate(date);
+}
+
+/**
  * Returns the current Italian meteorological season based on month.
  *
  * Italian meteorological seasons (calendar-based, not astronomical):
@@ -96,10 +131,5 @@ export function getCurrentSeason(): Exclude<Season, 'tutte_stagioni'> {
  * Used by the meal planner setup form to pre-fill the week selector.
  */
 export function getCurrentWeekMonday(): string {
-  const today = new Date();
-  const day = today.getDay(); // 0 = Sunday, 1 = Monday, ...
-  const diff = day === 0 ? -6 : 1 - day; // shift so Monday = offset 0
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diff);
-  return monday.toISOString().slice(0, 10);
+  return getWeekMonday(new Date());
 }

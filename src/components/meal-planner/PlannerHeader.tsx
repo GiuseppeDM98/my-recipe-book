@@ -69,14 +69,15 @@ export function PlannerHeader({
       <div className="flex items-center gap-2">
         {hasPlan && (
           <Button
-            variant="ghost"
+            variant="destructive"
             size="sm"
             onClick={onDeletePlan}
             disabled={isGenerating}
-            className="text-destructive hover:text-destructive h-8 px-2"
-            aria-label="Elimina piano"
+            className="h-8 gap-1.5"
+            aria-label="Elimina piano corrente"
           >
             <Trash2 className="h-4 w-4" />
+            Elimina piano
           </Button>
         )}
 

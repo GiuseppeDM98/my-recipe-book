@@ -1,10 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sparkles, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Category, MealPlanSetupConfig, MealType, Season } from '@/types';
-import { SEASON_ICONS, SEASON_LABELS, getCurrentSeason, getCurrentWeekMonday } from '@/lib/constants/seasons';
+import {
+  SEASON_ICONS,
+  SEASON_LABELS,
+  formatLocalDate,
+  getCurrentSeason,
+  getCurrentWeekMonday,
+  getWeekMonday,
+} from '@/lib/constants/seasons';
 import { cn } from '@/lib/utils/cn';
 
 interface MealPlanSetupFormProps {
@@ -13,6 +20,7 @@ interface MealPlanSetupFormProps {
   onCreateManual: (config: MealPlanSetupConfig) => void;
   isLoading: boolean;
   isTestAccount: boolean;
+  initialWeekStartDate?: string;
 }
 
 const ALL_MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -36,11 +44,12 @@ export function MealPlanSetupForm({
   onCreateManual,
   isLoading,
   isTestAccount,
+  initialWeekStartDate,
 }: MealPlanSetupFormProps) {
   const [season, setSeason] = useState<Exclude<Season, 'tutte_stagioni'>>(getCurrentSeason());
   const [activeMealTypes, setActiveMealTypes] = useState<MealType[]>(['pranzo', 'cena']);
   const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>([]);
-  const [weekStartDate, setWeekStartDate] = useState(getCurrentWeekMonday());
+  const [weekStartDate, setWeekStartDate] = useState(initialWeekStartDate ?? getCurrentWeekMonday());
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [courseCategoryMap, setCourseCategoryMap] = useState<Partial<Record<MealType, string>>>({});
   const [newRecipePerMeal, setNewRecipePerMeal] = useState<Partial<Record<MealType, number>>>({
@@ -49,6 +58,16 @@ export function MealPlanSetupForm({
   });
 
   const isValid = activeMealTypes.length > 0;
+
+  useEffect(() => {
+    const nextWeekStartDate = initialWeekStartDate ?? getCurrentWeekMonday();
+    setWeekStartDate(nextWeekStartDate);
+
+    // Surface the week selector when navigation lands on a week without a plan.
+    if (initialWeekStartDate && initialWeekStartDate !== getCurrentWeekMonday()) {
+      setShowAdvanced(true);
+    }
+  }, [initialWeekStartDate]);
 
   function buildConfig(): MealPlanSetupConfig {
     const totalNewRecipes = Object.values(newRecipePerMeal).reduce((sum, n) => sum + (n ?? 0), 0);
@@ -193,14 +212,11 @@ export function MealPlanSetupForm({
             <input
               type="date"
               value={weekStartDate}
-              min={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10); })()}
-              max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return d.toISOString().slice(0, 10); })()}
+              min={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return formatLocalDate(d); })()}
+              max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return formatLocalDate(d); })()}
               onChange={e => {
                 const d = new Date(e.target.value + 'T00:00:00');
-                const day = d.getDay();
-                const diff = day === 0 ? -6 : 1 - day;
-                d.setDate(d.getDate() + diff);
-                setWeekStartDate(d.toISOString().slice(0, 10));
+                setWeekStartDate(getWeekMonday(d));
               }}
               className={cn(
                 'text-sm border border-border rounded-md px-3 py-1.5',

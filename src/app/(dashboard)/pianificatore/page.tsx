@@ -11,9 +11,10 @@ import { RecipePickerSheet } from '@/components/meal-planner/RecipePickerSheet';
 import { NewRecipeReviewCard } from '@/components/meal-planner/NewRecipeReviewCard';
 import { Spinner } from '@/components/ui/spinner';
 import { getUserCategories } from '@/lib/firebase/categories';
-import { getLatestMealPlan } from '@/lib/firebase/meal-plans';
+import { deleteMealPlan, getMealPlanByWeek, getUserMealPlans } from '@/lib/firebase/meal-plans';
+import { Button } from '@/components/ui/button';
 import { Category, MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season } from '@/types';
-import { getCurrentWeekMonday } from '@/lib/constants/seasons';
+import { addWeeksToDateString, getCurrentWeekMonday } from '@/lib/constants/seasons';
 import { CalendarDays, Sparkles, PenLine, MousePointerClick, BookMarked } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -26,8 +27,8 @@ import toast from 'react-hot-toast';
  * 3. CALENDAR: WeeklyCalendarGrid — editable 7-day view
  *
  * ON MOUNT:
- * Loads the user's most recent plan from Firebase. If found, skips setup and
- * goes straight to the calendar. User can always start fresh with "Nuovo piano".
+ * Loads the plan for the current week from Firebase. If no plan exists yet for
+ * that week, the page stays on setup with the week already preselected.
  *
  * TEST ACCOUNT:
  * "Genera con AI" is disabled. Manual mode is still accessible.
@@ -47,10 +48,13 @@ export default function PianificatorePage() {
     saveNewRecipeToCookbook,
     resetToSetup,
     loadPlan,
+    loadPlanForWeek,
   } = useMealPlanner();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [setupWeekStartDate, setSetupWeekStartDate] = useState(getCurrentWeekMonday());
+  const [savedPlans, setSavedPlans] = useState<MealPlan[]>([]);
 
   // Recipe picker sheet state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -63,22 +67,32 @@ export default function PianificatorePage() {
   const [expandedSlotKeys, setExpandedSlotKeys] = useState<Set<string>>(new Set());
 
   const isTestAccount = user?.email === 'test@test.com';
+  const viewedWeekStartDate = currentPlan?.weekStartDate ?? setupWeekStartDate;
 
-  // Load categories and restore latest plan on mount
+  async function refreshSavedPlans(currentUserId: string) {
+    const plans = await getUserMealPlans(currentUserId);
+    setSavedPlans(plans);
+  }
+
+  // Load categories and restore the current week's plan on mount.
   useEffect(() => {
     if (!user) return;
+    const currentUserId = user.uid;
 
     async function init() {
+      const currentWeekStartDate = getCurrentWeekMonday();
+
       try {
-        const [cats, latestPlan] = await Promise.all([
-          getUserCategories(user!.uid),
-          getLatestMealPlan(user!.uid),
+        const [cats, currentWeekPlan] = await Promise.all([
+          getUserCategories(currentUserId),
+          getMealPlanByWeek(currentUserId, currentWeekStartDate),
         ]);
         setCategories(cats);
+        setSetupWeekStartDate(currentWeekStartDate);
+        await refreshSavedPlans(currentUserId);
 
-        // Restore last plan so the user doesn't have to regenerate on every visit
-        if (latestPlan) {
-          loadPlan(latestPlan);
+        if (currentWeekPlan) {
+          loadPlan(currentWeekPlan);
         }
       } catch (err) {
         console.error('Errore nel caricamento:', err);
@@ -89,6 +103,20 @@ export default function PianificatorePage() {
 
     init();
   }, [user, loadPlan]);
+
+  useEffect(() => {
+    if (currentPlan) {
+      setSetupWeekStartDate(currentPlan.weekStartDate);
+    }
+  }, [currentPlan]);
+
+  useEffect(() => {
+    if (!user || !currentPlan) return;
+
+    refreshSavedPlans(user.uid).catch(err => {
+      console.error('Errore nell\'aggiornamento dei piani salvati:', err);
+    });
+  }, [user, currentPlan]);
 
   // Show planner error as toast
   useEffect(() => {
@@ -150,24 +178,49 @@ export default function PianificatorePage() {
   }
 
   // ── Week navigation ───────────────────────────────────────
-  function handlePrevWeek() {
-    if (!currentPlan) return;
-    const d = new Date(currentPlan.weekStartDate + 'T00:00:00');
-    d.setDate(d.getDate() - 7);
-    // Navigating weeks doesn't create a new plan — just prompts setup for that week
-    toast('Per pianificare un\'altra settimana, crea un nuovo piano', { icon: '📅' });
+  async function handlePrevWeek() {
+    const previousWeekStartDate = addWeeksToDateString(viewedWeekStartDate, -1);
+    setSetupWeekStartDate(previousWeekStartDate);
+    await loadPlanForWeek(previousWeekStartDate);
   }
 
-  function handleNextWeek() {
-    if (!currentPlan) return;
-    toast('Per pianificare un\'altra settimana, crea un nuovo piano', { icon: '📅' });
+  async function handleNextWeek() {
+    const nextWeekStartDate = addWeeksToDateString(viewedWeekStartDate, 1);
+    setSetupWeekStartDate(nextWeekStartDate);
+    await loadPlanForWeek(nextWeekStartDate);
   }
 
-  function handleDeletePlan() {
-    if (!confirm('Sei sicuro di voler eliminare questo piano pasti?')) return;
+  function handleNewPlan() {
+    const targetWeekStartDate = currentPlan?.weekStartDate ?? getCurrentWeekMonday();
+    setSetupWeekStartDate(targetWeekStartDate);
     resetToSetup();
     setSavedSlotKeys(new Set());
     setSavingSlotKeys(new Set());
+  }
+
+  async function handleDeletePlan() {
+    if (!currentPlan || !user) return;
+    if (!confirm('Sei sicuro di voler eliminare questo piano pasti?')) return;
+
+    try {
+      await deleteMealPlan(currentPlan.id);
+
+      const currentWeekStartDate = getCurrentWeekMonday();
+      setSetupWeekStartDate(currentWeekStartDate);
+      setSavedSlotKeys(new Set());
+      setSavingSlotKeys(new Set());
+      await loadPlanForWeek(currentWeekStartDate);
+      await refreshSavedPlans(user.uid);
+      toast.success('Piano eliminato');
+    } catch (err) {
+      console.error('Errore nell\'eliminazione del piano:', err);
+      toast.error('Errore nell\'eliminazione del piano');
+    }
+  }
+
+  async function handleOpenSavedPlan(weekStartDate: string) {
+    setSetupWeekStartDate(weekStartDate);
+    await loadPlanForWeek(weekStartDate);
   }
 
   // ── New AI recipes (slots with newRecipe) ─────────────────
@@ -198,9 +251,46 @@ export default function PianificatorePage() {
         <h1 className="text-xl font-bold">Pianificatore pasti</h1>
       </div>
 
+      {(step === 'setup' || (step === 'calendar' && currentPlan)) && (
+        <PlannerHeader
+          weekStartDate={viewedWeekStartDate}
+          onPrevWeek={handlePrevWeek}
+          onNextWeek={handleNextWeek}
+          onNewPlan={handleNewPlan}
+          onDeletePlan={handleDeletePlan}
+          hasPlan={currentPlan !== null}
+          isGenerating={isGenerating}
+        />
+      )}
+
       {/* ── STEP: SETUP ──────────────────────────────── */}
       {step === 'setup' && (
         <div className="max-w-lg space-y-6">
+          {savedPlans.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Piani già salvati</p>
+                <p className="text-xs text-muted-foreground">
+                  Apri una settimana esistente senza uscire dalla creazione del nuovo piano.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {savedPlans.map(plan => (
+                  <Button
+                    key={plan.id}
+                    type="button"
+                    variant={plan.weekStartDate === viewedWeekStartDate ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleOpenSavedPlan(plan.weekStartDate)}
+                    className="h-8"
+                  >
+                    {formatWeekChipLabel(plan.weekStartDate)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* How-to info box */}
           <div className="rounded-xl border border-border bg-muted/40 p-4 space-y-3">
             <p className="text-sm font-semibold text-foreground">Come usare il pianificatore</p>
@@ -232,6 +322,7 @@ export default function PianificatorePage() {
             onCreateManual={(config: MealPlanSetupConfig) => createManualPlan(config)}
             isLoading={isGenerating}
             isTestAccount={isTestAccount}
+            initialWeekStartDate={setupWeekStartDate}
           />
         </div>
       )}
@@ -252,17 +343,6 @@ export default function PianificatorePage() {
       {/* ── STEP: CALENDAR ───────────────────────────── */}
       {step === 'calendar' && currentPlan && (
         <div className="space-y-4">
-          {/* Header with week navigation */}
-          <PlannerHeader
-            weekStartDate={currentPlan.weekStartDate}
-            onPrevWeek={handlePrevWeek}
-            onNextWeek={handleNextWeek}
-            onNewPlan={resetToSetup}
-            onDeletePlan={handleDeletePlan}
-            hasPlan={true}
-            isGenerating={false}
-          />
-
           {/* Calendar grid */}
           <WeeklyCalendarGrid
             plan={currentPlan}
@@ -326,4 +406,12 @@ export default function PianificatorePage() {
       )}
     </div>
   );
+}
+
+function formatWeekChipLabel(weekStartDate: string): string {
+  const start = new Date(weekStartDate + 'T00:00:00');
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
+  return `${start.getDate()}-${end.getDate()} ${end.toLocaleDateString('it-IT', { month: 'short' })}`;
 }

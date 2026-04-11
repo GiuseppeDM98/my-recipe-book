@@ -146,7 +146,9 @@ Plan your meals for the week — AI-assisted or fully manual.
 - **Edit after generation**: Click any slot to swap the recipe at any time
 - **Save AI recipes**: Newly generated recipes (shown in purple) can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
 - **Quick navigation**: Green cells link directly to the full recipe page
-- **Persistent**: Plans are saved to Firebase and restored automatically on your next visit
+- **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
+- **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
+- **Persistent**: Plans are saved to Firebase and the current week is restored automatically on your next visit
 
 ### Mobile-First Responsive Design
 
