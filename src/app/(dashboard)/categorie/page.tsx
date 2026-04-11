@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { EmojiPicker } from '@/components/ui/emoji-picker';
+import { ColorPalettePicker } from '@/components/ui/color-palette-picker';
 import {
   Dialog,
   DialogContent,
@@ -124,7 +125,7 @@ export default function GestioneCategoriePage() {
       await createCategory(user.uid, newCategoryData);
       setNewCategoryName('');
       setNewCategoryIcon('');
-      setNewCategoryColor('#000000');
+      setNewCategoryColor('#FF6B6B');
       await loadCategories(); // Refresh list
     } catch (error) {
       console.error('Error creating category:', error);
@@ -275,13 +276,10 @@ export default function GestioneCategoriePage() {
                   className="w-full sm:w-20 h-10"
                 />
               </div>
-              <div className="flex-1 sm:flex-none sm:w-32">
-                <label className="block text-sm font-medium mb-2">Colore</label>
-                <Input
-                  type="color"
+              <div className="flex-1 sm:flex-none">
+                <ColorPalettePicker
                   value={newCategoryColor}
-                  onChange={(e) => setNewCategoryColor(e.target.value)}
-                  className="h-10 cursor-pointer w-full"
+                  onChange={setNewCategoryColor}
                 />
               </div>
             </div>
@@ -457,12 +455,9 @@ export default function GestioneCategoriePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Colore</label>
-                  <Input
-                    type="color"
-                    value={editingCategory.color || '#000000'}
-                    onChange={(e) => setEditingCategory({ ...editingCategory, color: e.target.value })}
-                    className="h-10 cursor-pointer"
+                  <ColorPalettePicker
+                    value={editingCategory.color || '#FF6B6B'}
+                    onChange={(color) => setEditingCategory({ ...editingCategory, color })}
                   />
                 </div>
               </div>

@@ -242,6 +242,23 @@ export interface CookingSession {
   lastUpdatedAt: Timestamp;
 }
 
+/**
+ * Historical record for a completed cooking session.
+ *
+ * WHY A SEPARATE COLLECTION:
+ * - cooking_sessions stays ephemeral and tracks only active work
+ * - statistics need immutable completion events over time
+ * - deleting an active session after completion should not erase analytics
+ */
+export interface CookingHistoryEntry {
+  id: string;
+  userId: string;
+  recipeId: string;
+  recipeTitle: string;
+  completedAt: Timestamp;
+  servings?: number | null;
+}
+
 // ============================================
 // AI Extraction Types
 // ============================================

@@ -2,6 +2,10 @@
 
 ## ✨ New Features
 
+- Added a new Statistics page to track your most cooked recipes, total completed cooking sessions, and recent completions
+- Added cooking history tracking so completed sessions can power long-term stats and activity insights
+- Added manual step reordering when creating or editing recipes
+
 ### 💬 AI Chat Recipe Generation
 You can now ask the AI to suggest new recipes through a chat interface. Describe what ingredients you have, request a specific cuisine or dietary style, or simply ask for something different from what's already in your cookbook — the AI will propose one or more recipes you can save instantly.
 
@@ -57,6 +61,7 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 
 ## 🐛 Bug Fixes
 
+- Fixed cooking sessions closing automatically as soon as all ingredients and steps were checked
 - Fixed ingredient quantities not updating when changing the number of servings for recipes added via the "Free text" tab in the AI Extractor
 - Fixed preparation and cooking times showing as N/A for some PDF-extracted recipes
 - Fixed "Save to cookbook" button in meal planner calendar cells not opening the save panel (it scrolled to the card but left it collapsed)
@@ -66,6 +71,8 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 
 ## 🔧 Improvements
 
+- Improved cooking mode with a clear "Finish cooking" action after completing a recipe
+- Improved category creation and editing with a faster preset color palette
 - **Renamed AI Extractor to AI Assistant**: The page is now called "Assistente Ricette AI" to reflect its expanded capabilities beyond just PDF extraction
 - **Upgraded AI model**: All AI features now use Claude Sonnet 4.6 for improved quality and accuracy
 - **Cleaner recipe text**: Fixed an issue where AI would sometimes include formatting symbols (asterisks) in step descriptions — all recipe text is now stored as clean plain text
@@ -82,6 +89,7 @@ Plan your meals for the entire week — powered by AI or built manually slot by 
 ## 🔒 Security
 
 - Fixed 4 npm vulnerabilities: `fast-xml-parser` (critical), `minimatch` (high), `@isaacs/brace-expansion` (high), `ajv` (moderate)
+- Updated the app to a patched Next.js release to address current framework security advisories
 - Added server-side authentication checks to all AI-powered endpoints to block unauthenticated access
 - Tightened Firebase Storage access rules so authenticated users are limited to their own recipe file paths
 

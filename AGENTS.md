@@ -1,6 +1,6 @@
 # AI Agent Guidelines - Il Mio Ricettario
 
-**Focus**: Solo gotcha che causano debug >30min. Per dettagli: [CLAUDE.md](CLAUDE.md)
+**Focus**: solo gotcha che possono causare debug >30min. Per contesto architetturale: [CLAUDE.md](CLAUDE.md)
 
 ---
 
@@ -9,41 +9,37 @@
 | Gotcha | Problema | Soluzione |
 |--------|----------|-----------|
 | Orientation classes | `portrait:` applica anche a desktop | Usare `max-lg:portrait:` |
-| Firebase optional | `undefined` causa errore silenzioso | Usare `null` |
-| Firestore composite index | query `where + orderBy` fallisce silenziosamente | Aggiungere indice in `firestore.indexes.json` |
-| Cooking sessions | Duplicate se create in useEffect | Setup screen pattern |
+| Firebase optional | `undefined` causa errori silenziosi | Usare `null` |
+| Firestore composite index | query `where + orderBy` fallisce o rompe in runtime | Aggiungere indice in `firebase/firestore.indexes.json` e deployare |
+| Firestore deploy drift | Rules/indexes aggiornati nel repo ma non in Firebase | Eseguire `firebase deploy --only firestore` |
+| Cooking sessions | Duplicate se create in `useEffect` | Usare setup screen pattern |
+| Cooking history | Statistiche vuote se si esce senza CTA finale | Registrare completamento solo da `Termina cottura` |
 | Quantity format | Frazioni confuse (`1 1/2`) | Decimali (`1,5`) |
-| Sheet a11y | Warning Radix | Aggiungere `SheetDescription` |
-| File upload | Request troppo grande | Max 4.4MB |
-| useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` per sync |
-| Docker env | `docker compose` non legge `.env.local` automaticamente | Usare `docker compose --env-file .env.local ...` |
-| Docker public dir | Build container fallisce su `COPY /app/public` | Creare `public/` nel build stage o rendere il copy opzionale |
-| AI route auth | Route AI chiamate senza bearer token rispondono `401` | Inviare sempre `Authorization: Bearer <idToken>` da `auth.currentUser.getIdToken()` |
-| Firebase Admin in Docker | Self-hosted AI rompe a runtime senza credenziali Admin | Configurare `FIREBASE_ADMIN_CREDENTIALS_BASE64` o il set `FIREBASE_ADMIN_*` |
-| Storage path ownership | Storage rules troppo larghe espongono file tra utenti autenticati | Limitare i path a `recipes/{userId}/{recipeId}/{filename}` con `request.auth.uid == userId` |
-| Google OAuth self-hosted | Login Google fallisce su dominio custom | Aggiungere il dominio pubblico a Firebase Auth `Authorized domains` |
+| useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` di sync |
+| AI route auth | Chiamate AI senza bearer token rispondono `401` | Inviare sempre `Authorization: Bearer <idToken>` |
+| Docker env | `docker compose` non legge `.env.local` | Usare `docker compose --env-file .env.local ...` |
 | Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
 
 ---
 
-## 1. Responsive Navigation (CRITICAL)
+## 1. Responsive Navigation
 
-**Breakpoint `lg` = 1440px** (non 1024px default).
+**Breakpoint `lg` = 1440px**.
 
 ```tsx
-// ❌ SBAGLIATO - Applica a desktop
+// ❌ SBAGLIATO
 className="portrait:flex landscape:hidden"
 
-// ✅ CORRETTO - Solo <1440px
+// ✅ CORRETTO
 className="max-lg:portrait:flex max-lg:landscape:hidden"
 ```
 
-**Navigazione:**
-- Desktop (≥1440px): Sidebar sempre visibile
-- Mobile portrait: Bottom navigation (4 tab)
-- Mobile landscape: Hamburger + sidebar sliding
+Pattern attivo:
+- Desktop (≥1440px): sidebar sempre visibile
+- Mobile portrait: bottom navigation
+- Mobile landscape: hamburger + sidebar drawer
 
-**iOS Safe Area** - Bottom nav richiede: `className="pb-safe"`
+Bottom nav su iOS: aggiungere `pb-safe`.
 
 ---
 
@@ -51,81 +47,80 @@ className="max-lg:portrait:flex max-lg:landscape:hidden"
 
 ### `null` vs `undefined`
 
-Firebase **rifiuta** `undefined`. Usare sempre `null` per campi opzionali:
+Firebase rifiuta `undefined` in scrittura.
 
-```typescript
-// ❌ { servings: servings || undefined }
-// ✅ { servings: servings || null }
+```ts
+// ❌
+{ servings: servings || undefined }
+
+// ✅
+{ servings: servings || null }
 ```
 
 ### Composite Index (CRITICAL)
 
-Query con `where('userId') + orderBy('altrocampo')` richiedono un indice composito esplicito. **Senza indice la query fallisce silenziosamente** se l'errore è catturato da un `catch` generico — nessun segnale visibile all'utente.
+Query con `where(...) + orderBy(...)` richiedono indice esplicito. Se l'errore e' catturato in un `catch` generico, lato UI puo' sembrare solo "nessun dato".
 
-```json
-// firebase/firestore.indexes.json
-{
-  "indexes": [
-    {
-      "collectionGroup": "meal_plans",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "weekStartDate", "order": "DESCENDING" }
-      ]
-    }
-  ]
-}
+Indici oggi attivi da mantenere allineati nel repo:
+- `categories`: `userId ASC`, `order ASC`
+- `cooking_history`: `userId ASC`, `completedAt DESC`
+- `cooking_sessions`: `userId ASC`, `lastUpdatedAt DESC`
+- `meal_plans`: `userId ASC`, `weekStartDate DESC`
+- `recipes`: `userId ASC`, `createdAt DESC`
+- `subcategories`: `categoryId ASC`, `userId ASC`, `order ASC`
+
+Quando cambi rules o indexes:
+
+```bash
+firebase deploy --only firestore
 ```
-
-Deployare con `firebase deploy --only firestore` (aggiorna sia rules che indexes).
 
 ### Data Ownership
 
-Ogni documento ha `userId`. **Tutte le query** devono filtrare:
-```typescript
+Ogni documento utente deve avere `userId` e ogni query deve filtrarlo.
+
+```ts
 query(collection(db, 'recipes'), where('userId', '==', userId))
 ```
 
-### Google OAuth on Self-Hosted Deployments
+### Cooking History
 
-Docker **non richiede** workaround nel codice auth. Il vincolo reale e` l'origine pubblica dell'app.
+Le statistiche non leggono da `cooking_sessions`.
 
-- `localhost` funziona in locale se autorizzato in Firebase
-- Deploy self-hosted pubblici richiedono il dominio esterno reale in Firebase Auth -> `Authorized domains`
-- Nomi interni come `app`, `container`, `localhost` non servono per il traffico pubblico
-- Se non vuoi configurare Google OAuth per self-hosting, usa `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
+Pattern corretto:
+- `cooking_sessions`: stato effimero della sessione attiva
+- `cooking_history`: evento append-only creato solo quando l'utente preme `Termina cottura`
+
+Se la pagina statistiche mostra `Missing or insufficient permissions`, il primo sospetto e' quasi sempre: rules/indexes locali non ancora deployati.
 
 ---
 
 ## 3. React State Patterns
 
-### useState con prop iniziale
+### `useState(prop)` non segue i cambi
 
-`useState(propValue)` usa il valore **solo al primo render**. Se la prop cambia dopo il mount, lo state non si aggiorna automaticamente.
-
-```typescript
-// ❌ Non reagisce ai cambi di prop
+```ts
+// ❌
 const [expanded, setExpanded] = useState(forceExpanded);
 
-// ✅ useEffect per sincronizzare
+// ✅
 const [expanded, setExpanded] = useState(forceExpanded);
-useEffect(() => { if (forceExpanded) setExpanded(true); }, [forceExpanded]);
+useEffect(() => {
+  if (forceExpanded) setExpanded(true);
+}, [forceExpanded]);
 ```
 
 ### Viewed state vs loaded entity
 
-Quando una pagina naviga tra entita' opzionali (es. piano settimanale che puo' non esistere), **non** legare la navigazione solo all'entita' caricata.
+Per entita' opzionali navigabili, non legare il contesto solo ai dati caricati.
 
-```typescript
-// ❌ SBAGLIATO - se il piano non esiste perdi il contesto di navigazione
+```ts
+// ❌
 const viewedWeek = currentPlan?.weekStartDate;
 
-// ✅ CORRETTO - mantieni uno stato indipendente della settimana visualizzata
+// ✅
 const viewedWeek = currentPlan?.weekStartDate ?? setupWeekStartDate;
 ```
-
-Usare questo pattern nel meal planner: la settimana visualizzata resta navigabile anche quando lo step e' `setup`.
 
 ---
 
@@ -133,37 +128,54 @@ Usare questo pattern nel meal planner: la settimana visualizzata resta navigabil
 
 ### Setup Screen Pattern
 
-**NON creare sessioni in useEffect** - causa duplicati.
+Non creare sessioni in `useEffect`.
 
-```typescript
-// ✅ CORRETTO - Setup screen
+```ts
 useEffect(() => {
   const session = await getCookingSession(recipeId, userId);
   setIsSetupMode(!session);
 }, []);
 
-// Sessione creata SOLO su click utente
 const handleStart = () => createCookingSession(recipeId, userId, servings);
 ```
 
+### Completion Pattern
+
+Non auto-eliminare la sessione al 100%.
+
+Pattern corretto:
+- aggiornare checkbox ingredienti/step normalmente
+- mostrare banner "Ricetta completata"
+- chiudere esplicitamente con pulsante `Termina cottura`
+- in quel momento: creare `cooking_history` + cancellare `cooking_session`
+
+Questo evita che l'utente perda la sessione appena completa l'ultimo item e rende le statistiche affidabili.
+
 ### Italian Quantity Format
 
-- Decimali con **virgola**: `1,5 kg` (non `1.5 kg`)
-- No frazioni: `0,5` (non `1/2`)
-- Range preservati: `2-3` → `4-6`
+- `1,5 kg`, non `1.5 kg`
+- no frazioni tipo `1/2`
+- preservare range: `2-3` → `4-6`
 
 ---
 
 ## 5. Recipe Data Structure
 
-**Array flat con `section` opzionale:**
+Storage recipe:
 
-```typescript
+```ts
 interface Ingredient { id; name; quantity; section?: string | null; }
-interface Step { id; order; description; section?: string | null; sectionOrder?: number; }
+interface Step { id; order; description; section?: string | null; sectionOrder?: number | null; }
 ```
 
-**sectionOrder** preserva ordine sezioni dal PDF.
+### Step Ordering
+
+Nel form ricetta il riordino e' lineare globale, non per sezione.
+
+Pattern corretto:
+- spostare lo step nell'array
+- rinormalizzare sempre `order` a `1..n`
+- lasciare invariata la semantica di `section`
 
 ---
 
@@ -171,7 +183,8 @@ interface Step { id; order; description; section?: string | null; sectionOrder?:
 
 ### Sheet Accessibility
 
-Radix richiede `SheetDescription`:
+Radix richiede `SheetDescription`.
+
 ```tsx
 <SheetHeader>
   <SheetTitle>Titolo</SheetTitle>
@@ -179,26 +192,23 @@ Radix richiede `SheetDescription`:
 </SheetHeader>
 ```
 
+### Category Colors
+
+Per categorie usare palette preset, non `input[type=color]`.
+
+Motivo:
+- UX piu' stabile su mobile
+- evita colori fuori palette e inconsistenza visiva
+
 ---
 
 ## 7. API Routes
 
-**Limite file**: 4.4MB (Vercel edge). Validare client-side.
+### AI Route Authentication
 
-**Modello**: `claude-sonnet-4-6` su tutti gli endpoint. Aggiornare in tutti se si cambia.
+Tutte le route AI richiedono auth Firebase lato server.
 
-### AI Route Authentication (CRITICAL)
-
-Tutte le route AI richiedono autenticazione Firebase **lato server**. Il solo gating client-side non basta.
-
-```typescript
-// ❌ SBAGLIATO - richiesta senza bearer token
-fetch('/api/format-recipe', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-});
-
-// ✅ CORRETTO - allega sempre il Firebase ID token
+```ts
 const idToken = await auth.currentUser?.getIdToken();
 fetch('/api/format-recipe', {
   method: 'POST',
@@ -209,79 +219,19 @@ fetch('/api/format-recipe', {
 });
 ```
 
-- Le route protette rispondono `401` senza token valido
-- In self-hosted Docker la verifica token richiede Firebase Admin runtime env
-- Preferire un helper condiviso per l'header auth invece di duplicare la logica nei fetch
+### File Limit
 
-**Markdown nel testo**: `stripMarkdown()` in `recipe-parser.ts` rimuove `**grassetto**`. Aggiornare i prompt se si aggiungono endpoint.
+Upload AI: max 4.4MB. Validare client-side.
 
-### Meal Planner AI (`plan-meals`)
+### Model Consistency
 
-Output Claude a due blocchi: `[PIANO]...[/PIANO]` (una riga JSON per slot) + `[RICETTE_NUOVE]...[/RICETTE_NUOVE]` (markdown ricette).
-
-**Assegnazione ricette nuove per ordine** (non per titolo): `parsedNewRecipes[newRecipeIndex++]`. Il title-matching è fragile perché Claude può usare maiuscole/punteggiatura diverse tra i due blocchi.
-
-**Suggerimenti categoria/stagione**: inclusi nel JSON del `[PIANO]` per slot `type="new"` (`"category"`, `"seasons"`). Vengono parsati e salvati in `MealSlot.suggestedCategoryName` / `suggestedSeasons`.
+Il modello atteso sugli endpoint AI resta `claude-sonnet-4-6`. Se cambia, aggiornare tutti gli endpoint correlati.
 
 ---
 
-## 8. AI Recipe Parser
+## 8. Deployment
 
-`parseIngredientLine` tenta in ordine:
-1. **Comma**: `"Pasta, 200 g"` ← formato preferito
-2. **Colon**: `"Riso: 280g"`
-3. **Quantity-first**: `"500 g di farina"`
-4. **Quantity at end (regex)**: `"Farina 500 g"`
-
-`parseRecipeSection` usa `findIndex` per il primo `#` — non assume che sia `lines[0]`.
-
----
-
-## 9. Deployment
-
-### Docker Compose env loading
-
-`docker compose` legge `.env` automaticamente, **non** `.env.local`.
-
-```bash
-# ❌ SBAGLIATO - .env.local non viene letto da Compose
-docker compose up --build
-
-# ✅ CORRETTO
-docker compose --env-file .env.local up --build
-```
-
-### Next.js public env in Docker
-
-Le variabili `NEXT_PUBLIC_*` sono **build-time sensitive**: Next.js le incorpora nel client bundle durante `next build`.
-
-- Passarle come build args in Docker
-- Ricostruire l'immagine se cambiano
-- `ANTHROPIC_API_KEY` resta runtime-only
-- Le route AI protette richiedono anche Firebase Admin runtime env: preferire `FIREBASE_ADMIN_CREDENTIALS_BASE64`, fallback `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY`
-
-### Optional `public/` directory in standalone Docker builds
-
-Nei progetti Next.js la cartella `public/` puo' non esistere. Se il runtime stage fa:
-
-```dockerfile
-COPY --from=builder /app/public ./public
-```
-
-la build Docker fallisce se `/app/public` non e' presente.
-
-```dockerfile
-# ✅ CORRETTO - garantisce che il copy finale resti valido
-COPY . .
-RUN mkdir -p public
-RUN npm run build
-```
-
-Usare questo pattern se il `Dockerfile` copia `public/` nello stage finale.
-
-### Docker Compose workflow documentato
-
-Per questo repo i comandi documentati da preferire sono:
+### Docker Compose
 
 ```bash
 docker compose --env-file .env.local build
@@ -292,28 +242,18 @@ docker compose --env-file .env.local logs -f app
 docker compose --env-file .env.local down
 ```
 
-Verificati in sessione:
+### Reliable Build Check
 
-```bash
-docker compose --env-file .env.local build
-docker compose --env-file .env.local up --build -d
-docker compose --env-file .env.local ps
-docker compose --env-file .env.local logs -f app
-```
-
-Per verificare il codice in questo repo, se `npm run build` fallisce in sandbox con panic Turbopack su process/port binding, usare:
+Se `npm run build` fallisce in sandbox su Turbopack/process binding:
 
 ```bash
 npx next build --webpack
 ```
 
-### Corporate network gotcha
+### Dependency Hygiene
 
-Se Docker fallisce su `node:20-alpine` con errore `http: server gave HTTP response to HTTPS client`, il problema e` tipicamente **proxy/rete aziendale**, non del `Dockerfile`.
+Dopo `npm audit fix`, se il lockfile aggiorna una dipendenza diretta importante gia' validata in build, allineare anche `package.json` per evitare drift tra manifest e lockfile.
 
----
-
-## References
-
-- Architettura: [CLAUDE.md](CLAUDE.md)
-- Setup: [README.md](README.md)
+Esempio pratico di questa sessione:
+- lockfile aggiornato a `next 16.2.3`
+- `package.json` allineato a `^16.2.3`

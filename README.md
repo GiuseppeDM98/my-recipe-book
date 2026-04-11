@@ -5,7 +5,7 @@
 Designed for home cooks who want to digitize their recipe collections without compromising on simplicity and speed.
 
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
-![Next.js](https://img.shields.io/badge/Next.js-16.1.6-black)
+![Next.js](https://img.shields.io/badge/Next.js-16.2.3-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)
 ![Firebase](https://img.shields.io/badge/Firebase-10.7-orange)
 
@@ -56,8 +56,9 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 
 - **Complete CRUD Operations**: Create, read, update, and delete recipes with full metadata support
 - **Sectioned Organization**: Organize ingredients and steps into sections (e.g., "For the dough", "For the filling")
+- **Manual Step Reordering**: Move preparation steps up or down while editing a recipe
 - **Rich Metadata**: Track servings, prep time, cook time, difficulty level, and seasonal availability
-- **Smart Categorization**: Organize recipes with customizable categories and subcategories, each with emoji and color
+- **Smart Categorization**: Organize recipes with customizable categories and subcategories, each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)
 - **Multiple Seasons**: Assign multiple seasons to recipes (e.g., Pasta e Fagioli for both autumn and winter)
 - **Advanced Filtering**: Filter recipes by category, subcategory, and season simultaneously with live count updates
@@ -83,7 +84,7 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
-- **Auto-Cleanup**: Completed cooking sessions (100% progress) are automatically deleted
+- **Manual Finish Flow**: When all ingredients and steps are completed, the app invites you to finish the cooking session explicitly
 
 ### Active Cooking Sessions Dashboard
 
@@ -91,6 +92,12 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Quick Resume**: Jump back into any active cooking session with one click
 - **Progress At-A-Glance**: See how far you've progressed in each recipe
 - **Real-Time Updates**: Session progress updates instantly across all devices
+
+### Cooking Statistics
+
+- **Most Cooked Recipes**: See which dishes you prepare most often
+- **Completion History**: Review your latest completed cooking sessions
+- **Totals At-A-Glance**: Track how many cooking sessions you have finished over time
 
 ### AI Assistant (Assistente Ricette AI)
 
@@ -815,7 +822,7 @@ POST /api/extract-recipes
     ↓
 Server reads file, converts to base64
     ↓
-Claude API call (Sonnet 4.5)
+Claude API call (Sonnet 4.6)
     ↓
 Markdown response
     ↓
@@ -842,7 +849,9 @@ Cooking UI (checkboxes, wake lock)
     ↓
 Checkbox changes → Auto-save to Firestore
     ↓
-100% complete → Auto-delete session
+100% complete → Show "Finish cooking" CTA
+    ↓
+User confirms → Write cooking history + close session
 ```
 
 ---

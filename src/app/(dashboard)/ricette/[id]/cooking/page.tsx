@@ -10,6 +10,7 @@ import {
   updateCookingSession,
   deleteCookingSession,
 } from '@/lib/firebase/cooking-sessions';
+import { createCookingHistoryEntry } from '@/lib/firebase/cooking-history';
 import { Recipe, CookingSession, Ingredient } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -32,9 +33,9 @@ import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
  * Key Features:
  * - NoSleep integration: Keeps screen awake during cooking
  * - Ingredient scaling: Real-time quantity adjustment with Italian decimal format (1,5 kg)
- * - Auto-deletion: Session automatically deleted at 100% completion
+ * - Manual completion: Session stays active at 100% until user explicitly ends it
  *
- * Side effects: Firebase session CRUD, navigation on completion
+ * Side effects: Firebase session CRUD, history writes, navigation on completion
  */
 export default function CookingModePage() {
   const { id } = useParams();
@@ -50,6 +51,18 @@ export default function CookingModePage() {
   const [servings, setServings] = useState<number>(4); // Default to 4 servings
   const [scaledIngredients, setScaledIngredients] = useState<Ingredient[]>([]);
   const [isSetupMode, setIsSetupMode] = useState(true); // Start in setup mode
+
+  const calculateProgress = (
+    nextCheckedIngredients: string[],
+    nextCheckedSteps: string[]
+  ) => {
+    if (!recipe) return 0;
+
+    const totalItems = recipe.ingredients.length + recipe.steps.length;
+    if (totalItems === 0) return 0;
+
+    return (nextCheckedIngredients.length + nextCheckedSteps.length) / totalItems;
+  };
 
   // Keep device screen awake during cooking to prevent recipe from disappearing
   // while user is actively following steps (often with messy hands).
@@ -179,9 +192,7 @@ export default function CookingModePage() {
   };
 
   /**
-   * Toggles ingredient completion status and auto-deletes session at 100%.
-   *
-   * Side effects: Firebase update, potential session deletion and redirect to /cotture-in-corso
+   * Toggles ingredient completion status and persists progress.
    */
   const handleToggleIngredient = async (ingredientId: string) => {
     if (!cookingSession || !recipe) return;
@@ -196,30 +207,13 @@ export default function CookingModePage() {
       await updateCookingSession(cookingSession.id, {
         checkedIngredients: newCheckedIngredients,
       });
-
-      // Check if cooking is complete (100% progress).
-      // Auto-delete session at 100% to keep sessions list clean.
-      // User is automatically redirected to cooking sessions page.
-      const totalItems = recipe.ingredients.length + recipe.steps.length;
-      const checkedItems = newCheckedIngredients.length + checkedSteps.length;
-      const progress = totalItems > 0 ? checkedItems / totalItems : 0;
-
-      // If 100% complete, delete session and redirect
-      if (progress >= 1.0) {
-        await deleteCookingSession(cookingSession.id);
-        router.push('/cotture-in-corso'); // Redirect to cooking sessions page
-      }
     } catch (err) {
       console.error('Error updating cooking session:', err);
     }
   };
 
   /**
-   * Toggles step completion status and auto-deletes session at 100%.
-   *
-   * Note: Identical progress logic to handleToggleIngredient.
-   *
-   * Side effects: Firebase update, potential session deletion and redirect to /cotture-in-corso
+   * Toggles step completion status and persists progress.
    */
   const handleToggleStep = async (stepId: string) => {
     if (!cookingSession || !recipe) return;
@@ -234,21 +228,26 @@ export default function CookingModePage() {
       await updateCookingSession(cookingSession.id, {
         checkedSteps: newCheckedSteps,
       });
-
-      // Check if cooking is complete (100% progress).
-      // Auto-delete session at 100% to keep sessions list clean.
-      // User is automatically redirected to cooking sessions page.
-      const totalItems = recipe.ingredients.length + recipe.steps.length;
-      const checkedItems = checkedIngredients.length + newCheckedSteps.length;
-      const progress = totalItems > 0 ? checkedItems / totalItems : 0;
-
-      // If 100% complete, delete session and redirect
-      if (progress >= 1.0) {
-        await deleteCookingSession(cookingSession.id);
-        router.push('/cotture-in-corso'); // Redirect to cooking sessions page
-      }
     } catch (err) {
       console.error('Error updating cooking session:', err);
+    }
+  };
+
+  const handleFinishCooking = async () => {
+    if (!user || !cookingSession || !recipe) return;
+
+    try {
+      await createCookingHistoryEntry({
+        userId: user.uid,
+        recipeId: recipe.id,
+        recipeTitle: recipe.title,
+        servings: servings || null,
+      });
+      await deleteCookingSession(cookingSession.id);
+      router.push('/cotture-in-corso');
+    } catch (err) {
+      console.error('Error finishing cooking session:', err);
+      setError('Errore durante la chiusura della cottura.');
     }
   };
 
@@ -265,6 +264,8 @@ export default function CookingModePage() {
   }
 
   const originalServings = recipe.servings || 4;
+  const progress = calculateProgress(checkedIngredients, checkedSteps);
+  const isComplete = progress >= 1;
 
   // === SETUP MODE RENDER ===
   // Pre-cooking configuration: user selects servings before starting.
@@ -350,7 +351,7 @@ export default function CookingModePage() {
   }
 
   // === COOKING MODE RENDER ===
-  // Active cooking: ingredient/step tracking with progress and auto-deletion at 100%.
+  // Active cooking: ingredient/step tracking with explicit completion CTA.
   return (
     <div className="p-4 sm:p-6 lg:p-8 text-xl">
       <div className="flex items-center mb-6">
@@ -366,6 +367,24 @@ export default function CookingModePage() {
       </div>
 
       <h1 className="text-5xl font-bold mb-6 text-center">{recipe.title}</h1>
+
+      {isComplete && (
+        <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xl font-semibold text-primary">
+                Ricetta completata! Vuoi terminare la cottura?
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                La sessione restera&apos; visibile tra le cotture in corso finche&apos; non la chiudi.
+              </p>
+            </div>
+            <Button onClick={handleFinishCooking} size="lg">
+              Termina cottura
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Servings selector */}
       <div className="mb-8 p-4 bg-gray-50 rounded-lg border-2 border-primary/20">

@@ -6,15 +6,22 @@
 
 | Resource | Purpose |
 |----------|---------|
-| [AGENTS.md](AGENTS.md) | Gotchas and patterns (debug >30min) |
-| [README.md](README.md) | User documentation and setup |
-| [docs/](docs/) | Feature specs and future plans |
+| [AGENTS.md](AGENTS.md) | Debug-heavy gotchas and implementation patterns |
+| [README.md](README.md) | User-facing setup and product overview |
+| [Draft Release Temp.md](Draft Release Temp.md) | User-facing release notes draft |
 
 ---
 
 ## Project Overview
 
-Digital recipe book with AI-powered PDF extraction, free-text recipe formatting, AI chat recipe generation, and weekly meal planning. Text-focused, privacy-first, optimized for actual cooking use. Italian cuisine focus with seasonal ingredient classification.
+Digital recipe book for home cooks with:
+- recipe CRUD and categorization
+- AI-assisted PDF extraction, free-text formatting, and chat recipe generation
+- cooking mode with active session tracking
+- weekly meal planning
+- historical cooking statistics
+
+Privacy-first architecture: every user-owned document is isolated through Firebase ownership rules.
 
 ---
 
@@ -22,9 +29,10 @@ Digital recipe book with AI-powered PDF extraction, free-text recipe formatting,
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 16.1.6, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
-| Backend | Firebase Auth + Firestore, Claude API (claude-sonnet-4-6) |
-| Key Utils | `nosleep.js` (wake lock), `ingredient-scaler.ts` (quantity scaling) |
+| Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
+| Backend | Firebase Auth, Firestore, Firebase Storage |
+| AI | Claude Sonnet 4.6 |
+| Key Utils | `nosleep.js`, `ingredient-scaler.ts` |
 
 ---
 
@@ -34,94 +42,79 @@ Digital recipe book with AI-powered PDF extraction, free-text recipe formatting,
 src/
 ├── app/
 │   ├── (auth)/           # Login, Register
-│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore
+│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Statistiche
 │   └── api/              # extract-recipes, format-recipe, suggest-category, chat-recipe, plan-meals
 ├── components/
-│   ├── ui/               # Button, Card, Dialog, Sheet, etc.
-│   ├── recipe/           # RecipeForm, RecipeCard, RecipeTextInput, RecipeChatInput
-│   ├── meal-planner/     # MealPlanSetupForm, WeeklyCalendarGrid, MealSlotCell, ...
-│   └── layout/           # Header, Sidebar, BottomNavigation
+│   ├── layout/           # Header, Sidebar, BottomNavigation, MoreSheet
+│   ├── meal-planner/     # Planner setup, grid, header, slot actions
+│   ├── recipe/           # RecipeForm, RecipeDetail, cooking-related lists
+│   └── ui/               # Shared primitives and pickers
 ├── lib/
-│   ├── constants/        # seasons.ts (getCurrentSeason, getCurrentWeekMonday)
-│   ├── firebase/         # firestore.ts, categories.ts, cooking-sessions.ts, meal-plans.ts
+│   ├── firebase/         # firestore, categories, cooking-sessions, cooking-history, meal-plans
 │   ├── hooks/            # useAuth, useRecipes, useMealPlanner
-│   └── utils/            # recipe-parser.ts, ingredient-scaler.ts, search.ts
-└── types/                # Recipe, Ingredient, MealType, MealSlot, MealPlan, ...
+│   └── utils/            # parser, scaler, search helpers
+└── types/                # Recipe, MealPlan, CookingSession, CookingHistoryEntry, ...
 ```
 
 ---
 
 ## Critical Patterns
 
-**See [AGENTS.md](AGENTS.md) for all gotchas.** Key patterns:
-
 ### Navigation Breakpoint
-- **Desktop**: >= 1440px (sidebar always visible)
-- **Mobile Portrait**: Bottom nav (4 tabs)
-- **Mobile Landscape**: Hamburger + sliding sidebar
+- Desktop: `>= 1440px`
+- Mobile portrait: bottom navigation
+- Mobile landscape: hamburger + sliding sidebar
 
-**CRITICAL**: Use `max-lg:portrait:` not `portrait:` to avoid desktop conflicts.
+Always use `max-lg:portrait:` instead of bare `portrait:`.
 
 ### Firebase Data
-- Use `null` for optional fields (never `undefined`)
-- All queries must filter by `userId`
-- Composite indexes required for `where + orderBy` — add to `firebase/firestore.indexes.json`
+- optional persisted fields: use `null`, never `undefined`
+- all user-owned queries must filter by `userId`
+- `where + orderBy` queries require explicit composite indexes in `firebase/firestore.indexes.json`
 
-### AI Recipe Parser
-- `stripMarkdown()` in `recipe-parser.ts` strips `**bold**` / `*italic*` at parse time
-- Always store plain text in Firebase — never markdown in recipe fields
+### Cooking Analytics
+- `cooking_sessions` is ephemeral active state only
+- `cooking_history` is append-only analytics/history data
+- statistics read from `cooking_history`, not from active sessions
+
+### Recipe Text Storage
+- recipe text stored in Firebase should remain plain text
+- `stripMarkdown()` in `recipe-parser.ts` removes markdown artifacts at parse time
 
 ---
 
 ## Recent Changes (Mar-Apr 2026)
 
+### Cooking Mode and Statistics (Apr 2026)
+- **Manual cooking completion**: reaching 100% progress no longer auto-closes the session
+- **Completion CTA**: cooking mode now shows an explicit `Termina cottura` action when all items are checked
+- **Persistent cooking history**: completed sessions are recorded in new Firestore collection `cooking_history`
+- **New page** `/statistiche`: shows total completed sessions, most cooked recipes, and recent completions
+- **Navigation update**: statistics is available from the dashboard navigation
+- **New collection**: `cooking_history` requires Firestore rules and composite index `(userId ASC, completedAt DESC)`
+
+### Recipe and Category UX (Apr 2026)
+- **Step reordering**: recipe create/edit now supports manual step ordering with move up/down controls
+- **Preset category colors**: category create/edit now uses a curated color palette instead of the browser color input
+
 ### Weekly Meal Planner (Mar-Apr 2026)
 - **New page** `/pianificatore`: 3-step flow (setup → generating → calendar)
-- **AI generation**: `POST /api/plan-meals` — Claude picks from existing cookbook + generates new recipes
-- **Two-block AI output**: `[PIANO]` (one JSON line per slot) + `[RICETTE_NUOVE]` (markdown)
-- **Ordered assignment**: new recipes matched to slots by position, not title (title-matching is fragile)
-- **Per-meal sliders**: configurable count of AI-generated recipes per meal type
-- **Course category hints**: optional preferred category per meal type, sent as AI prompt hints
-- **AI category/season suggestions**: included in `[PIANO]` JSON for `type="new"` slots, pre-populate save form
-- **"Go to recipe" link**: green cells link directly to `/ricette/{id}`
-- **MealType**: `'colazione' | 'pranzo' | 'cena' | 'primo' | 'secondo' | 'contorno' | 'dolce'` (course types wired but not shown in form UI yet)
-- **New collection**: `meal_plans` — requires composite Firestore index `(userId ASC, weekStartDate DESC)`
-- **Firebase rules**: `meal_plans` security rules added to `firebase/firestore.rules`
-- **Weekly history**: one plan per week can coexist in Firebase; "Nuovo piano" no longer deletes the current week
-- **Week-aware restore**: page mount loads the current week, not the latest plan overall
-- **Real week navigation**: prev/next arrows load adjacent weeks and fall back to setup when a week has no saved plan
-- **Setup recovery UX**: setup keeps the viewed week, shows saved plan shortcuts, and can reopen existing weeks without leaving the form
-- **Date handling fix**: week keys now use local date formatting helpers instead of `toISOString()` to avoid timezone drift in Europe/Rome
+- **AI generation**: `POST /api/plan-meals` mixes cookbook recipes and optional new AI recipes
+- **Two-block AI output**: `[PIANO]` JSON lines + `[RICETTE_NUOVE]` markdown recipes
+- **Ordered assignment**: new recipes matched to slots by position, not by title
+- **Weekly history**: users can keep multiple saved weeks instead of a single replaceable plan
+- **Week-aware restore**: planner mount restores the current week, not the latest plan overall
+- **Real week navigation**: arrows move across adjacent weeks and open setup for empty weeks
+- **Setup recovery UX**: setup keeps the viewed week and exposes shortcuts to saved weeks
+- **Date handling fix**: local date helpers replaced `toISOString().slice(0, 10)` for week keys
 
-### Deployment: Vercel + Docker Compose (Apr 2026)
-- **Dual deployment path**: project now documents two first-class deployment options
-  - `Vercel` for managed hosting
-  - `Docker Compose` for self-hosting on a local machine or VPS
-- **New artifacts**: `Dockerfile`, `compose.yaml`, `.dockerignore`
-- **Next standalone runtime**: existing `output: 'standalone'` is now documented as the production container strategy
-- **Docker build fix**: standalone container build now tolerates repositories without a `public/` directory
-- **Env model documented**:
-  - `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_REGISTRATIONS_ENABLED` are build-time sensitive in Docker
-  - `ANTHROPIC_API_KEY` remains runtime-only
-  - protected AI routes also require Firebase Admin runtime credentials
-- **Compose workflow documented**:
-  - `build`, `up --build`, `up --build -d`, `up -d`, `logs -f app`, `down`
-- **Runtime verified**:
-  - `docker compose --env-file .env.local build` passes
-  - `docker compose --env-file .env.local up --build -d` starts successfully
-  - app responds on port `3000`
-- **Google OAuth clarification**:
-  - No auth code changes required for Docker
-  - Self-hosted production requires the deployed public hostname in Firebase Auth → `Authorized domains`
-  - Fallback for installs without OAuth setup: `NEXT_PUBLIC_REGISTRATIONS_ENABLED=false`
-- **Docs updated**: `README.md` and `SETUP.md` now include self-hosted Docker Compose setup, env instructions, troubleshooting, and reverse-proxy notes
-
-### Security Hardening: Firebase + AI APIs (Apr 2026)
-- **Server-side auth required on AI routes**: `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/plan-meals` now verify a Firebase ID token before processing requests
-- **Shared client auth header flow**: AI fetches now attach `Authorization: Bearer <idToken>` from the current Firebase session
-- **Firebase Admin runtime support**: self-hosted deployments can verify tokens via `FIREBASE_ADMIN_CREDENTIALS_BASE64` or the split `FIREBASE_ADMIN_*` env fallback
-- **Storage rules tightened**: Firebase Storage access is now scoped to `recipes/{userId}/{recipeId}/{filename}` instead of any authenticated path
-- **Planner history verified**: current implementation already matches the weekly history spec in `docs/pianificatore-storico-piani.md`
+### Deployment and Security Hardening (Apr 2026)
+- **Docker Compose path documented**: self-hosted deployment now has build/run/log workflows in docs
+- **Protected AI routes**: all AI endpoints verify Firebase ID tokens server-side
+- **Shared client auth headers**: AI requests attach `Authorization: Bearer <idToken>`
+- **Firebase Admin runtime support**: Docker/self-hosted deployments can verify tokens via `FIREBASE_ADMIN_CREDENTIALS_BASE64` or split fallback env vars
+- **Storage rules tightened**: Firebase Storage access is scoped to user-owned recipe paths
+- **Dependency refresh**: project updated and verified on Next.js 16.2.3; `npm audit fix` removed all non-low vulnerabilities currently auto-fixable without unsafe downgrades
 
 ---
 
@@ -129,12 +122,12 @@ src/
 
 | Variable | Scope | Purpose |
 |----------|-------|---------|
-| `NEXT_PUBLIC_FIREBASE_*` | Client + Server | Firebase config (6 vars) |
-| `ANTHROPIC_API_KEY` | Server Only | Claude AI API |
-| `FIREBASE_ADMIN_CREDENTIALS_BASE64` | Server Only | Preferred Firebase Admin credential for protected AI routes |
-| `FIREBASE_ADMIN_PROJECT_ID` | Server Only | Firebase Admin fallback env |
-| `FIREBASE_ADMIN_CLIENT_EMAIL` | Server Only | Firebase Admin fallback env |
-| `FIREBASE_ADMIN_PRIVATE_KEY` | Server Only | Firebase Admin fallback env |
+| `NEXT_PUBLIC_FIREBASE_*` | Client + Server | Firebase web config |
+| `ANTHROPIC_API_KEY` | Server only | Claude API access |
+| `FIREBASE_ADMIN_CREDENTIALS_BASE64` | Server only | Preferred Firebase Admin credentials |
+| `FIREBASE_ADMIN_PROJECT_ID` | Server only | Admin fallback |
+| `FIREBASE_ADMIN_CLIENT_EMAIL` | Server only | Admin fallback |
+| `FIREBASE_ADMIN_PRIVATE_KEY` | Server only | Admin fallback |
 
 ---
 
@@ -142,29 +135,38 @@ src/
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start dev server (localhost:3000) |
+| `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npx next build --webpack` | Reliable build verification when Turbopack is blocked by the sandbox |
-| `docker compose --env-file .env.local build` | Build the self-hosted production image only |
-| `docker compose --env-file .env.local up --build` | Build and run self-hosted production container locally |
-| `docker compose --env-file .env.local up -d` | Start the already-built self-hosted container in background |
-| `docker compose --env-file .env.local logs -f app` | Follow app container logs |
-| `docker compose --env-file .env.local down` | Stop and remove self-hosted containers |
-| `firebase deploy --only firestore` | Deploy rules + indexes |
+| `npx next build --webpack` | Reliable build verification in sandboxed environments |
+| `npm audit` | Security audit |
+| `npm audit fix` | Apply safe lockfile/package fixes when available |
+| `docker compose --env-file .env.local build` | Build self-hosted image |
+| `docker compose --env-file .env.local up --build` | Build and run self-hosted app |
+| `docker compose --env-file .env.local logs -f app` | Follow app logs |
+| `docker compose --env-file .env.local down` | Stop self-hosted stack |
+| `firebase deploy --only firestore` | Deploy rules and indexes |
 
 ---
 
 ## Database Collections
 
 ```
-users/{uid}           # User profiles
-recipes/{id}          # Recipes (userId field for ownership)
-categories/{id}       # User categories
-cooking_sessions/{id} # Active cooking progress
-meal_plans/{id}       # Weekly meal plans (userId, weekStartDate, slots[], activeMealTypes[])
+users/{uid}             # User profiles
+recipes/{id}            # Recipes (user-owned)
+categories/{id}         # Recipe categories
+subcategories/{id}      # Category children
+cooking_sessions/{id}   # Active cooking progress only
+cooking_history/{id}    # Completed cooking events for analytics/history
+meal_plans/{id}         # Weekly planner documents
 ```
 
-Composite index required: `meal_plans` on `(userId ASC, weekStartDate DESC)`.
+Composite indexes currently maintained in repo:
+- `categories`: `(userId ASC, order ASC)`
+- `cooking_history`: `(userId ASC, completedAt DESC)`
+- `cooking_sessions`: `(userId ASC, lastUpdatedAt DESC)`
+- `meal_plans`: `(userId ASC, weekStartDate DESC)`
+- `recipes`: `(userId ASC, createdAt DESC)`
+- `subcategories`: `(categoryId ASC, userId ASC, order ASC)`
 
 ---
 
@@ -172,16 +174,10 @@ Composite index required: `meal_plans` on `(userId ASC, weekStartDate DESC)`.
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /api/extract-recipes` | PDF -> Claude -> Markdown (max 4.4MB, authenticated) |
-| `POST /api/format-recipe` | Free text -> Claude -> Markdown (authenticated) |
-| `POST /api/suggest-category` | Recipe -> Category + Season suggestion (authenticated) |
-| `POST /api/chat-recipe` | Chat message + history -> reply + recipe markdown (authenticated) |
-| `POST /api/plan-meals` | Setup config + recipes -> weekly meal plan slots (authenticated) |
+| `POST /api/extract-recipes` | PDF → structured recipe extraction |
+| `POST /api/format-recipe` | Free text → structured recipe formatting |
+| `POST /api/suggest-category` | Category + season suggestion |
+| `POST /api/chat-recipe` | Multi-turn AI recipe generation |
+| `POST /api/plan-meals` | Weekly meal-plan generation |
 
----
-
-## Resources
-
-- **Gotchas**: [AGENTS.md](AGENTS.md)
-- **User Docs**: [README.md](README.md)
-- **Feature specs**: [docs/](docs/) — meal planner history, etc.
+All endpoints above require an authenticated Firebase session.

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { v4 as uuidv4 } from 'uuid';
 import { CategorySelector } from './category-selector';
 import { SeasonSelector } from './season-selector';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 
 /**
  * RecipeForm - Hierarchical ingredient/step editor with flat storage
@@ -74,6 +75,12 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   });
 
   const [loading, setLoading] = useState(false);
+
+  const normalizeStepOrder = (nextSteps: Step[]) =>
+    nextSteps.map((step, index) => ({
+      ...step,
+      order: index + 1,
+    }));
 
   // ========================================
   // Section Management
@@ -214,7 +221,10 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   }, [recipe]);
 
   const addStep = () => {
-    setSteps([...steps, { id: uuidv4(), order: steps.length + 1, description: '', section: '' }]);
+    setSteps([
+      ...steps,
+      { id: uuidv4(), order: steps.length + 1, description: '', section: '' }
+    ]);
   };
 
   const updateStep = (id: string, field: keyof Step, value: string | number) => {
@@ -224,10 +234,16 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   };
 
   const removeStep = (id: string) => {
-    setSteps(steps.filter(step => step.id !== id).map((step, idx) => ({
-      ...step,
-      order: idx + 1
-    })));
+    setSteps(normalizeStepOrder(steps.filter(step => step.id !== id)));
+  };
+
+  const moveStep = (fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= steps.length) return;
+
+    const nextSteps = [...steps];
+    const [movedStep] = nextSteps.splice(fromIndex, 1);
+    nextSteps.splice(toIndex, 0, movedStep);
+    setSteps(normalizeStepOrder(nextSteps));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -479,6 +495,30 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                     rows={3}
                     placeholder="Descrivi questo passaggio..."
                   />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => moveStep(idx, idx - 1)}
+                    disabled={idx === 0}
+                    className="flex-shrink-0"
+                    title="Sposta in alto"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => moveStep(idx, idx + 1)}
+                    disabled={idx === steps.length - 1}
+                    className="flex-shrink-0"
+                    title="Sposta in basso"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </Button>
                 </div>
                 <Button
                   type="button"

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Grid3x3, Sparkles, CalendarDays } from 'lucide-react';
+import { Grid3x3, Sparkles, CalendarDays, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 interface MoreSheetProps {
@@ -15,6 +15,7 @@ export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
     { label: 'Categorie', icon: Grid3x3, href: '/categorie' },
     { label: 'Assistente AI', icon: Sparkles, href: '/assistente-ai' },
     { label: 'Pianificatore', icon: CalendarDays, href: '/pianificatore' },
+    { label: 'Statistiche', icon: BarChart3, href: '/statistiche' },
   ];
 
   return (
