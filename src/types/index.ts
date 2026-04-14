@@ -72,6 +72,19 @@ export interface Ingredient {
 export interface Step {
   id: string;
   order: number;
+  /**
+   * Plain-text step body.
+   *
+   * DYNAMIC QUANTITY TOKENS:
+   * The description may include internal placeholders like `{{qty:ingredientId}}`
+   * to reference an ingredient quantity without duplicating the numeric text.
+   * Renderers resolve these tokens at display time so ingredient scaling in
+   * cooking mode stays aligned with the step instructions.
+   *
+   * BACKWARD COMPATIBILITY:
+   * Legacy recipes still store plain free text only. Steps without tokens are
+   * rendered unchanged.
+   */
   description: string;
   duration?: number | null;
   section?: string | null; // Section name (e.g., "Per il sugo") or null for default steps

@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-11
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-14
 
 ## Quick Reference
 
@@ -95,6 +95,10 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 
 ### Recipe and Category UX (Apr 2026)
 - **Step reordering**: recipe create/edit now supports manual step ordering with move up/down controls
+- **Dynamic step quantities**: recipe steps can now follow ingredient scaling through internal quantity references
+- **Legacy step adaptation**: edit recipe now includes a conservative auto-adapt action for upgrading existing static step quantities
+- **AI quantity linking**: newly AI-generated recipes can emit structured ingredient/step quantity references that are converted automatically during parsing
+- **Cleaner AI step structure**: AI prompts now explicitly prefer one main action or one main quantity reference per step
 - **Preset category colors**: category create/edit now uses a curated color palette instead of the browser color input
 
 ### Weekly Meal Planner (Mar-Apr 2026)

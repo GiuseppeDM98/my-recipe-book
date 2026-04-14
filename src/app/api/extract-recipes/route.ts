@@ -97,12 +97,22 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 ### 4. QUANTITÀ PRECISE
 - Riporta tutte le quantità esattamente come nel documento originale
 - Includi sempre le unità di misura
+- Prefix ogni ingrediente con un riferimento progressivo globale nel formato [ING:n]
+- Esempio corretto ingrediente: "[ING:1] Mele (per cubetti), 300 g"
+- Se uno step usa la quantità di un ingrediente, NON riscrivere il numero nello step: usa il riferimento [QTY:n]
+- Esempio corretto step: "Taglia [QTY:1] di mele a cubetti"
+- Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
 
 ### 5. PROCEDIMENTO DETTAGLIATO
 - Usa elenchi puntati per tutti i passaggi
 - Mantieni l'ordine cronologico
 - Includi tempistiche, temperature e dettagli tecnici
 - Riporta eventuali riferimenti a video o immagini
+- Ogni bullet deve rappresentare UNA sola azione principale o un solo riferimento quantità principale
+- Se una frase contiene due quantità distinte o due trasformazioni diverse, spezzala in due step separati
+- Esempio corretto:
+  1. "Taglia [QTY:1] di mele a cubetti"
+  2. "Taglia i restanti [QTY:2] a fette non eccessivamente sottili; tieni le due parti separate"
 
 ### 6. TERMINOLOGIA
 - Mantieni tutta la terminologia italiana originale

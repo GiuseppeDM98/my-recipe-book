@@ -445,6 +445,9 @@ export default function CookingModePage() {
           <h2 className="text-3xl font-semibold mb-4">Preparazione</h2>
           <StepsListCollapsible
             steps={recipe.steps}
+            ingredients={recipe.ingredients}
+            originalServings={originalServings}
+            targetServings={servings}
             defaultExpanded={true}
             interactive={true}
             checkedSteps={checkedSteps}

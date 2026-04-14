@@ -83,6 +83,7 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Progress Tracking**: Visual progress bar shows completion percentage
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
+- **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
 - **Manual Finish Flow**: When all ingredients and steps are completed, the app invites you to finish the cooking session explicitly
 
@@ -124,6 +125,7 @@ Three ways to get recipes in — all powered by Claude AI:
 
 **All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
+- **Dynamic Quantity References for AI Recipes**: Newly AI-generated recipes can link step quantities to ingredient scaling automatically
 - **Intelligent Categorization**: AI suggests appropriate categories (using existing ones or proposing new ones)
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
 - **Smart Normalization**: Converts times to minutes, capitalizes section headers, standardizes formatting

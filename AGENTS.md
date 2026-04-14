@@ -19,6 +19,8 @@
 | AI route auth | Chiamate AI senza bearer token rispondono `401` | Inviare sempre `Authorization: Bearer <idToken>` |
 | Docker env | `docker compose` non legge `.env.local` | Usare `docker compose --env-file .env.local ...` |
 | Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
+| Dynamic step quantities | Quantita' negli step restano statiche o finiscono disallineate | Usare token `{{qty:ingredientId}}` risolti a runtime |
+| AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
 
 ---
 
@@ -167,6 +169,28 @@ Storage recipe:
 interface Ingredient { id; name; quantity; section?: string | null; }
 interface Step { id; order; description; section?: string | null; sectionOrder?: number | null; }
 ```
+
+### Dynamic Step Quantities
+
+Se uno step deve seguire le porzioni, non salvare il numero statico nel testo finale.
+
+Pattern corretto:
+- storage step: token interno `{{qty:ingredientId}}`
+- rendering dettaglio/cottura: risoluzione via utility, non parsing testo in UI
+- ricette AI nuove: usare marker intermedi `[ING:n]` negli ingredienti e `[QTY:n]` negli step, poi convertire nel parser
+
+Per ricette legacy:
+- nessuna migrazione bulk
+- usare il pulsante di adattamento automatico in modifica ricetta
+- convertire solo match ad alta confidenza; i casi ambigui devono restare invariati
+
+### AI Step Shape
+
+Quando aggiorni prompt AI per ricette:
+- ogni step deve rappresentare UNA sola azione principale o un solo riferimento quantita'
+- se una frase contiene due quantita' distinte, spezzarla in due step
+
+Questo riduce i casi ambigui nel collegamento automatico ingredienti ↔ step.
 
 ### Step Ordering
 

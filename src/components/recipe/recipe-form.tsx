@@ -11,6 +11,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { CategorySelector } from './category-selector';
 import { SeasonSelector } from './season-selector';
 import { ArrowDown, ArrowUp } from 'lucide-react';
+import {
+  adaptStepsToDynamicQuantities,
+  createStepQuantityToken,
+  listStepQuantityIngredientIds,
+  renderStepDescription,
+} from '@/lib/utils/step-description';
 
 /**
  * RecipeForm - Hierarchical ingredient/step editor with flat storage
@@ -75,12 +81,38 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   });
 
   const [loading, setLoading] = useState(false);
+  const [stepIngredientSelections, setStepIngredientSelections] = useState<Record<string, string>>({});
+  const [autoAdaptSummary, setAutoAdaptSummary] = useState<string | null>(null);
+  const allIngredients = getAllIngredients();
 
   const normalizeStepOrder = (nextSteps: Step[]) =>
     nextSteps.map((step, index) => ({
       ...step,
       order: index + 1,
     }));
+
+  function getAllIngredients() {
+    return ingredientSections.flatMap(section =>
+      section.ingredients.map(ingredient => ({
+        ...ingredient,
+        section: section.name?.trim() ? section.name : null,
+      }))
+    );
+  }
+
+  const getIngredientLabel = (ingredient: Ingredient): string => {
+    const parts = [ingredient.name];
+
+    if (ingredient.section) {
+      parts.push(`(${ingredient.section})`);
+    }
+
+    if (ingredient.quantity) {
+      parts.push(`- ${ingredient.quantity}`);
+    }
+
+    return parts.join(' ');
+  };
 
   // ========================================
   // Section Management
@@ -234,6 +266,11 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   };
 
   const removeStep = (id: string) => {
+    setStepIngredientSelections(selections => {
+      const nextSelections = { ...selections };
+      delete nextSelections[id];
+      return nextSelections;
+    });
     setSteps(normalizeStepOrder(steps.filter(step => step.id !== id)));
   };
 
@@ -244,6 +281,48 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
     const [movedStep] = nextSteps.splice(fromIndex, 1);
     nextSteps.splice(toIndex, 0, movedStep);
     setSteps(normalizeStepOrder(nextSteps));
+  };
+
+  const insertIngredientQuantityToken = (stepId: string) => {
+    const ingredientId = stepIngredientSelections[stepId];
+
+    if (!ingredientId) {
+      return;
+    }
+
+    const token = createStepQuantityToken(ingredientId);
+
+    setSteps(currentSteps =>
+      currentSteps.map(step => {
+        if (step.id !== stepId) {
+          return step;
+        }
+
+        const separator = step.description && !step.description.endsWith(' ') ? ' ' : '';
+        return {
+          ...step,
+          description: `${step.description}${separator}${token}`,
+        };
+      })
+    );
+  };
+
+  const handleAutoAdaptSteps = () => {
+    const { steps: adaptedSteps, convertedCount, skippedCount } = adaptStepsToDynamicQuantities(
+      steps,
+      allIngredients
+    );
+
+    setSteps(adaptedSteps);
+
+    if (convertedCount === 0) {
+      setAutoAdaptSummary('Nessuno step convertito automaticamente: i riferimenti trovati erano assenti o ambigui.');
+      return;
+    }
+
+    setAutoAdaptSummary(
+      `${convertedCount} step convertiti automaticamente${skippedCount > 0 ? `, ${skippedCount} lasciati invariati perché ambigui o senza match.` : '.'}`
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -296,14 +375,14 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         steps,
         categoryId: categoryId || '',
         subcategoryId: subcategoryId || '',
-        seasons: seasons.length > 0 ? seasons : undefined, // Optional field
-        aiSuggested: recipe?.aiSuggested,
         difficulty: recipe?.difficulty || 'facile',
         tags: recipe?.tags || [],
         techniqueIds: recipe?.techniqueIds || [],
         source: recipe?.source || { type: 'manual' },
         notes: recipe?.notes || '',
         images: recipe?.images || [],
+        ...(seasons.length > 0 ? { seasons } : {}),
+        ...(typeof recipe?.aiSuggested === 'boolean' ? { aiSuggested: recipe.aiSuggested } : {}),
       };
 
       if (mode === 'create') {
@@ -470,73 +549,148 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
       <div>
         <div className="flex justify-between items-center mb-2">
           <label className="block text-sm font-medium">Preparazione</label>
-          <Button type="button" onClick={addStep} size="sm">
-            + Aggiungi Step
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" onClick={handleAutoAdaptSteps} size="sm" variant="outline" disabled={steps.length === 0 || allIngredients.length === 0}>
+              Adatta step esistenti
+            </Button>
+            <Button type="button" onClick={addStep} size="sm">
+              + Aggiungi Step
+            </Button>
+          </div>
         </div>
+        {autoAdaptSummary && (
+          <p className="mb-3 text-sm text-gray-600">{autoAdaptSummary}</p>
+        )}
         <div className="space-y-3">
-          {steps.map((step, idx) => (
-            <div key={step.id} className="border rounded-lg p-3 space-y-2">
-              <div className="flex items-start gap-2">
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
-                  {idx + 1}
-                </span>
-                <div className="flex-1 space-y-2">
-                  <Input
-                    value={step.section || ''}
-                    onChange={(e) => updateStep(step.id, 'section', e.target.value)}
-                    placeholder="Titolo sezione (opzionale, es. Preparazione della pasta)"
-                    className="font-medium"
-                  />
-                  <textarea
-                    className="w-full border rounded-md p-2"
-                    value={step.description}
-                    onChange={(e) => updateStep(step.id, 'description', e.target.value)}
-                    rows={3}
-                    placeholder="Descrivi questo passaggio..."
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
+          {steps.map((step, idx) => {
+            const linkedIngredientIds = listStepQuantityIngredientIds(step.description);
+            const linkedIngredients = linkedIngredientIds.reduce<Ingredient[]>((items, ingredientId) => {
+              const ingredient = allIngredients.find(candidate => candidate.id === ingredientId);
+
+              if (ingredient) {
+                items.push(ingredient);
+              }
+
+              return items;
+            }, []);
+            const selectedIngredientId = stepIngredientSelections[step.id] || allIngredients[0]?.id || '';
+            const previewDescription = renderStepDescription(
+              step,
+              allIngredients,
+              servings || 0,
+              servings || 0
+            );
+
+            return (
+              <div key={step.id} className="border rounded-lg p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
+                    {idx + 1}
+                  </span>
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      value={step.section || ''}
+                      onChange={(e) => updateStep(step.id, 'section', e.target.value)}
+                      placeholder="Titolo sezione (opzionale, es. Preparazione della pasta)"
+                      className="font-medium"
+                    />
+                    <textarea
+                      className="w-full border rounded-md p-2"
+                      value={step.description}
+                      onChange={(e) => updateStep(step.id, 'description', e.target.value)}
+                      rows={3}
+                      placeholder="Descrivi questo passaggio... Usa il pulsante sotto per inserire quantità dinamiche."
+                    />
+                    <div className="rounded-md border bg-gray-50 p-3 space-y-3">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                        <label className="text-xs font-medium text-gray-700 md:w-40">
+                          Quantità dinamiche
+                        </label>
+                        <select
+                          value={selectedIngredientId}
+                          onChange={(e) =>
+                            setStepIngredientSelections(current => ({
+                              ...current,
+                              [step.id]: e.target.value,
+                            }))
+                          }
+                          className="flex-1 rounded-md border bg-white px-3 py-2 text-sm"
+                          disabled={allIngredients.length === 0}
+                        >
+                          {allIngredients.length === 0 ? (
+                            <option value="">Aggiungi prima un ingrediente</option>
+                          ) : (
+                            allIngredients.map(ingredient => (
+                              <option key={ingredient.id} value={ingredient.id}>
+                                {getIngredientLabel(ingredient)}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => insertIngredientQuantityToken(step.id)}
+                          disabled={!selectedIngredientId}
+                        >
+                          Inserisci quantità
+                        </Button>
+                      </div>
+
+                      {linkedIngredients.length > 0 && (
+                        <div className="text-xs text-gray-600">
+                          Collegamenti attivi: {linkedIngredients.map(getIngredientLabel).join(' · ')}
+                        </div>
+                      )}
+
+                      <div className="text-xs text-gray-600">
+                        Anteprima step: <span className="text-gray-800">{previewDescription || 'Nessun testo'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => moveStep(idx, idx - 1)}
+                      disabled={idx === 0}
+                      className="flex-shrink-0"
+                      title="Sposta in alto"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => moveStep(idx, idx + 1)}
+                      disabled={idx === steps.length - 1}
+                      className="flex-shrink-0"
+                      title="Sposta in basso"
+                    >
+                      <ArrowDown className="w-4 h-4" />
+                    </Button>
+                  </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
-                    onClick={() => moveStep(idx, idx - 1)}
-                    disabled={idx === 0}
+                    onClick={() => removeStep(step.id)}
                     className="flex-shrink-0"
-                    title="Sposta in alto"
                   >
-                    <ArrowUp className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => moveStep(idx, idx + 1)}
-                    disabled={idx === steps.length - 1}
-                    className="flex-shrink-0"
-                    title="Sposta in basso"
-                  >
-                    <ArrowDown className="w-4 h-4" />
+                    ✕
                   </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => removeStep(step.id)}
-                  className="flex-shrink-0"
-                >
-                  ✕
-                </Button>
+                {step.section && (
+                  <div className="ml-10 text-xs text-gray-500 italic">
+                    Questo step sarà raggruppato nella sezione "{step.section}"
+                  </div>
+                )}
               </div>
-              {step.section && (
-                <div className="ml-10 text-xs text-gray-500 italic">
-                  Questo step sarà raggruppato nella sezione "{step.section}"
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
