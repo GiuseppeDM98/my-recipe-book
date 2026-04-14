@@ -40,7 +40,7 @@ export default function RecipePage() {
   }, [id, user]);
 
   const handleDelete = async () => {
-    if (window.confirm('Sei sicuro di voler eliminare questa ricetta?')) {
+    if (window.confirm('Sei sicuro di voler eliminare questa ricetta? Le cotture già concluse resteranno nello storico statistiche.')) {
       try {
         await deleteRecipe(id as string);
         router.push('/ricette');

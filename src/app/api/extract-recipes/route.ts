@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
+import { buildFamilyContextPrompt, validateFamilyContextUsage } from '@/lib/utils/family-context';
+import { FamilyProfile } from '@/types';
 
 /**
  * PDF Recipe Extraction API
@@ -296,6 +298,8 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const userCategoriesJson = formData.get('userCategories') as string;
+    const useFamilyContext = formData.get('useFamilyContext') === 'true';
+    const familyProfileJson = formData.get('familyProfile') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -303,6 +307,25 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    let familyProfile: FamilyProfile | null = null;
+    if (familyProfileJson) {
+      try {
+        familyProfile = JSON.parse(familyProfileJson) as FamilyProfile;
+      } catch (e) {
+        console.error('Error parsing family profile:', e);
+      }
+    }
+
+    const familyContextError = validateFamilyContextUsage(useFamilyContext, familyProfile);
+    if (familyContextError) {
+      return NextResponse.json(
+        { error: familyContextError },
+        { status: 400 }
+      );
+    }
+
+    const familyPromptContext = buildFamilyContextPrompt(familyProfile, useFamilyContext);
 
     // Parse user categories if provided
     let userCategories: { name: string }[] = [];
@@ -361,7 +384,7 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: EXTRACTION_PROMPT,
+              text: `${familyPromptContext}${EXTRACTION_PROMPT}`,
             },
           ],
         },

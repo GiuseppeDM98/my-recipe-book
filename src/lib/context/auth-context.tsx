@@ -11,11 +11,12 @@ import {
   signOut as firebaseSignOut,
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { User } from '@/types';
 import { initializeDefaultCategories } from '../firebase/categories';
 import { Spinner } from '@/components/ui/spinner';
+import { ensureUserProfileDocument } from '../firebase/user-profile';
 
 /**
  * Authentication Context Provider
@@ -86,10 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             photoURL: firebaseUser.photoURL,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
           };
-          await setDoc(userRef, newUserDoc);
+          await ensureUserProfileDocument(firebaseUser.uid, newUserDoc);
 
           // Initialize default categories for the new user
           // This ensures every user starts with standard Italian cuisine categories

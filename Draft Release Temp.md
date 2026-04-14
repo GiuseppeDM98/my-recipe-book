@@ -16,6 +16,7 @@
 - Added week-to-week planner navigation, including empty weeks that open a pre-filled setup screen
 - Added saved-week shortcuts during planner setup to reopen existing plans faster
 - Added a self-hosted Docker deployment option alongside Vercel
+- Added a dedicated Family Profile page to save household members and notes for AI-assisted planning
 
 ## 🐛 Bug Fixes
 
@@ -27,6 +28,7 @@
 - Fixed meal plans not restoring on page reload when the required Firestore index was missing
 - Fixed self-hosted Docker Compose startup failing on installations without a `public` assets folder
 - Fixed weekly planner navigation sometimes opening the wrong week or suggesting a new plan for an already saved week
+- Fixed recipe deletion messaging so it now clearly explains that completed cooking history stays available in Statistics
 
 ## 🔧 Improvements
 
@@ -43,6 +45,8 @@
 - Improved planner actions by clearly separating "New plan" from "Delete plan"
 - Improved planner recovery when browsing weeks without a saved plan
 - Improved self-hosted setup with a documented fallback for installations that do not want Google sign-in
+- Improved AI recipe suggestions so they can optionally take your household composition into account for more suitable quantities
+- Improved the AI Assistant by keeping PDF upload focused on pure extraction, without household-based quantity adjustments
 
 ## 🔒 Security
 

@@ -140,7 +140,8 @@ export async function updateRecipe(recipeId: string, updates: Partial<Recipe>): 
  * Firestore security rules provide the final authorization layer.
  *
  * Related Data: Does NOT cascade delete. Related cooking sessions must be
- * cleaned up separately (see AGENTS.md for cooking session lifecycle).
+ * cleaned up separately, and historical completions in cooking_history are
+ * intentionally preserved as append-only analytics snapshots.
  */
 export async function deleteRecipe(recipeId: string): Promise<void> {
   const recipeRef = doc(db, 'recipes', recipeId);

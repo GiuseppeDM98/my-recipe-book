@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { parseExtractedRecipes } from '@/lib/utils/recipe-parser';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
 import { MealPlanSetupConfig, MealSlot, MealType } from '@/types';
+import { resolveFamilyContextInput } from '@/lib/api/family-context';
 
 /**
  * AI Meal Plan API
@@ -116,7 +117,8 @@ function buildPlanningMessage(
   config: MealPlanSetupConfig,
   existingRecipes: { id: string; title: string; categoryId?: string; seasons?: string[]; ingredientCount: number }[],
   categories: { id: string; name: string }[],
-  weekLabel: string
+  weekLabel: string,
+  familyPromptContext: string
 ): string {
   const categoryMap = new Map(categories.map(c => [c.id, c.name]));
 
@@ -156,7 +158,7 @@ function buildPlanningMessage(
     ? `Genera ricette nuove (type="new") distribuite così:\n${newRecipeLines}\n  (totale: ${config.newRecipeCount})`
     : `Genera esattamente ${config.newRecipeCount} ricette nuove (type="new")`;
 
-  return `Crea un piano pasti per la settimana: ${weekLabel}
+  return `${familyPromptContext}Crea un piano pasti per la settimana: ${weekLabel}
 
 PARAMETRI:
 - Stagione: ${config.season}
@@ -320,10 +322,18 @@ export async function POST(request: NextRequest) {
       existingRecipes: { id: string; title: string; categoryId?: string; seasons?: string[]; ingredientCount: number }[];
       categories: { id: string; name: string }[];
     };
+    const familyContext = resolveFamilyContextInput(body);
 
     if (!config || !config.activeMealTypes || config.activeMealTypes.length === 0) {
       return NextResponse.json(
         { error: 'Configurazione piano non valida: seleziona almeno un tipo di pasto' },
+        { status: 400 }
+      );
+    }
+
+    if (familyContext.validationError) {
+      return NextResponse.json(
+        { error: familyContext.validationError },
         { status: 400 }
       );
     }
@@ -341,7 +351,13 @@ export async function POST(request: NextRequest) {
     weekEnd.setDate(weekStart.getDate() + 6);
     const weekLabel = `${DAY_LABELS[0]} ${weekStart.getDate()} – ${DAY_LABELS[6]} ${weekEnd.getDate()} ${weekEnd.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}`;
 
-    const userMessage = buildPlanningMessage(config, filteredRecipes, categories ?? [], weekLabel);
+    const userMessage = buildPlanningMessage(
+      config,
+      filteredRecipes,
+      categories ?? [],
+      weekLabel,
+      familyContext.promptContext
+    );
     const existingRecipeIds = new Set(filteredRecipes.map(r => r.id));
 
     const anthropic = new Anthropic({ apiKey });
