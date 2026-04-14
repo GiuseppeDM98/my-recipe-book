@@ -197,7 +197,7 @@ export default function RecipeExtractorPage() {
 
       const response = await fetch('/api/extract-recipes', {
         method: 'POST',
-        headers: await getFirebaseAuthHeader(),
+        headers: await getFirebaseAuthHeader({ forceRefresh: true }),
         body: formData,
       });
 
@@ -253,7 +253,7 @@ export default function RecipeExtractorPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(await getFirebaseAuthHeader()),
+          ...(await getFirebaseAuthHeader({ forceRefresh: true })),
         },
         body: JSON.stringify({
           text,

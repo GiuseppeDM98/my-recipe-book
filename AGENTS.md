@@ -16,7 +16,9 @@
 | Cooking history | Statistiche vuote se si esce senza CTA finale | Registrare completamento solo da `Termina cottura` |
 | Quantity format | Frazioni confuse (`1 1/2`) | Decimali (`1,5`) |
 | useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` di sync |
-| AI route auth | Chiamate AI senza bearer token rispondono `401` | Inviare sempre `Authorization: Bearer <idToken>` |
+| AI route auth | Route AI protette falliscono con `401` | Inviare sempre `Authorization: Bearer <idToken>` con token aggiornato |
+| Firebase Admin env | AI route protette falliscono anche con utente loggato | Configurare credenziali Firebase Admin lato server, non bastano le `NEXT_PUBLIC_FIREBASE_*` |
+| Firebase Admin base64 | `FIREBASE_ADMIN_CREDENTIALS_BASE64` sembra valida ma il bootstrap fallisce | Il JSON service account usa chiavi snake_case (`project_id`, `client_email`, `private_key`) |
 | Docker env | `docker compose` non legge `.env.local` | Usare `docker compose --env-file .env.local ...` |
 | Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
 | Dynamic step quantities | Quantita' negli step restano statiche o finiscono disallineate | Usare token `{{qty:ingredientId}}` risolti a runtime |
@@ -233,7 +235,7 @@ Motivo:
 Tutte le route AI richiedono auth Firebase lato server.
 
 ```ts
-const idToken = await auth.currentUser?.getIdToken();
+const idToken = await auth.currentUser?.getIdToken(true);
 fetch('/api/format-recipe', {
   method: 'POST',
   headers: {
@@ -242,6 +244,13 @@ fetch('/api/format-recipe', {
   },
 });
 ```
+
+Gotcha che costa debug:
+- le `NEXT_PUBLIC_FIREBASE_*` bastano per il client, NON per la verifica server-side
+- in locale puoi usare `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY`
+- su Vercel e' piu' robusto `FIREBASE_ADMIN_CREDENTIALS_BASE64`
+- se sono presenti entrambe, il codice usa prima `FIREBASE_ADMIN_CREDENTIALS_BASE64`
+- il JSON Firebase Admin reale usa snake_case (`project_id`, `client_email`, `private_key`)
 
 ### File Limit
 

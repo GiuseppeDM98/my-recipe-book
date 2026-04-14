@@ -470,7 +470,7 @@ export async function getAISuggestionForRecipe(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(await getFirebaseAuthHeader()),
+        ...(await getFirebaseAuthHeader({ forceRefresh: true })),
       },
       body: JSON.stringify({
         recipeTitle,

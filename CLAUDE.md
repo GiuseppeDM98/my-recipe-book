@@ -115,8 +115,10 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ### Deployment and Security Hardening (Apr 2026)
 - **Docker Compose path documented**: self-hosted deployment now has build/run/log workflows in docs
 - **Protected AI routes**: all AI endpoints verify Firebase ID tokens server-side
-- **Shared client auth headers**: AI requests attach `Authorization: Bearer <idToken>`
+- **Shared client auth headers**: AI requests attach `Authorization: Bearer <idToken>` and now force a fresh token for protected AI calls
 - **Firebase Admin runtime support**: Docker/self-hosted deployments can verify tokens via `FIREBASE_ADMIN_CREDENTIALS_BASE64` or split fallback env vars
+- **Robust Firebase Admin bootstrap**: service-account base64 parsing now supports Firebase's real snake_case JSON keys and reuses a deterministic admin app name
+- **Production requirement**: Vercel deploys need Firebase Admin credentials too, not just `NEXT_PUBLIC_FIREBASE_*`
 - **Storage rules tightened**: Firebase Storage access is scoped to user-owned recipe paths
 - **Dependency refresh**: project updated and verified on Next.js 16.2.3; `npm audit fix` removed all non-low vulnerabilities currently auto-fixable without unsafe downgrades
 
@@ -132,6 +134,11 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 | `FIREBASE_ADMIN_PROJECT_ID` | Server only | Admin fallback |
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Server only | Admin fallback |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Server only | Admin fallback |
+
+Notes:
+- All protected AI routes require Firebase Admin credentials at runtime for token verification.
+- On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64`.
+- For local development, the split `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` setup is usually easier to manage.
 
 ---
 

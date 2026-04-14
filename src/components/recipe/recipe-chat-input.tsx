@@ -139,7 +139,7 @@ export function RecipeChatInput({ onRecipesExtracted, disabled, existingRecipes 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(await getFirebaseAuthHeader()),
+          ...(await getFirebaseAuthHeader({ forceRefresh: true })),
         },
         body: JSON.stringify({
           message: userApiContent,

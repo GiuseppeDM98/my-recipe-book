@@ -19,6 +19,7 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed AI Assistant requests failing with unauthorized errors after the new protected AI authentication checks
 - Fixed cooking sessions closing automatically as soon as all ingredients and steps were checked
 - Fixed ingredient quantities not updating when changing the number of servings for recipes added via the free-text AI flow
 - Fixed preparation and cooking times showing as N/A for some PDF-extracted recipes
@@ -57,6 +58,7 @@
 - Added deployment guidance explaining which environment variables are required at build time versus runtime
 - Added the main Docker Compose workflows for self-hosted users, including build, start, stop, and log commands
 - Added setup guidance for Firebase Admin credentials required by protected AI routes in self-hosted deployments
+- Added clearer setup guidance for Firebase Admin credentials in local development and Vercel deployments
 
 ## 🏗️ Technical
 
