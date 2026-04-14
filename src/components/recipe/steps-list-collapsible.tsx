@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Step } from '@/types';
+import { Ingredient, Step } from '@/types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { renderStepDescription } from '@/lib/utils/step-description';
 
 /**
  * StepsListCollapsible - Step viewer with global numbering across sections
@@ -24,6 +25,9 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 
 interface StepsListCollapsibleProps {
   steps: Step[];
+  ingredients?: Ingredient[];
+  originalServings?: number;
+  targetServings?: number;
   defaultExpanded?: boolean;
   interactive?: boolean;
   checkedSteps?: string[];
@@ -37,6 +41,9 @@ interface GroupedSteps {
 
 export function StepsListCollapsible({
   steps,
+  ingredients = [],
+  originalServings = 0,
+  targetServings = 0,
   defaultExpanded = false,
   interactive = false,
   checkedSteps = [],
@@ -118,7 +125,7 @@ export function StepsListCollapsible({
 
   return (
     <div className="space-y-4">
-      {groupedSteps.map((group, groupIndex) => {
+      {groupedSteps.map((group) => {
         const sectionKey = group.section || 'no-section';
         const isExpanded = expandedSections.has(sectionKey);
         const hasSection = group.section !== null;
@@ -130,6 +137,12 @@ export function StepsListCollapsible({
               {group.steps.map((step) => {
                 globalStepNumber++;
                 const isChecked = checkedSteps.includes(step.id);
+                const resolvedDescription = renderStepDescription(
+                  step,
+                  ingredients,
+                  originalServings,
+                  targetServings
+                );
                 return (
                   <div
                     key={step.id}
@@ -149,7 +162,7 @@ export function StepsListCollapsible({
                     </div>
                     <div className={`flex-1 ${isChecked && interactive ? 'opacity-50' : ''}`}>
                       {(() => {
-                        const lines = step.description.split('\n').filter(line => line.trim());
+                        const lines = resolvedDescription.split('\n').filter(line => line.trim());
                         if (lines.length === 0) return null;
 
                         if (lines.length === 1) {
@@ -206,6 +219,12 @@ export function StepsListCollapsible({
                 {group.steps.map((step) => {
                   globalStepNumber++;
                   const isChecked = checkedSteps.includes(step.id);
+                  const resolvedDescription = renderStepDescription(
+                    step,
+                    ingredients,
+                    originalServings,
+                    targetServings
+                  );
                   return (
                     <div
                       key={step.id}
@@ -225,7 +244,7 @@ export function StepsListCollapsible({
                       </div>
                       <div className={`flex-1 ${isChecked && interactive ? 'opacity-50' : ''}`}>
                         {(() => {
-                          const lines = step.description.split('\n').filter(line => line.trim());
+                          const lines = resolvedDescription.split('\n').filter(line => line.trim());
                           if (lines.length === 0) return null;
 
                           if (lines.length === 1) {

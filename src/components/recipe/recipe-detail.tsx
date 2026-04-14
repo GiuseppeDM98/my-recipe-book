@@ -10,6 +10,8 @@ interface RecipeDetailProps {
 }
 
 export function RecipeDetail({ recipe }: RecipeDetailProps) {
+  const originalServings = recipe.servings || 4;
+
   /**
    * Determine which seasons to display.
    *
@@ -67,7 +69,13 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
         </div>
         <div className="lg:col-span-2">
           <h2 className="text-2xl font-semibold mb-4">Preparazione</h2>
-          <StepsListCollapsible steps={recipe.steps} defaultExpanded={false} />
+          <StepsListCollapsible
+            steps={recipe.steps}
+            ingredients={recipe.ingredients}
+            originalServings={originalServings}
+            targetServings={originalServings}
+            defaultExpanded={false}
+          />
         </div>
       </div>
 

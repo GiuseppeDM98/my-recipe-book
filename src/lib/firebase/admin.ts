@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
+import { App, cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { DecodedIdToken, getAuth } from 'firebase-admin/auth';
 
 interface FirebaseAdminCredentialShape {
@@ -9,11 +9,27 @@ interface FirebaseAdminCredentialShape {
   privateKey: string;
 }
 
+interface FirebaseAdminServiceAccountJson {
+  project_id?: string;
+  client_email?: string;
+  private_key?: string;
+  projectId?: string;
+  clientEmail?: string;
+  privateKey?: string;
+}
+
 let adminApp: App | null = null;
+const FIREBASE_ADMIN_APP_NAME = 'my-recipe-book-admin';
 
 function decodeBase64Credential(encoded: string): FirebaseAdminCredentialShape {
   const json = Buffer.from(encoded, 'base64').toString('utf-8');
-  return JSON.parse(json) as FirebaseAdminCredentialShape;
+  const decoded = JSON.parse(json) as FirebaseAdminServiceAccountJson;
+
+  return {
+    projectId: decoded.projectId ?? decoded.project_id ?? '',
+    clientEmail: decoded.clientEmail ?? decoded.client_email ?? '',
+    privateKey: decoded.privateKey ?? decoded.private_key ?? '',
+  };
 }
 
 function normalizePrivateKey(privateKey: string): string {
@@ -25,6 +41,13 @@ function getFirebaseAdminCredential(): FirebaseAdminCredentialShape {
 
   if (encodedCredentials) {
     const decoded = decodeBase64Credential(encodedCredentials);
+
+    if (!decoded.projectId || !decoded.clientEmail || !decoded.privateKey) {
+      throw new Error(
+        'FIREBASE_ADMIN_CREDENTIALS_BASE64 is missing one of: project_id, client_email, private_key.'
+      );
+    }
+
     return {
       projectId: decoded.projectId,
       clientEmail: decoded.clientEmail,
@@ -54,15 +77,16 @@ export function getFirebaseAdminApp(): App {
     return adminApp;
   }
 
-  if (getApps().length > 0) {
-    adminApp = getApps()[0]!;
+  if (getApps().some((app) => app.name === FIREBASE_ADMIN_APP_NAME)) {
+    adminApp = getApp(FIREBASE_ADMIN_APP_NAME);
     return adminApp;
   }
 
   const credential = getFirebaseAdminCredential();
   adminApp = initializeApp({
     credential: cert(credential),
-  });
+    projectId: credential.projectId,
+  }, FIREBASE_ADMIN_APP_NAME);
 
   return adminApp;
 }

@@ -1,10 +1,19 @@
-import { Step } from '@/types';
+import { Ingredient, Step } from '@/types';
+import { renderStepDescription } from '@/lib/utils/step-description';
 
 interface StepsListProps {
   steps: Step[];
+  ingredients?: Ingredient[];
+  originalServings?: number;
+  targetServings?: number;
 }
 
-export function StepsList({ steps }: StepsListProps) {
+export function StepsList({
+  steps,
+  ingredients = [],
+  originalServings = 0,
+  targetServings = 0,
+}: StepsListProps) {
   return (
     <ol className="space-y-4">
       {steps.map((step, index) => (
@@ -14,7 +23,13 @@ export function StepsList({ steps }: StepsListProps) {
           </div>
           <div className="flex-1">
             {(() => {
-              const lines = step.description.split('\n').filter(line => line.trim());
+              const resolvedDescription = renderStepDescription(
+                step,
+                ingredients,
+                originalServings,
+                targetServings
+              );
+              const lines = resolvedDescription.split('\n').filter(line => line.trim());
               if (lines.length === 0) return null;
 
               if (lines.length === 1) {

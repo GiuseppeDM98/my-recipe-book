@@ -94,6 +94,13 @@ Usa ESATTAMENTE questa struttura per ogni ricetta nuova:
 
 REGOLE GENERALI:
 - Ingredienti nel formato "nome, quantità" (es: "Pasta, 200 g", "Sale, q.b.")
+- Prefix ogni ingrediente con un riferimento progressivo globale nel formato [ING:n]
+- Esempio corretto ingrediente: "[ING:1] Pasta, 200 g"
+- Se uno step cita la quantità di un ingrediente, usa [QTY:n] invece del numero
+- Esempio corretto step: "Cuoci [QTY:1] di pasta in acqua bollente"
+- Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
+- Ogni step deve descrivere UNA sola azione principale o un solo riferimento quantità principale
+- Se una frase contiene due quantità distinte o due trasformazioni diverse, spezzala in due step separati
 - NON usare mai asterischi (**testo**, *testo*) negli ingredienti o nel procedimento
 - Usa unità metriche italiane (g, kg, ml, l, cucchiai, cucchiaini)
 - Usa decimali con virgola: 1,5 kg (NON 1.5 kg)

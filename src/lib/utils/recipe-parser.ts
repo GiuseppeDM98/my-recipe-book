@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Ingredient, Step, AISuggestion } from '@/types';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
+import { createStepQuantityToken } from './step-description';
 
 export interface ParsedRecipe {
   title: string;
@@ -66,6 +67,7 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
   let stepOrder = 1;
   let sectionOrder = 0;
   let currentSectionOrder = 0;
+  const ingredientReferenceMap = new Map<string, string>();
 
   for (let i = titleIndex + 1; i < lines.length; i++) {
     const line = lines[i];
@@ -132,9 +134,13 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
 
       // Parse ingredient line (format: "Name, quantity" or "Name quantity")
       // Common patterns: "Farina 500 g", "Sale q.b.", "Olio EVO"
-      const ingredient = parseIngredientLine(line, currentIngredientSection);
-      if (ingredient) {
-        ingredients.push(ingredient);
+      const parsedIngredient = parseIngredientLine(line, currentIngredientSection);
+      if (parsedIngredient) {
+        ingredients.push(parsedIngredient.ingredient);
+
+        if (parsedIngredient.aiReference) {
+          ingredientReferenceMap.set(parsedIngredient.aiReference, parsedIngredient.ingredient.id);
+        }
       }
     }
 
@@ -177,11 +183,15 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
     steps,
     notes.trim()
   );
+  const stepsWithDynamicQuantityTokens = cleanedSteps.map(step => ({
+    ...step,
+    description: replaceAiQuantityReferences(step.description, ingredientReferenceMap),
+  }));
 
   return {
     title,
     ingredients,
-    steps: cleanedSteps,
+    steps: stepsWithDynamicQuantityTokens,
     servings,
     prepTime,
     cookTime,
@@ -192,21 +202,33 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
 /**
  * Parse ingredient line into structured format
  */
-function parseIngredientLine(line: string, section: string | null): Ingredient | null {
+function parseIngredientLine(
+  line: string,
+  section: string | null
+): { ingredient: Ingredient; aiReference: string | null } | null {
   // Remove leading bullets/dashes and strip markdown formatting
   line = stripMarkdown(line.replace(/^[-•]\s*/, '').trim());
 
   if (!line || line.length < 2) return null;
+
+  const aiReferenceMatch = line.match(/^\[ING:(\d+)\]\s*/i);
+  const aiReference = aiReferenceMatch ? aiReferenceMatch[1] : null;
+  if (aiReferenceMatch) {
+    line = line.replace(/^\[ING:(\d+)\]\s*/i, '').trim();
+  }
 
   // Strategy 1: comma split — "Pasta, 200 g" (preferred output from format-recipe prompt)
   let parts = line.split(',').map(p => p.trim());
 
   if (parts.length >= 2) {
     return {
-      id: uuidv4(),
-      name: parts[0],
-      quantity: parts.slice(1).join(', '),
-      section: section || null,
+      ingredient: {
+        id: uuidv4(),
+        name: parts[0],
+        quantity: parts.slice(1).join(', '),
+        section: section || null,
+      },
+      aiReference,
     };
   }
 
@@ -214,10 +236,13 @@ function parseIngredientLine(line: string, section: string | null): Ingredient |
   const colonParts = line.split(':').map(p => p.trim());
   if (colonParts.length === 2 && colonParts[0] && colonParts[1]) {
     return {
-      id: uuidv4(),
-      name: colonParts[0],
-      quantity: colonParts[1],
-      section: section || null,
+      ingredient: {
+        id: uuidv4(),
+        name: colonParts[0],
+        quantity: colonParts[1],
+        section: section || null,
+      },
+      aiReference,
     };
   }
 
@@ -228,10 +253,13 @@ function parseIngredientLine(line: string, section: string | null): Ingredient |
   );
   if (qtyFirstMatch) {
     return {
-      id: uuidv4(),
-      name: qtyFirstMatch[2].trim(),
-      quantity: qtyFirstMatch[1].trim(),
-      section: section || null,
+      ingredient: {
+        id: uuidv4(),
+        name: qtyFirstMatch[2].trim(),
+        quantity: qtyFirstMatch[1].trim(),
+        section: section || null,
+      },
+      aiReference,
     };
   }
 
@@ -241,20 +269,43 @@ function parseIngredientLine(line: string, section: string | null): Ingredient |
 
   if (quantityMatch) {
     return {
-      id: uuidv4(),
-      name: quantityMatch[1].trim(),
-      quantity: quantityMatch[2].trim(),
-      section: section || null,
+      ingredient: {
+        id: uuidv4(),
+        name: quantityMatch[1].trim(),
+        quantity: quantityMatch[2].trim(),
+        section: section || null,
+      },
+      aiReference,
     };
   }
 
   // No quantity found, treat whole line as name with empty quantity
   return {
-    id: uuidv4(),
-    name: line,
-    quantity: '',
-    section: section || null,
+    ingredient: {
+      id: uuidv4(),
+      name: line,
+      quantity: '',
+      section: section || null,
+    },
+    aiReference,
   };
+}
+
+/**
+ * Convert AI step references like [QTY:3] into internal dynamic quantity tokens.
+ *
+ * The AI never knows the final Ingredient.id because ids are generated locally
+ * during parsing. We bridge that gap by asking the model for stable ordinal
+ * references, then rewrite them here once the ingredient ids exist.
+ */
+function replaceAiQuantityReferences(
+  description: string,
+  ingredientReferenceMap: Map<string, string>
+): string {
+  return description.replace(/\[QTY:(\d+)\]/gi, (match, referenceKey: string) => {
+    const ingredientId = ingredientReferenceMap.get(referenceKey);
+    return ingredientId ? createStepQuantityToken(ingredientId) : match;
+  });
 }
 
 /**
@@ -419,7 +470,7 @@ export async function getAISuggestionForRecipe(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(await getFirebaseAuthHeader()),
+        ...(await getFirebaseAuthHeader({ forceRefresh: true })),
       },
       body: JSON.stringify({
         recipeTitle,

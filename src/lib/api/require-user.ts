@@ -40,7 +40,11 @@ export async function requireAuthenticatedUser(
   try {
     const decodedToken = await verifyFirebaseIdToken(token);
     return { uid: decodedToken.uid, response: null };
-  } catch {
+  } catch (error) {
+    console.error('Firebase token verification failed', {
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return {
       uid: null,
       response: NextResponse.json(

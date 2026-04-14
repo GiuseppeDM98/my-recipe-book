@@ -69,6 +69,8 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 ### 2. INGREDIENTI
 - Struttura ogni ingrediente come: nome, quantità con unità di misura
 - Esempio: "Pasta, 200 g", "Aglio, 2 spicchi", "Sale, q.b."
+- Prefix ogni ingrediente con un riferimento progressivo globale nel formato [ING:n]
+- Esempio corretto ingrediente: "[ING:1] Pasta, 200 g"
 - Se l'utente non ha indicato quantità, usa giudizio culinario ragionevole o scrivi "q.b."
 - Usa le unità metriche italiane (g, kg, ml, l, cucchiai, cucchiaini)
 - Usa decimali con virgola: 1,5 kg (NON 1.5 kg)
@@ -77,9 +79,14 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 ### 3. PROCEDIMENTO
 - Usa elenco puntato (trattino -)
 - Ogni step deve essere un'azione concreta
+- Ogni step deve descrivere UNA sola azione principale o un solo riferimento quantità principale
+- Se una frase contiene due quantità distinte o due trasformazioni diverse, spezzala in due step separati
 - Includi temperature, tempistiche e dettagli tecnici
 - Mantieni l'ordine cronologico logico
 - Se il testo originale è vago, espandi con dettagli culinari ragionevoli e corretti
+- Se uno step cita la quantità di un ingrediente, usa il riferimento [QTY:n] invece del numero
+- Esempio corretto step: "Unisci [QTY:1] di pasta e mescola"
+- Usa [QTY:n] solo quando il collegamento con l'ingrediente è chiaro e diretto
 
 ### 4. SEZIONI MULTIPLE
 - Se la ricetta ha componenti distinti (es: pasta fresca + ragù + besciamella), crea sezioni separate

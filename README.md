@@ -83,6 +83,7 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Progress Tracking**: Visual progress bar shows completion percentage
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
+- **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
 - **Manual Finish Flow**: When all ingredients and steps are completed, the app invites you to finish the cooking session explicitly
 
@@ -124,6 +125,7 @@ Three ways to get recipes in — all powered by Claude AI:
 
 **All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
+- **Dynamic Quantity References for AI Recipes**: Newly AI-generated recipes can link step quantities to ingredient scaling automatically
 - **Intelligent Categorization**: AI suggests appropriate categories (using existing ones or proposing new ones)
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
 - **Smart Normalization**: Converts times to minutes, capitalizes section headers, standardizes formatting
@@ -197,7 +199,7 @@ npm install
 
 # 3. Configure environment variables
 cp .env.example .env.local
-# Edit .env.local with your Firebase config and Anthropic API key
+# Edit .env.local with your Firebase config, Firebase Admin credentials, and Anthropic API key
 
 # 4. Run the development server
 npm run dev
@@ -394,6 +396,7 @@ NEXT_PUBLIC_REGISTRATIONS_ENABLED=true
 - Variables with `NEXT_PUBLIC_` prefix are exposed to the browser
 - `ANTHROPIC_API_KEY` does NOT have this prefix—it's server-only for security
 - Firebase Admin credentials are server-only and must never use the `NEXT_PUBLIC_` prefix
+- Protected AI routes verify Firebase ID tokens server-side, so deploys need Firebase Admin credentials in addition to the public Firebase web config
 
 ### Step 8: Run the Application
 
@@ -1127,9 +1130,14 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 **Quick Deploy Steps**:
 1. Push code to GitHub
 2. Import project in [Vercel Dashboard](https://vercel.com/dashboard)
-3. Add environment variables (Firebase + Anthropic)
+3. Add environment variables (`NEXT_PUBLIC_FIREBASE_*`, `ANTHROPIC_API_KEY`, and Firebase Admin credentials)
 4. Deploy
 5. Add Vercel domain to Firebase authorized domains
+
+**Production auth note**:
+- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/plan-meals` all verify Firebase ID tokens server-side
+- `NEXT_PUBLIC_FIREBASE_*` alone are not enough for those endpoints
+- On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64` to avoid multiline private key formatting issues
 
 **Full guide**: [SETUP.md](SETUP.md)
 
@@ -1767,6 +1775,26 @@ FirebaseError: Missing or insufficient permissions
 1. Try smaller PDF first (1-2 pages)
 2. Check Vercel function logs for errors
 3. Increase function timeout (Vercel Pro only)
+
+---
+
+### AI Routes Return 401 Unauthorized
+
+**Symptom**:
+- `POST /api/chat-recipe` or another AI route returns `401`
+- Server logs mention missing Firebase Admin credentials or token verification failure
+
+**Cause**:
+- Protected AI routes verify Firebase ID tokens server-side
+- `NEXT_PUBLIC_FIREBASE_*` alone are not enough
+
+**Solution**:
+1. Configure Firebase Admin credentials in your runtime environment
+2. Use either:
+   - `FIREBASE_ADMIN_CREDENTIALS_BASE64`
+   - or `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY`
+3. Restart the development server or redeploy after changing environment variables
+4. On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64`
 
 ---
 
