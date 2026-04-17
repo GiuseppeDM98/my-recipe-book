@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, Send, Sparkles, ChefHat } from 'lucide-react';
-import { Ingredient, Season } from '@/types';
+import { FamilyProfile, Ingredient, Season } from '@/types';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
+import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 
 /**
  * RecipeChatInput - Conversational AI recipe generation interface
@@ -68,6 +69,8 @@ export interface RecipeChatInputProps {
   onRecipesExtracted: (markdown: string) => Promise<void>;
   disabled?: boolean;
   existingRecipes: { title: string; ingredients: Ingredient[]; seasons: Season[] }[];
+  useFamilyContext: boolean;
+  familyProfile: FamilyProfile | null;
 }
 
 /**
@@ -77,7 +80,13 @@ export interface RecipeChatInputProps {
  * @param disabled - Blocks submit (e.g. test account)
  * @param existingRecipes - User's current cookbook, passed as context on first message
  */
-export function RecipeChatInput({ onRecipesExtracted, disabled, existingRecipes }: RecipeChatInputProps) {
+export function RecipeChatInput({
+  onRecipesExtracted,
+  disabled,
+  existingRecipes,
+  useFamilyContext,
+  familyProfile,
+}: RecipeChatInputProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   // Full history stored for the API — includes raw Claude output with [RICETTE] blocks
   const [apiHistory, setApiHistory] = useState<ApiHistoryMessage[]>([]);
@@ -135,6 +144,11 @@ export function RecipeChatInput({ onRecipesExtracted, disabled, existingRecipes 
     const userApiContent = contextPrefix + text;
 
     try {
+      const familyContextError = validateFamilyContextUsage(useFamilyContext, familyProfile);
+      if (familyContextError) {
+        throw new Error(familyContextError);
+      }
+
       const response = await fetch('/api/chat-recipe', {
         method: 'POST',
         headers: {
@@ -144,6 +158,8 @@ export function RecipeChatInput({ onRecipesExtracted, disabled, existingRecipes 
         body: JSON.stringify({
           message: userApiContent,
           conversationHistory: apiHistory,
+          useFamilyContext,
+          familyProfile,
         }),
       });
 
@@ -180,7 +196,7 @@ export function RecipeChatInput({ onRecipesExtracted, disabled, existingRecipes 
       console.error('Chat recipe error:', err);
       setMessages((prev) => [...prev, {
         role: 'assistant',
-        content: 'Si è verificato un errore. Per favore riprova tra qualche secondo.',
+        content: err?.message || 'Si è verificato un errore. Per favore riprova tra qualche secondo.',
         hasRecipes: false,
       }]);
     } finally {

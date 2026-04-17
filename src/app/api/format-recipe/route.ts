@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
+import { resolveFamilyContextInput } from '@/lib/api/family-context';
 
 /**
  * Free-text Recipe Formatting API
@@ -147,10 +148,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { text, userCategories: userCategoriesRaw } = body;
+    const familyContext = resolveFamilyContextInput(body);
 
     if (!text || typeof text !== 'string' || text.trim().length < 20) {
       return NextResponse.json(
         { error: 'Il testo della ricetta è troppo corto o mancante' },
+        { status: 400 }
+      );
+    }
+
+    if (familyContext.validationError) {
+      return NextResponse.json(
+        { error: familyContext.validationError },
         { status: 400 }
       );
     }
@@ -171,7 +180,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `${FORMAT_RECIPE_PROMPT}\n\n---\n\nTESTO RICETTA DELL'UTENTE:\n\n${text.trim()}`,
+          content: `${FORMAT_RECIPE_PROMPT}\n\n---\n\n${familyContext.promptContext}TESTO RICETTA DELL'UTENTE:\n\n${text.trim()}`,
         },
       ],
     });

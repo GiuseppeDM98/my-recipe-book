@@ -19,6 +19,7 @@ Digital recipe book for home cooks with:
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation
 - cooking mode with active session tracking
 - weekly meal planning
+- family-aware AI quantity guidance via saved household profile
 - historical cooking statistics
 
 Privacy-first architecture: every user-owned document is isolated through Firebase ownership rules.
@@ -101,6 +102,13 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 - **Cleaner AI step structure**: AI prompts now explicitly prefer one main action or one main quantity reference per step
 - **Preset category colors**: category create/edit now uses a curated color palette instead of the browser color input
 
+### Family Profile and AI Context (Apr 2026)
+- **New page** `/profilo-famiglia`: users can save household members and optional notes in a dedicated profile page
+- **Persistent household profile**: family context is stored in `users/{uid}.familyProfile` and reused across supported AI flows
+- **Targeted AI usage**: the family profile can be enabled in free-text recipe formatting, AI chat, and the weekly planner
+- **Pure PDF extraction preserved**: the PDF upload tab no longer exposes family-context controls, keeping extraction faithful to the source document
+- **Safer history messaging**: recipe deletion now explicitly tells users that completed cooking history remains available in statistics
+
 ### Weekly Meal Planner (Mar-Apr 2026)
 - **New page** `/pianificatore`: 3-step flow (setup → generating → calendar)
 - **AI generation**: `POST /api/plan-meals` mixes cookbook recipes and optional new AI recipes
@@ -162,7 +170,7 @@ Notes:
 ## Database Collections
 
 ```
-users/{uid}             # User profiles
+users/{uid}             # User profiles + familyProfile
 recipes/{id}            # Recipes (user-owned)
 categories/{id}         # Recipe categories
 subcategories/{id}      # Category children

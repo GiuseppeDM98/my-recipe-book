@@ -23,6 +23,8 @@
 | Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
 | Dynamic step quantities | Quantita' negli step restano statiche o finiscono disallineate | Usare token `{{qty:ingredientId}}` risolti a runtime |
 | AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
+| Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
+| Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
 
 ---
 
@@ -86,6 +88,16 @@ Ogni documento utente deve avere `userId` e ogni query deve filtrarlo.
 ```ts
 query(collection(db, 'recipes'), where('userId', '==', userId))
 ```
+
+### User Profile Extensions
+
+Se aggiungi preferenze persistenti utente che non richiedono query dedicate, preferisci il documento esistente `users/{uid}` invece di aprire una nuova collection.
+
+Pattern corretto per il profilo famiglia:
+- storage: `users/{uid}.familyProfile`
+- campi: `members`, `notes`
+- campi opzionali persistiti: `null`, non `undefined`
+- nessun deploy rules necessario se non cambi il modello di permessi
 
 ### Cooking History
 
@@ -255,6 +267,16 @@ Gotcha che costa debug:
 ### File Limit
 
 Upload AI: max 4.4MB. Validare client-side.
+
+### Family Context Scope
+
+Il contesto famiglia serve per adattare quantità/porzioni, non per alterare input che devono restare fedeli alla sorgente.
+
+Pattern corretto:
+- `Chat AI`: SI'
+- `Testo libero`: SI'
+- `Pianificatore`: SI'
+- `Carica PDF`: NO, deve restare estrazione pura
 
 ### Model Consistency
 

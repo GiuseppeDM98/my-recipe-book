@@ -123,6 +123,11 @@ Three ways to get recipes in — all powered by Claude AI:
 - **Multi-turn**: Refine suggestions with follow-up messages ("make it lighter", "add more vegetables")
 - Generated recipes appear as preview cards, ready to save with one click
 
+**Family Profile for AI Quantities:**
+- **Dedicated profile page**: Save household members and optional notes in a dedicated Family Profile page
+- **More suitable quantities**: The AI can optionally use your household profile when generating or adapting recipes
+- **Applied only where it makes sense**: Family context is available in AI chat, free-text formatting, and the meal planner, but not in pure PDF extraction
+
 **All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
 - **Dynamic Quantity References for AI Recipes**: Newly AI-generated recipes can link step quantities to ingredient scaling automatically

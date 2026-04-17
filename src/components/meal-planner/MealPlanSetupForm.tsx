@@ -13,6 +13,7 @@ import {
   getWeekMonday,
 } from '@/lib/constants/seasons';
 import { cn } from '@/lib/utils/cn';
+import { FamilyContextToggle } from '@/components/family/family-context-toggle';
 
 interface MealPlanSetupFormProps {
   categories: Category[];
@@ -21,6 +22,9 @@ interface MealPlanSetupFormProps {
   isLoading: boolean;
   isTestAccount: boolean;
   initialWeekStartDate?: string;
+  useFamilyContext: boolean;
+  onUseFamilyContextChange: (checked: boolean) => void;
+  hasValidFamilyProfile: boolean;
 }
 
 const ALL_MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -45,6 +49,9 @@ export function MealPlanSetupForm({
   isLoading,
   isTestAccount,
   initialWeekStartDate,
+  useFamilyContext,
+  onUseFamilyContextChange,
+  hasValidFamilyProfile,
 }: MealPlanSetupFormProps) {
   const [season, setSeason] = useState<Exclude<Season, 'tutte_stagioni'>>(getCurrentSeason());
   const [activeMealTypes, setActiveMealTypes] = useState<MealType[]>(['pranzo', 'cena']);
@@ -194,6 +201,14 @@ export function MealPlanSetupForm({
           </div>
         </div>
       )}
+
+      <FamilyContextToggle
+        checked={useFamilyContext}
+        onChange={onUseFamilyContextChange}
+        disabled={isTestAccount || (!hasValidFamilyProfile && !useFamilyContext)}
+        hasValidProfile={hasValidFamilyProfile}
+        compact
+      />
 
       {/* Advanced options */}
       <button

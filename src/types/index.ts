@@ -28,8 +28,20 @@ export interface User {
   email: string;
   displayName: string | null;
   photoURL: string | null;
+  familyProfile?: FamilyProfile | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+export interface FamilyMember {
+  id: string;
+  age: number;
+  label?: string | null;
+}
+
+export interface FamilyProfile {
+  members: FamilyMember[];
+  notes?: string | null;
 }
 
 // ============================================

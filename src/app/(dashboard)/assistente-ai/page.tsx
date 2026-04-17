@@ -17,6 +17,10 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Category, Season } from '@/types';
+import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
+import { FamilyContextToggle } from '@/components/family/family-context-toggle';
+import { validateFamilyContextUsage } from '@/lib/utils/family-context';
+import Link from 'next/link';
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
@@ -49,6 +53,11 @@ export default function RecipeExtractorPage() {
   const [savedStates, setSavedStates] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [userCategories, setUserCategories] = useState<Category[]>([]);
+  const [useFamilyContextByMode, setUseFamilyContextByMode] = useState({
+    pdf: false,
+    text: false,
+    chat: false,
+  });
   // Track source type to set the correct recipe.source on save
   const [currentSourceType, setCurrentSourceType] = useState<'pdf' | 'manual' | 'chat'>('pdf');
 
@@ -60,6 +69,12 @@ export default function RecipeExtractorPage() {
   // - Users can still browse and test all other features
   // Real users have full AI access.
   const isTestAccount = user?.email === 'test@test.com';
+  const supportsFamilyContext = inputMode !== 'pdf';
+  const useFamilyContext = supportsFamilyContext ? useFamilyContextByMode[inputMode] : false;
+  const {
+    familyProfile,
+    hasValidProfile,
+  } = useFamilyProfile();
 
   // Load user categories on mount
   useEffect(() => {
@@ -75,6 +90,17 @@ export default function RecipeExtractorPage() {
     };
     loadCategories();
   }, [user]);
+
+  function validateFamilyToggle(): boolean {
+    const validationError = validateFamilyContextUsage(useFamilyContext, familyProfile);
+
+    if (validationError) {
+      toast.error(validationError);
+      return false;
+    }
+
+    return true;
+  }
 
   /**
    * Switches between input modes, clearing any previous results.
@@ -183,6 +209,10 @@ export default function RecipeExtractorPage() {
       return;
     }
 
+    if (!validateFamilyToggle()) {
+      return;
+    }
+
     setIsExtracting(true);
     setError(null);
     setExtractedRecipes([]);
@@ -194,6 +224,8 @@ export default function RecipeExtractorPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userCategories', JSON.stringify(userCategories.map(c => ({ name: c.name }))));
+      formData.append('useFamilyContext', JSON.stringify(useFamilyContext));
+      formData.append('familyProfile', JSON.stringify(familyProfile));
 
       const response = await fetch('/api/extract-recipes', {
         method: 'POST',
@@ -241,6 +273,10 @@ export default function RecipeExtractorPage() {
       return;
     }
 
+    if (!validateFamilyToggle()) {
+      return;
+    }
+
     setIsExtracting(true);
     setError(null);
     setExtractedRecipes([]);
@@ -258,6 +294,8 @@ export default function RecipeExtractorPage() {
         body: JSON.stringify({
           text,
           userCategories: userCategories.map(c => ({ name: c.name })),
+          useFamilyContext,
+          familyProfile,
         }),
       });
 
@@ -453,6 +491,27 @@ export default function RecipeExtractorPage() {
 
         {/* Input content */}
         <div className="p-6">
+          {supportsFamilyContext && (
+            <div className="mb-5">
+              <FamilyContextToggle
+                checked={useFamilyContext}
+                onChange={(checked) => setUseFamilyContextByMode((prev) => ({ ...prev, [inputMode]: checked }))}
+                disabled={isTestAccount || (!hasValidProfile && !useFamilyContext)}
+                hasValidProfile={hasValidProfile}
+              />
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3">
+                <p className="text-sm text-muted-foreground">
+                  {hasValidProfile
+                    ? 'Il profilo famiglia salvato è disponibile per questo flusso.'
+                    : 'Nessun profilo famiglia valido salvato.'}
+                </p>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/profilo-famiglia">Gestisci profilo</Link>
+                </Button>
+              </div>
+            </div>
+          )}
+
           {inputMode === 'pdf' ? (
             <RecipeExtractorUpload
               onFileSelected={handleFileSelected}
@@ -469,6 +528,8 @@ export default function RecipeExtractorPage() {
             <RecipeChatInput
               onRecipesExtracted={handleChatRecipesExtracted}
               disabled={isTestAccount}
+              useFamilyContext={useFamilyContext}
+              familyProfile={familyProfile}
               existingRecipes={existingRecipes.map((r) => ({
                 title: r.title,
                 ingredients: r.ingredients,

@@ -17,6 +17,9 @@ import { Category, MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season } f
 import { addWeeksToDateString, getCurrentWeekMonday } from '@/lib/constants/seasons';
 import { CalendarDays, Sparkles, PenLine, MousePointerClick, BookMarked } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
+import { validateFamilyContextUsage } from '@/lib/utils/family-context';
+import Link from 'next/link';
 
 /**
  * Meal Planner Page
@@ -55,6 +58,11 @@ export default function PianificatorePage() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [setupWeekStartDate, setSetupWeekStartDate] = useState(getCurrentWeekMonday());
   const [savedPlans, setSavedPlans] = useState<MealPlan[]>([]);
+  const [useFamilyContext, setUseFamilyContext] = useState(false);
+  const {
+    familyProfile,
+    hasValidProfile,
+  } = useFamilyProfile();
 
   // Recipe picker sheet state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -316,14 +324,36 @@ export default function PianificatorePage() {
 
           <MealPlanSetupForm
             categories={categories}
-            onGenerateWithAI={(config: MealPlanSetupConfig) =>
-              generatePlan(config, recipes, categories)
-            }
+            onGenerateWithAI={async (config: MealPlanSetupConfig) => {
+              const validationError = validateFamilyContextUsage(useFamilyContext, familyProfile);
+              if (validationError) {
+                toast.error(validationError);
+                return;
+              }
+
+              await generatePlan(config, recipes, categories, {
+                useFamilyContext,
+                familyProfile,
+              });
+            }}
             onCreateManual={(config: MealPlanSetupConfig) => createManualPlan(config)}
             isLoading={isGenerating}
             isTestAccount={isTestAccount}
             initialWeekStartDate={setupWeekStartDate}
+            useFamilyContext={useFamilyContext}
+            onUseFamilyContextChange={setUseFamilyContext}
+            hasValidFamilyProfile={hasValidProfile}
           />
+          <div className="rounded-xl border border-dashed px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {hasValidProfile
+                ? 'Il profilo famiglia salvato può essere usato nella generazione AI di questo piano.'
+                : 'Per usare il contesto famiglia nel piano AI devi prima configurare un profilo famiglia.'}
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/profilo-famiglia">Gestisci profilo</Link>
+            </Button>
+          </div>
         </div>
       )}
 

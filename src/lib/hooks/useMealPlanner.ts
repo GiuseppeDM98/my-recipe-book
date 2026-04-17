@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season, Recipe } from '@/types';
+import { FamilyProfile, MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season, Recipe } from '@/types';
 import {
   createMealPlan,
   updateMealPlanSlots,
@@ -38,7 +38,12 @@ interface UseMealPlannerReturn {
   currentPlan: MealPlan | null;
   isGenerating: boolean;
   error: string | null;
-  generatePlan: (config: MealPlanSetupConfig, existingRecipes: Recipe[], categories: { id: string; name: string }[]) => Promise<void>;
+  generatePlan: (
+    config: MealPlanSetupConfig,
+    existingRecipes: Recipe[],
+    categories: { id: string; name: string }[],
+    options?: { useFamilyContext?: boolean; familyProfile?: FamilyProfile | null }
+  ) => Promise<void>;
   createManualPlan: (config: MealPlanSetupConfig) => Promise<void>;
   updateSlot: (dayIndex: number, mealType: MealType, recipeId: string, title: string) => Promise<void>;
   clearSlot: (dayIndex: number, mealType: MealType) => Promise<void>;
@@ -96,7 +101,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
   const generatePlan = useCallback(async (
     config: MealPlanSetupConfig,
     existingRecipes: Recipe[],
-    categories: { id: string; name: string }[]
+    categories: { id: string; name: string }[],
+    options?: { useFamilyContext?: boolean; familyProfile?: FamilyProfile | null }
   ) => {
     if (!user) return;
 
@@ -120,7 +126,13 @@ export function useMealPlanner(): UseMealPlannerReturn {
           'Content-Type': 'application/json',
           ...(await getFirebaseAuthHeader({ forceRefresh: true })),
         },
-        body: JSON.stringify({ config, existingRecipes: recipeSummaries, categories }),
+        body: JSON.stringify({
+          config,
+          existingRecipes: recipeSummaries,
+          categories,
+          useFamilyContext: options?.useFamilyContext ?? false,
+          familyProfile: options?.familyProfile ?? null,
+        }),
       });
 
       const data = await response.json();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
+import { resolveFamilyContextInput } from '@/lib/api/family-context';
 
 /**
  * AI Recipe Chat API
@@ -183,10 +184,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { message, conversationHistory, existingRecipes } = body;
+    const familyContext = resolveFamilyContextInput(body);
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
         { error: 'Il messaggio non può essere vuoto' },
+        { status: 400 }
+      );
+    }
+
+    if (familyContext.validationError) {
+      return NextResponse.json(
+        { error: familyContext.validationError },
         { status: 400 }
       );
     }
@@ -197,7 +206,7 @@ export async function POST(request: NextRequest) {
     const recipeContext = isFirstMessage && Array.isArray(existingRecipes) && existingRecipes.length > 0
       ? buildExistingRecipesContext(existingRecipes)
       : '';
-    const userMessageContent = recipeContext + message.trim();
+    const userMessageContent = familyContext.promptContext + recipeContext + message.trim();
 
     // Cap conversation history to avoid runaway token costs.
     // 20 turns ≈ 10 back-and-forth exchanges, which is ample for a recipe chat session.
