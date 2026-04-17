@@ -1,65 +1,58 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getRecipe, deleteRecipe } from '@/lib/firebase/firestore';
-import { Recipe } from '@/types';
 import { RecipeDetail } from '@/components/recipe/recipe-detail';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { recipesQueryKey } from '@/lib/hooks/useRecipes';
 
 export default function RecipePage() {
   const { id } = useParams();
   const { user } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const recipeId = id as string;
 
-  useEffect(() => {
-    if (user && id) {
-      const fetchRecipe = async () => {
-        try {
-          const fetchedRecipe = await getRecipe(id as string, user.uid);
-          if (fetchedRecipe) {
-            setRecipe(fetchedRecipe);
-          } else {
-            setError('Ricetta non trovata o non autorizzata.');
-          }
-        } catch (err) {
-          setError('Errore nel caricamento della ricetta.');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchRecipe();
-    }
-  }, [id, user]);
+  const {
+    data: recipe,
+    isLoading,
+    error,
+  } = useQuery({
+    enabled: !!user && !!recipeId,
+    // Shared query key with the edit and cooking pages — navigating between
+    // them reuses the same cached document instead of making extra reads.
+    queryKey: ['recipe', recipeId, user?.uid ?? ''],
+    queryFn: () => getRecipe(recipeId, user!.uid),
+  });
 
   const handleDelete = async () => {
     if (window.confirm('Sei sicuro di voler eliminare questa ricetta? Le cotture già concluse resteranno nello storico statistiche.')) {
       try {
-        await deleteRecipe(id as string);
+        await deleteRecipe(recipeId);
+        // Invalidate the list so /ricette reflects the deletion immediately.
+        if (user) queryClient.invalidateQueries({ queryKey: recipesQueryKey(user.uid) });
         router.push('/ricette');
-      } catch (err) {
+      } catch {
         alert('Errore nell\'eliminazione della ricetta.');
       }
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return <div className="flex justify-center items-center h-full"><Spinner size="lg" /></div>;
   }
 
   if (error) {
-    return <p className="text-red-500">{error}</p>;
+    return <p className="text-red-500">Errore nel caricamento della ricetta.</p>;
   }
 
   if (!recipe) {
-    return <p>Ricetta non trovata.</p>;
+    return <p>Ricetta non trovata o non autorizzata.</p>;
   }
 
   return (

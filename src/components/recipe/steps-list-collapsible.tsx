@@ -32,11 +32,24 @@ interface StepsListCollapsibleProps {
   interactive?: boolean;
   checkedSteps?: string[];
   onToggleStep?: (stepId: string) => void;
+  /** Called when the user taps "Avvia timer" on a step with duration */
+  onStartTimer?: (stepId: string, durationSeconds: number) => void;
+  /** Restituisce true se il timer di questo step è attivo */
+  isTimerActive?: (stepId: string) => boolean;
+  /** Restituisce i secondi rimanenti per il timer di questo step */
+  getTimerSecondsLeft?: (stepId: string) => number;
 }
 
 interface GroupedSteps {
   section: string | null;
   steps: Step[];
+}
+
+/** Formats a seconds count as "MM:SS" for the inline timer display */
+function formatTimerSeconds(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
 export function StepsListCollapsible({
@@ -48,6 +61,9 @@ export function StepsListCollapsible({
   interactive = false,
   checkedSteps = [],
   onToggleStep,
+  onStartTimer,
+  isTimerActive,
+  getTimerSecondsLeft,
 }: StepsListCollapsibleProps) {
   // ========================================
   // Group steps by section and sort by original document order
@@ -181,9 +197,30 @@ export function StepsListCollapsible({
                         );
                       })()}
                       {step.duration && (
-                        <p className={`text-sm text-gray-500 mt-1 ${isChecked && interactive ? 'line-through' : ''}`}>
-                          Tempo: {step.duration} min
-                        </p>
+                        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                          {interactive && onStartTimer ? (
+                            isTimerActive?.(step.id) ? (
+                              // Timer attivo: mostra countdown inline
+                              <span className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-primary">
+                                ⏱ {formatTimerSeconds(getTimerSecondsLeft?.(step.id) ?? 0)}
+                              </span>
+                            ) : (
+                              // Idle: bottone per avviare il timer
+                              <button
+                                type="button"
+                                className="text-sm text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                                onClick={() => onStartTimer(step.id, step.duration! * 60)}
+                              >
+                                ▶ Avvia timer ({step.duration} min)
+                              </button>
+                            )
+                          ) : (
+                            // Vista statica (non interattiva)
+                            <p className={`text-sm text-gray-500 ${isChecked && interactive ? 'line-through' : ''}`}>
+                              Tempo: {step.duration} min
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -263,9 +300,27 @@ export function StepsListCollapsible({
                           );
                         })()}
                         {step.duration && (
-                          <p className={`text-sm text-gray-500 mt-1 ${isChecked && interactive ? 'line-through' : ''}`}>
-                            Tempo: {step.duration} min
-                          </p>
+                          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                            {interactive && onStartTimer ? (
+                              isTimerActive?.(step.id) ? (
+                                <span className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-primary">
+                                  ⏱ {formatTimerSeconds(getTimerSecondsLeft?.(step.id) ?? 0)}
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="text-sm text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                                  onClick={() => onStartTimer(step.id, step.duration! * 60)}
+                                >
+                                  ▶ Avvia timer ({step.duration} min)
+                                </button>
+                              )
+                            ) : (
+                              <p className={`text-sm text-gray-500 ${isChecked && interactive ? 'line-through' : ''}`}>
+                                Tempo: {step.duration} min
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

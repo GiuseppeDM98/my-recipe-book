@@ -151,15 +151,16 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
 
       // Parse step line (starts with - or a number)
       if (line.startsWith('-') || line.match(/^\d+\./)) {
-        const description = stripMarkdown(line.replace(/^-\s*/, '').replace(/^\d+\.\s*/, '').trim());
-        if (description) {
+        const rawDescription = stripMarkdown(line.replace(/^-\s*/, '').replace(/^\d+\.\s*/, '').trim());
+        if (rawDescription) {
+          const { description, duration } = extractStepDuration(rawDescription);
           steps.push({
             id: uuidv4(),
             order: stepOrder++,
             description,
             section: currentStepSection || null,
             sectionOrder: currentSectionOrder,
-            duration: null,
+            duration,
           });
         }
       } else {
@@ -289,6 +290,74 @@ function parseIngredientLine(
     },
     aiReference,
   };
+}
+
+/**
+ * Extracts step duration from a raw step description string.
+ *
+ * Two-pass strategy:
+ * 1. Explicit AI token [DUR:N] — authoritative, stripped from the description text
+ * 2. Italian regex heuristic — fallback for steps without a [DUR:] token
+ *    (handles existing recipes and any AI output that omitted the token)
+ *
+ * Regex rules:
+ * - Range "10-15 minuti" → higher value (conservative: assumes user will wait the full time)
+ * - Hours converted to minutes ("1 ora" → 60)
+ * - Combined "1 ora e 30 min" → 90
+ * - Seconds rounded up to 1 min (rarely used in recipes, but handled)
+ * - Returns null when no single clear time is found (prevents false positives)
+ *
+ * Exported so the recipe form can reuse the same logic for the
+ * "Auto-rileva durate" action on already-saved recipes.
+ *
+ * @returns cleaned description (token stripped) and duration in minutes or null
+ */
+export function extractStepDuration(raw: string): { description: string; duration: number | null } {
+  // Pass 1: explicit [DUR:N] token emitted by the AI prompt
+  const durMatch = raw.match(/\[DUR:(\d+)\]/i);
+  if (durMatch) {
+    const duration = Math.max(1, parseInt(durMatch[1], 10));
+    const description = raw.replace(/\s*\[DUR:\d+\]/i, '').trim();
+    return { description, duration };
+  }
+
+  // Pass 2: Italian time pattern heuristics
+  const text = raw.toLowerCase();
+
+  // Range: "10-15 minuti" or "10-15 min" → take the higher value
+  const rangeMatch = text.match(/(\d+)-(\d+)\s*(?:minuti|minuto|min)\b/);
+  if (rangeMatch) {
+    return { description: raw, duration: parseInt(rangeMatch[2], 10) };
+  }
+
+  // Combined: "1 ora e 30 minuti" → hours*60 + minutes
+  const combinedMatch = text.match(/(\d+)\s*or[ae]\s*(?:e\s*)?(\d+)\s*(?:minuti|minuto|min)\b/);
+  if (combinedMatch) {
+    return {
+      description: raw,
+      duration: parseInt(combinedMatch[1], 10) * 60 + parseInt(combinedMatch[2], 10),
+    };
+  }
+
+  // Hours only: "1 ora", "2 ore"
+  const hourMatch = text.match(/(\d+)\s*or[ae]\b/);
+  if (hourMatch) {
+    return { description: raw, duration: parseInt(hourMatch[1], 10) * 60 };
+  }
+
+  // Minutes: "10 minuti", "5 min"
+  const minuteMatch = text.match(/(\d+)\s*(?:minuti|minuto|min)\b/);
+  if (minuteMatch) {
+    return { description: raw, duration: parseInt(minuteMatch[1], 10) };
+  }
+
+  // Seconds: "30 secondi" → ceil to 1 min minimum
+  const secondMatch = text.match(/(\d+)\s*secondi\b/);
+  if (secondMatch) {
+    return { description: raw, duration: Math.ceil(parseInt(secondMatch[1], 10) / 60) || 1 };
+  }
+
+  return { description: raw, duration: null };
 }
 
 /**

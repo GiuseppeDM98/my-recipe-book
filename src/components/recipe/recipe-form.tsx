@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Recipe, Ingredient, Step, Season } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createRecipe, updateRecipe } from '@/lib/firebase/firestore';
+import { useQueryClient } from '@tanstack/react-query';
+import { recipesQueryKey } from '@/lib/hooks/useRecipes';
+import { extractStepDuration } from '@/lib/utils/recipe-parser';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { v4 as uuidv4 } from 'uuid';
@@ -51,6 +54,7 @@ interface IngredientSection {
 export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(recipe?.title || '');
   const [description, setDescription] = useState(recipe?.description || '');
@@ -83,6 +87,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   const [loading, setLoading] = useState(false);
   const [stepIngredientSelections, setStepIngredientSelections] = useState<Record<string, string>>({});
   const [autoAdaptSummary, setAutoAdaptSummary] = useState<string | null>(null);
+  const [autoDetectDurationSummary, setAutoDetectDurationSummary] = useState<string | null>(null);
   const allIngredients = getAllIngredients();
 
   const normalizeStepOrder = (nextSteps: Step[]) =>
@@ -255,11 +260,11 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   const addStep = () => {
     setSteps([
       ...steps,
-      { id: uuidv4(), order: steps.length + 1, description: '', section: '' }
+      { id: uuidv4(), order: steps.length + 1, description: '', section: '', duration: null }
     ]);
   };
 
-  const updateStep = (id: string, field: keyof Step, value: string | number) => {
+  const updateStep = (id: string, field: keyof Step, value: string | number | null) => {
     setSteps(steps.map(step =>
       step.id === id ? { ...step, [field]: value } : step
     ));
@@ -323,6 +328,47 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
     setAutoAdaptSummary(
       `${convertedCount} step convertiti automaticamente${skippedCount > 0 ? `, ${skippedCount} lasciati invariati perché ambigui o senza match.` : '.'}`
     );
+  };
+
+  /**
+   * Scans all step descriptions with the same Italian regex used by the parser
+   * and pre-fills the duration field where a single clear time is found.
+   *
+   * Rules:
+   * - Never overwrites a duration already set by the user (non-destructive)
+   * - Skips steps where the description contains multiple or ambiguous times
+   * - Shows a summary so the user can review before saving
+   */
+  const handleAutoDetectDurations = () => {
+    let detected = 0;
+    let skipped = 0;
+
+    const updatedSteps = steps.map(step => {
+      // Never overwrite durations the user already set
+      if (step.duration !== null && step.duration !== undefined) {
+        return step;
+      }
+
+      const { duration } = extractStepDuration(step.description);
+
+      if (duration !== null) {
+        detected++;
+        return { ...step, duration };
+      }
+
+      skipped++;
+      return step;
+    });
+
+    setSteps(updatedSteps);
+
+    if (detected === 0) {
+      setAutoDetectDurationSummary('Nessuna durata rilevata: gli step non contengono tempi chiari o sono già compilati.');
+    } else {
+      setAutoDetectDurationSummary(
+        `${detected} ${detected === 1 ? 'durata rilevata' : 'durate rilevate'} automaticamente${skipped > 0 ? ` · ${skipped} step senza tempo chiaro lasciati vuoti` : ''}.`
+      );
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -389,6 +435,13 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         recipeId = await createRecipe(user.uid, recipeData);
       } else if (recipeId) {
         await updateRecipe(recipeId, recipeData);
+      }
+
+      // Invalidate the recipes list so the next visit to /ricette shows fresh data,
+      // and invalidate the individual recipe cache so the detail page reloads it.
+      queryClient.invalidateQueries({ queryKey: recipesQueryKey(user.uid) });
+      if (recipeId) {
+        queryClient.invalidateQueries({ queryKey: ['recipe', recipeId, user.uid] });
       }
 
       router.push(`/ricette/${recipeId}`);
@@ -550,6 +603,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         <div className="flex justify-between items-center mb-2">
           <label className="block text-sm font-medium">Preparazione</label>
           <div className="flex gap-2">
+            <Button type="button" onClick={handleAutoDetectDurations} size="sm" variant="outline" disabled={steps.length === 0}>
+              Auto-rileva durate
+            </Button>
             <Button type="button" onClick={handleAutoAdaptSteps} size="sm" variant="outline" disabled={steps.length === 0 || allIngredients.length === 0}>
               Adatta step esistenti
             </Button>
@@ -558,6 +614,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
             </Button>
           </div>
         </div>
+        {autoDetectDurationSummary && (
+          <p className="mb-3 text-sm text-gray-600">{autoDetectDurationSummary}</p>
+        )}
         {autoAdaptSummary && (
           <p className="mb-3 text-sm text-gray-600">{autoAdaptSummary}</p>
         )}
@@ -601,6 +660,27 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                       rows={3}
                       placeholder="Descrivi questo passaggio... Usa il pulsante sotto per inserire quantità dinamiche."
                     />
+                    {/* Duration input — optional. When set, activates the countdown timer
+                        in cooking mode so the user can start it directly from the step. */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600 whitespace-nowrap" htmlFor={`duration-${step.id}`}>
+                        Durata (min)
+                      </label>
+                      <Input
+                        id={`duration-${step.id}`}
+                        type="number"
+                        min={1}
+                        max={9999}
+                        value={step.duration ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          updateStep(step.id, 'duration', val === '' ? null : Math.max(1, parseInt(val, 10)));
+                        }}
+                        placeholder="es. 10"
+                        className="w-24 text-sm"
+                      />
+                      <span className="text-xs text-gray-400">Opzionale — attiva il timer in cottura</span>
+                    </div>
                     <div className="rounded-md border bg-gray-50 p-3 space-y-3">
                       <div className="flex flex-col gap-2 md:flex-row md:items-center">
                         <label className="text-xs font-medium text-gray-700 md:w-40">
@@ -694,7 +774,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         </div>
       </div>
 
-      <div className="flex gap-4">
+      {/* Sticky so the save action is always reachable without scrolling back to the bottom.
+          bottom-20 on portrait mobile clears the fixed BottomNavigation (h-20 / 5rem). */}
+      <div className="sticky bottom-0 max-lg:portrait:bottom-20 z-10 flex gap-4 bg-white border-t py-4">
         <Button type="submit" disabled={loading}>
           {loading ? 'Salvataggio...' : mode === 'create' ? 'Crea Ricetta' : 'Salva Modifiche'}
         </Button>

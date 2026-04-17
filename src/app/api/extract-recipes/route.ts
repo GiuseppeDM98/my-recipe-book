@@ -115,6 +115,10 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 - Esempio corretto:
   1. "Taglia [QTY:1] di mele a cubetti"
   2. "Taglia i restanti [QTY:2] a fette non eccessivamente sottili; tieni le due parti separate"
+- Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile nel documento originale, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
+- Esempio CORRETTO: "Cuocere in forno a 180°C per 25 minuti. [DUR:25]"
+- Esempio CORRETTO: "Lasciar riposare in frigorifero per 2 ore. [DUR:120]"
+- NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più tempi
 
 ### 6. TERMINOLOGIA
 - Mantieni tutta la terminologia italiana originale

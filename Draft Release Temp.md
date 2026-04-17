@@ -17,6 +17,10 @@
 - Added saved-week shortcuts during planner setup to reopen existing plans faster
 - Added a self-hosted Docker deployment option alongside Vercel
 - Added a dedicated Family Profile page to save household members and notes for AI-assisted planning
+- Added per-step countdown timers in cooking mode — tap "Start timer" on any step that has a duration to activate a live countdown
+- Added support for multiple timers running at the same time, so you can track an oven and a resting time simultaneously
+- Added a "Duration (min)" field to the step editor in recipe create and edit, so you can set timers for any step manually
+- Added an "Auto-detect durations" button in recipe edit that scans step text and pre-fills durations automatically, without overwriting values you already set
 
 ## 🐛 Bug Fixes
 
@@ -29,6 +33,7 @@
 - Fixed self-hosted Docker Compose startup failing on installations without a `public` assets folder
 - Fixed weekly planner navigation sometimes opening the wrong week or suggesting a new plan for an already saved week
 - Fixed recipe deletion messaging so it now clearly explains that completed cooking history stays available in Statistics
+- Fixed a browser validation error when a step duration exceeded 999 minutes (e.g. "leave to rise for 24 hours")
 
 ## 🔧 Improvements
 
@@ -47,6 +52,9 @@
 - Improved self-hosted setup with a documented fallback for installations that do not want Google sign-in
 - Improved AI recipe suggestions so they can optionally take your household composition into account for more suitable quantities
 - Improved the AI Assistant by keeping PDF upload focused on pure extraction, without household-based quantity adjustments
+- Improved navigation performance so revisiting a recipe page no longer reloads data from the server when the content is still fresh
+- Improved the "Save Changes" button in recipe editing so it stays visible at the bottom of the screen while scrolling through long recipes
+- Improved AI-assisted recipe formatting and PDF extraction to automatically detect and store step durations, activating the timer button without any manual input
 
 ## 🔒 Security
 
@@ -69,3 +77,4 @@
 - Added the Firestore-backed `cooking_history` collection to support analytics and cooking completion history
 - Added the composite indexes and rules needed for planner history, cooking history, and ordered dashboard queries
 - Updated dependency manifests and lockfiles to keep the verified Next.js version aligned across the project
+- Migrated all data hooks and pages to React Query for consistent caching and deduplication of Firestore reads

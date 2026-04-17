@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getRecipe } from '@/lib/firebase/firestore';
+import { useQuery } from '@tanstack/react-query';
 import {
   getCookingSession,
   createCookingSession,
@@ -16,9 +17,11 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { StepsListCollapsible } from '@/components/recipe/steps-list-collapsible';
 import { IngredientListCollapsible } from '@/components/recipe/ingredient-list-collapsible';
-import { ArrowLeft, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, X } from 'lucide-react';
 import NoSleep from 'nosleep.js';
 import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
+import { useCountdownTimer } from '@/lib/hooks/useCountdownTimer';
+import toast from 'react-hot-toast';
 
 /**
  * Cooking Mode Page - Two-Phase Cooking Workflow
@@ -42,15 +45,55 @@ export default function CookingModePage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [cookingSession, setCookingSession] = useState<CookingSession | null>(null);
+  // Separate error state for session operations — recipe load errors come from useQuery.
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [checkedIngredients, setCheckedIngredients] = useState<string[]>([]);
   const [checkedSteps, setCheckedSteps] = useState<string[]>([]);
   const [servings, setServings] = useState<number>(4); // Default to 4 servings
   const [scaledIngredients, setScaledIngredients] = useState<Ingredient[]>([]);
   const [isSetupMode, setIsSetupMode] = useState(true); // Start in setup mode
+
+  const recipeId = id as string;
+
+  // Recipe is loaded via React Query — shares cache with the detail and edit pages.
+  // Navigating here after viewing the recipe costs zero extra Firestore reads.
+  const {
+    data: recipe,
+    isLoading: recipeLoading,
+    error: recipeError,
+  } = useQuery({
+    enabled: !!user && !!recipeId,
+    queryKey: ['recipe', recipeId, user?.uid ?? ''],
+    queryFn: () => getRecipe(recipeId, user!.uid),
+  });
+
+  const timer = useCountdownTimer();
+
+  /** Formats remaining seconds as "MM:SS" for the floating overlay */
+  const formatTimerSeconds = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  /**
+   * Avvia (o riavvia) il timer per uno step specifico.
+   * Più timer possono girare in parallelo — ogni step ha il suo.
+   */
+  const handleStartTimer = useCallback(
+    (stepId: string, durationSeconds: number) => {
+      const step = recipe?.steps.find((s) => s.id === stepId);
+      const stepLabel = step?.description?.slice(0, 50) ?? `Passo`;
+
+      timer.start(stepId, durationSeconds, {
+        onFinish: () => {
+          toast(`⏰ Timer completato! — ${stepLabel}`, { duration: 6000 });
+        },
+      });
+    },
+    [recipe, timer]
+  );
 
   const calculateProgress = (
     nextCheckedIngredients: string[],
@@ -76,46 +119,38 @@ export default function CookingModePage() {
     };
   }, []);
 
+  // Guard to prevent session initialization from running more than once
+  // even if the recipe cache re-validates (e.g., after a background refetch).
+  const sessionInitialized = useRef(false);
+
   useEffect(() => {
-    if (user && id) {
-      const fetchData = async () => {
-        try {
-          // Fetch recipe
-          const fetchedRecipe = await getRecipe(id as string, user.uid);
-          if (!fetchedRecipe) {
-            setError('Ricetta non trovata o non autorizzata.');
-            setLoading(false);
-            return;
-          }
-          setRecipe(fetchedRecipe);
+    if (!user || !recipe || sessionInitialized.current) return;
+    sessionInitialized.current = true;
 
-          // Initialize servings with recipe default or 4
-          const defaultServings = fetchedRecipe.servings || 4;
-          setServings(defaultServings);
+    const initSession = async () => {
+      const defaultServings = recipe.servings || 4;
+      setServings(defaultServings);
 
-          // Check if a session already exists
-          const session = await getCookingSession(id as string, user.uid);
-          if (session) {
-            // Session exists - skip setup mode and go straight to cooking.
-            // This prevents duplicate session creation if user refreshes the page.
-            setCookingSession(session);
-            setCheckedIngredients(session.checkedIngredients);
-            setCheckedSteps(session.checkedSteps);
-            setServings(session.servings || defaultServings);
-            setIsSetupMode(false); // Already has a session, go straight to cooking mode
-          } else {
-            // No session exists - stay in setup mode
-            setIsSetupMode(true);
-          }
-        } catch (err) {
-          setError('Errore nel caricamento della ricetta.');
-        } finally {
-          setLoading(false);
+      try {
+        const session = await getCookingSession(recipeId, user.uid);
+        if (session) {
+          // Session exists — skip setup and resume in-progress cooking.
+          // Prevents duplicate session creation on page refresh.
+          setCookingSession(session);
+          setCheckedIngredients(session.checkedIngredients);
+          setCheckedSteps(session.checkedSteps);
+          setServings(session.servings || defaultServings);
+          setIsSetupMode(false);
+        } else {
+          setIsSetupMode(true);
         }
-      };
-      fetchData();
-    }
-  }, [id, user]);
+      } catch {
+        // Session fetch errors are non-fatal: user stays in setup mode.
+      }
+    };
+
+    initSession();
+  }, [user, recipe, recipeId]);
 
   // Scale ingredients when servings change.
   // Italian number format uses comma as decimal separator (1,5 kg not 1.5 kg).
@@ -146,10 +181,10 @@ export default function CookingModePage() {
 
     try {
       // Create cooking session with selected servings
-      const sessionId = await createCookingSession(id as string, user.uid, servings);
+      const sessionId = await createCookingSession(recipeId, user.uid, servings);
 
       // Fetch the newly created session
-      const session = await getCookingSession(id as string, user.uid);
+      const session = await getCookingSession(recipeId, user.uid);
 
       if (session) {
         setCookingSession(session);
@@ -161,7 +196,7 @@ export default function CookingModePage() {
       setIsSetupMode(false);
     } catch (err) {
       console.error('Error starting cooking session:', err);
-      setError('Errore durante l\'avvio della modalità cottura.');
+      setSessionError('Errore durante l\'avvio della modalità cottura.');
     }
   };
 
@@ -247,20 +282,24 @@ export default function CookingModePage() {
       router.push('/cotture-in-corso');
     } catch (err) {
       console.error('Error finishing cooking session:', err);
-      setError('Errore durante la chiusura della cottura.');
+      setSessionError('Errore durante la chiusura della cottura.');
     }
   };
 
-  if (loading) {
+  if (recipeLoading) {
     return <div className="flex justify-center items-center h-screen"><Spinner size="lg" /></div>;
   }
 
-  if (error) {
-    return <p className="text-red-500 text-center mt-10">{error}</p>;
+  if (recipeError) {
+    return <p className="text-red-500 text-center mt-10">Errore nel caricamento della ricetta.</p>;
   }
 
   if (!recipe) {
-    return <p className="text-center mt-10">Ricetta non trovata.</p>;
+    return <p className="text-center mt-10">Ricetta non trovata o non autorizzata.</p>;
+  }
+
+  if (sessionError) {
+    return <p className="text-red-500 text-center mt-10">{sessionError}</p>;
   }
 
   const originalServings = recipe.servings || 4;
@@ -354,6 +393,37 @@ export default function CookingModePage() {
   // Active cooking: ingredient/step tracking with explicit completion CTA.
   return (
     <div className="p-4 sm:p-6 lg:p-8 text-xl">
+      {/* Floating timer overlay — un chip per ogni timer attivo, fixed top-right.
+          Rimane sopra l'header (top-16) per non sovrapporre i controlli di navigazione. */}
+      {timer.timers.length > 0 && (
+        <div className="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-[220px]">
+          {timer.timers.map(({ stepId, secondsLeft }) => {
+            const step = recipe?.steps.find((s) => s.id === stepId);
+            const label = step?.description?.slice(0, 35) ?? 'Timer';
+            return (
+              <div
+                key={stepId}
+                className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg"
+              >
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs opacity-75 truncate">{label}</span>
+                  <span className="text-2xl font-mono font-bold leading-none mt-0.5">
+                    {formatTimerSeconds(secondsLeft)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Ferma timer"
+                  onClick={() => timer.stop(stepId)}
+                  className="ml-auto flex-shrink-0 rounded-full p-1 hover:bg-white/20 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="flex items-center mb-6">
         <Button
           variant="outline"
@@ -452,6 +522,9 @@ export default function CookingModePage() {
             interactive={true}
             checkedSteps={checkedSteps}
             onToggleStep={handleToggleStep}
+            onStartTimer={handleStartTimer}
+            isTimerActive={timer.isActive}
+            getTimerSecondsLeft={timer.getSecondsLeft}
           />
         </div>
       </div>
