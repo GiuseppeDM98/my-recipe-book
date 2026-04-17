@@ -11,6 +11,8 @@ import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
+import { recipesQueryKey } from '@/lib/hooks/useRecipes';
 
 /**
  * Meal planner state management hook.
@@ -55,6 +57,7 @@ interface UseMealPlannerReturn {
 
 export function useMealPlanner(): UseMealPlannerReturn {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<PlannerStep>('setup');
   const [currentPlan, setCurrentPlan] = useState<MealPlan | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -311,6 +314,9 @@ export function useMealPlanner(): UseMealPlannerReturn {
     };
 
     const newRecipeId = await createRecipe(user.uid, newRecipeData);
+
+    // Invalidate the recipes list so /ricette reflects the new recipe without a manual refresh.
+    queryClient.invalidateQueries({ queryKey: recipesQueryKey(user.uid) });
 
     // Update the slot to reference the saved recipe
     const updatedSlots = currentPlan.slots.map(s => {

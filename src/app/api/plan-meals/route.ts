@@ -102,6 +102,9 @@ REGOLE GENERALI:
 - Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
 - Ogni step deve descrivere UNA sola azione principale o un solo riferimento quantità principale
 - Se una frase contiene due quantità distinte o due trasformazioni diverse, spezzala in due step separati
+- Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
+- Esempio CORRETTO: "Cuocere in forno a 200°C per 20 minuti. [DUR:20]"
+- NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più azioni con tempi diversi
 - NON usare mai asterischi (**testo**, *testo*) negli ingredienti o nel procedimento
 - Usa unità metriche italiane (g, kg, ml, l, cucchiai, cucchiaini)
 - Usa decimali con virgola: 1,5 kg (NON 1.5 kg)

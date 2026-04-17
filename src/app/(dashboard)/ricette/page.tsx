@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRecipes } from '@/lib/hooks/useRecipes';
 import { RecipeCard } from '@/components/recipe/recipe-card';
 import { Spinner } from '@/components/ui/spinner';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/context/auth-context';
 import { getUserCategories, getCategorySubcategories } from '@/lib/firebase/categories';
-import { Category, Subcategory, Season } from '@/types';
+import { Subcategory, Season } from '@/types';
 import { matchesSearch } from '@/lib/utils/search';
 import { SEASON_ICONS, SEASON_LABELS, ALL_SEASONS } from '@/lib/constants/seasons';
 import Link from 'next/link';
@@ -41,39 +42,34 @@ import { Search } from 'lucide-react';
 export default function RecipesPage() {
   const { recipes, loading, error } = useRecipes();
   const { user } = useAuth();
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<Season | 'all'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Load ALL subcategories upfront (not lazy) because:
-  // - Filter UI needs complete subcategory list for all categories
-  // - User expects instant filter response without loading delays
-  // - Trade-off: Slightly slower initial load for better UX
-  useEffect(() => {
-    const loadCategoriesData = async () => {
-      if (!user) return;
+  // Load categories once — shared cache key ensures a second visit costs no extra reads.
+  const { data: categories = [] } = useQuery({
+    enabled: !!user,
+    queryKey: ['categories', user?.uid ?? ''],
+    queryFn: () => getUserCategories(user!.uid),
+  });
 
-      try {
-        const userCategories = await getUserCategories(user.uid);
-        setCategories(userCategories);
-
-        // Load all subcategories for all categories
-        const allSubcategories: Subcategory[] = [];
-        for (const category of userCategories) {
-          const subs = await getCategorySubcategories(category.id, user.uid);
-          allSubcategories.push(...subs);
-        }
-        setSubcategories(allSubcategories);
-      } catch (error) {
-        console.error('Error loading categories:', error);
+  // Load ALL subcategories upfront so every category filter responds instantly.
+  // Waits for categories to be populated; queryKey includes category IDs so the
+  // cache invalidates automatically when categories change (add/delete).
+  const categoryIds = categories.map((c) => c.id);
+  const { data: subcategories = [] } = useQuery<Subcategory[]>({
+    enabled: !!user && categories.length > 0,
+    queryKey: ['subcategories', user?.uid ?? '', categoryIds],
+    queryFn: async () => {
+      const all: Subcategory[] = [];
+      for (const category of categories) {
+        const subs = await getCategorySubcategories(category.id, user!.uid);
+        all.push(...subs);
       }
-    };
-
-    loadCategoriesData();
-  }, [user]);
+      return all;
+    },
+  });
 
   /**
    * Applies cascading filters in order (search → season → category → subcategory).

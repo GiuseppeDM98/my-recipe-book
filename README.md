@@ -1,4 +1,4 @@
-# Il Mio Ricettario
+# My recipe book
 
 > A modern, privacy-first digital recipe book with AI-powered PDF extraction
 
@@ -86,6 +86,8 @@ This project deliberately avoids image-heavy interfaces common in recipe apps. I
 - **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
 - **Manual Finish Flow**: When all ingredients and steps are completed, the app invites you to finish the cooking session explicitly
+- **Per-Step Countdown Timers**: Steps with a duration show an "▶ Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
+- **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
 
 ### Active Cooking Sessions Dashboard
 
@@ -141,6 +143,7 @@ Three ways to get recipes in — all powered by Claude AI:
 - Powered by Claude Sonnet 4.6 (200K token context window)
 - Native PDF support with base64 encoding
 - Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat)
+- AI-generated recipes include `[DUR:N]` tokens on timed steps; the parser converts them to `step.duration` automatically
 
 **Italian Seasonal Ingredient Database**:
 - **Primavera (Spring)**: Asparagus, artichokes, fava beans, peas, strawberries
@@ -477,12 +480,17 @@ The application will start at [http://localhost:3000](http://localhost:3000)
   - Automatic scaling
 
 - **[Anthropic Claude API](https://www.anthropic.com/api)** - AI-powered features
-  - Claude Sonnet 4.5 model
+  - Claude Sonnet 4.6 model
   - 200K token context window
   - Native PDF support
   - Vision capabilities for document analysis
 
 ### Key Libraries
+
+- **[@tanstack/react-query 5.x](https://tanstack.com/query)** - Data fetching and caching
+  - Deduplication of Firestore reads across pages
+  - Shared cache between recipe detail, edit, and cooking mode
+  - 2-minute stale time for recipes; 5-minute for family profile
 
 - **[nosleep.js 0.12](https://github.com/richtr/NoSleep.js/)** - Screen wake lock
   - Prevents device sleep during cooking mode
@@ -1342,6 +1350,7 @@ interface Step {
   description: string;
   section: string | null;      // e.g., "Preparazione", "Cottura"
   sectionOrder: number;        // Preserves order from PDF extraction
+  duration: number | null;     // Minutes; activates the countdown timer in cooking mode
 }
 
 type Season = 'primavera' | 'estate' | 'autunno' | 'inverno' | 'tutte_stagioni';

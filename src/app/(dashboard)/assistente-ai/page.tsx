@@ -12,7 +12,8 @@ import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
-import { useRecipes } from '@/lib/hooks/useRecipes';
+import { useRecipes, recipesQueryKey } from '@/lib/hooks/useRecipes';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -45,6 +46,7 @@ import Link from 'next/link';
 export default function RecipeExtractorPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [inputMode, setInputMode] = useState<'pdf' | 'text' | 'chat'>('pdf');
   const [isExtracting, setIsExtracting] = useState(false);
@@ -367,6 +369,9 @@ export default function RecipeExtractorPage() {
       };
 
       await createRecipe(user.uid, recipeData);
+
+      // Invalidate so /ricette reflects the new recipe without a manual refresh.
+      queryClient.invalidateQueries({ queryKey: recipesQueryKey(user.uid) });
 
       setSavedStates(prev => new Set(prev).add(index));
       toast.success(`"${recipe.title}" salvata con successo!`);

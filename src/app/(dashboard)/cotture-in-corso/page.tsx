@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
 import { getUserCookingSessions, deleteCookingSession } from '@/lib/firebase/cooking-sessions';
 import { getRecipe } from '@/lib/firebase/firestore';
@@ -10,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import { Trash2, ChefHat } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
  * Active Cooking Sessions Dashboard
@@ -38,53 +38,32 @@ interface CookingSessionWithRecipe extends CookingSession {
  */
 export default function CottureInCorsoPage() {
   const { user } = useAuth();
-  const [sessions, setSessions] = useState<CookingSessionWithRecipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  /**
-   * Fetches user cooking sessions and enriches with recipe data.
-   *
-   * Data join: Uses Promise.all to fetch all recipes in parallel for performance.
-   *
-   * Why manual join: Firebase doesn't support joins natively. Sessions store
-   * only recipeId to keep session documents small and prevent data duplication.
-   * Recipe details might be updated independently, so we fetch fresh data.
-   */
-  const loadSessions = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const userSessions = await getUserCookingSessions(user.uid);
+  const {
+    data: sessions = [],
+    isLoading,
+  } = useQuery<CookingSessionWithRecipe[]>({
+    enabled: !!user,
+    queryKey: ['cookingSessions', user?.uid ?? ''],
+    queryFn: async () => {
+      const userSessions = await getUserCookingSessions(user!.uid);
 
       // Sessions store only recipeId, not full recipe data.
       // Reasons:
       // - Prevents data duplication (recipe might be updated)
       // - Keeps session documents small
       // - Single source of truth for recipe data
-      const sessionsWithRecipes = await Promise.all(
+      //
+      // Promise.all fetches all recipe details in parallel to minimise latency.
+      return Promise.all(
         userSessions.map(async (session) => {
-          const recipe = await getRecipe(session.recipeId, user.uid);
-          return {
-            ...session,
-            recipe: recipe || undefined,
-          };
+          const recipe = await getRecipe(session.recipeId, user!.uid);
+          return { ...session, recipe: recipe || undefined };
         })
       );
-
-      setSessions(sessionsWithRecipes);
-    } catch (error) {
-      console.error('Error loading cooking sessions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      loadSessions();
-    }
-  }, [user]);
+    },
+  });
 
   const handleDeleteSession = async (sessionId: string) => {
     if (!window.confirm('Sei sicuro di voler eliminare questa sessione di cottura?')) {
@@ -93,7 +72,8 @@ export default function CottureInCorsoPage() {
 
     try {
       await deleteCookingSession(sessionId);
-      await loadSessions();
+      // Invalidate to reload the sessions list after deletion.
+      queryClient.invalidateQueries({ queryKey: ['cookingSessions', user?.uid ?? ''] });
     } catch (error) {
       console.error('Error deleting cooking session:', error);
     }
@@ -119,7 +99,7 @@ export default function CottureInCorsoPage() {
     return Math.round((completedItems / totalItems) * 100);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Spinner size="lg" />

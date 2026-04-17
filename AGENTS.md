@@ -25,6 +25,11 @@
 | AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
 | Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
+| React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
+| React Query DevTools | L'icona non appare pur avendo QueryClientProvider | Serve il package separato `@tanstack/react-query-devtools` |
+| React Query + useEffect init | Cache revalidation ri-esegue `useEffect([recipe])` | Usare un ref `sessionInitialized` per guard one-time init |
+| Step duration max | Browser validation error su step con molte ore | Usare `max={9999}` non `max={999}` — 24h = 1440 min |
+| Timer multipli | Singolo `setInterval` + singolo stato non supporta parallelo | Usare `Map<stepId, setInterval>` in un ref + `Record<stepId, secondsLeft>` nello stato |
 
 ---
 
@@ -46,6 +51,12 @@ Pattern attivo:
 - Mobile landscape: hamburger + sidebar drawer
 
 Bottom nav su iOS: aggiungere `pb-safe`.
+
+**Sticky button sopra la bottom nav:**
+```tsx
+// Rimane visibile durante lo scroll, si solleva sopra la bottom nav su mobile
+<div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-white border-t py-4 z-10 flex gap-4">
+```
 
 ---
 
@@ -111,7 +122,65 @@ Se la pagina statistiche mostra `Missing or insufficient permissions`, il primo 
 
 ---
 
-## 3. React State Patterns
+## 3. React Query Patterns
+
+### Regole base
+
+```ts
+// ✅ Query disabilitata finché l'auth non è pronta
+useQuery({
+  queryKey: ['recipes', user?.uid ?? ''],
+  queryFn: () => getUserRecipes(user!.uid),
+  enabled: !!user,
+});
+
+// ❌ NON usare onSnapshot — il progetto evita listener real-time per costi Firestore
+```
+
+### Query keys standard
+
+| Key | Uso |
+|-----|-----|
+| `['recipes', uid]` | Lista ricette utente |
+| `['recipe', id, uid]` | Singola ricetta (shared tra detail/edit/cooking) |
+| `['categories', uid]` | Categorie |
+| `['subcategories', uid, categoryIds[]]` | Subcategorie (dipende da categories) |
+| `['cookingSessions', uid]` | Sessioni attive |
+| `['familyProfile', uid]` | Profilo famiglia |
+
+Stale time: 2min globale, 5min per familyProfile.
+
+### DevTools
+
+```bash
+npm install @tanstack/react-query-devtools
+```
+
+```tsx
+// In layout.tsx, dentro QueryClientProvider
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+<ReactQueryDevtools initialIsOpen={false} />
+```
+
+**Il package è separato dal core** — senza di esso l'icona non appare.
+
+### Guard per init one-time
+
+React Query può revalidare la cache in background, ri-eseguendo `useEffect([recipe])`. Usare un ref per init che deve avvenire una volta sola:
+
+```ts
+const sessionInitialized = useRef(false);
+
+useEffect(() => {
+  if (!recipe || sessionInitialized.current) return;
+  sessionInitialized.current = true;
+  // init sessione cottura...
+}, [recipe]);
+```
+
+---
+
+## 4. React State Patterns
 
 ### `useState(prop)` non segue i cambi
 
@@ -140,7 +209,7 @@ const viewedWeek = currentPlan?.weekStartDate ?? setupWeekStartDate;
 
 ---
 
-## 4. Cooking Mode
+## 5. Cooking Mode
 
 ### Setup Screen Pattern
 
@@ -167,6 +236,27 @@ Pattern corretto:
 
 Questo evita che l'utente perda la sessione appena completa l'ultimo item e rende le statistiche affidabili.
 
+### Timer Pattern (multipli in parallelo)
+
+Non usare un singolo `setInterval` + un singolo stato per gestire più timer.
+
+```ts
+// ✅ Pattern corretto per timer multipli
+const intervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+const [secondsMap, setSecondsMap] = useState<Record<string, number>>({});
+
+// start: aggiunge/sovrascrive un timer per stepId
+// stop(stepId): ferma un timer specifico
+// timer.timers: Array<{stepId, secondsLeft}> per il render
+```
+
+Cleanup imprescindibile allo smontaggio:
+```ts
+useEffect(() => {
+  return () => { intervalsRef.current.forEach(clearInterval); };
+}, []);
+```
+
 ### Italian Quantity Format
 
 - `1,5 kg`, non `1.5 kg`
@@ -175,14 +265,36 @@ Questo evita che l'utente perda la sessione appena completa l'ultimo item e rend
 
 ---
 
-## 5. Recipe Data Structure
+## 6. Recipe Data Structure
 
 Storage recipe:
 
 ```ts
 interface Ingredient { id; name; quantity; section?: string | null; }
-interface Step { id; order; description; section?: string | null; sectionOrder?: number | null; }
+interface Step {
+  id; order; description; section?: string | null;
+  sectionOrder?: number | null;
+  duration?: number | null; // minuti; null = nessun timer
+}
 ```
+
+### Step Duration — Regole
+
+- Campo opzionale `duration?: number | null` — `null` = nessun timer
+- Input form: `min={1}` `max={9999}` — 24h lievitazione = 1440 min; il limite 999 triggera un errore nativo del browser
+- `extractStepDuration(raw)` è esportata da `recipe-parser.ts` e riutilizzata nel form (auto-detect) e nel parser
+- Due passate: prima il token AI `[DUR:N]`, poi regex italiana (range → valore maggiore, ore+min, solo ore, solo min, secondi→min)
+
+### AI Duration Token
+
+Aggiungere a tutti i prompt AI nella sezione PROCEDIMENTO:
+```
+- Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
+- Esempio CORRETTO: "Cuocere a fuoco medio per 10 minuti. [DUR:10]"
+- NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più tempi
+```
+
+Questo è consistente con `[ING:n]` e `[QTY:n]` già presenti.
 
 ### Dynamic Step Quantities
 
@@ -217,7 +329,7 @@ Pattern corretto:
 
 ---
 
-## 6. UI Components
+## 7. UI Components
 
 ### Sheet Accessibility
 
@@ -240,7 +352,7 @@ Motivo:
 
 ---
 
-## 7. API Routes
+## 8. API Routes
 
 ### AI Route Authentication
 
@@ -284,7 +396,7 @@ Il modello atteso sugli endpoint AI resta `claude-sonnet-4-6`. Se cambia, aggior
 
 ---
 
-## 8. Deployment
+## 9. Deployment
 
 ### Docker Compose
 
@@ -308,7 +420,3 @@ npx next build --webpack
 ### Dependency Hygiene
 
 Dopo `npm audit fix`, se il lockfile aggiorna una dipendenza diretta importante gia' validata in build, allineare anche `package.json` per evitare drift tra manifest e lockfile.
-
-Esempio pratico di questa sessione:
-- lockfile aggiornato a `next 16.2.3`
-- `package.json` allineato a `^16.2.3`

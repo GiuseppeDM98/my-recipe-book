@@ -1,75 +1,55 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Recipe } from '@/types';
 import { getUserRecipes } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 /**
- * Hook for fetching and managing user recipes
+ * Hook for fetching and managing user recipes.
  *
- * Features:
- * - Automatic fetching on user change
- * - Loading and error states
- * - Manual refresh capability
+ * Uses React Query for caching — navigating away and back within the stale
+ * window (2 min, configured globally in QueryClient) returns data instantly
+ * without a new Firestore read.
  *
- * Pattern: useCallback + useEffect ensures stable function references
- * and prevents infinite fetch loops.
+ * API is kept compatible with the previous useState-based version so callers
+ * don't need changes: { recipes, loading, error, refreshRecipes }.
+ *
+ * Query key: ['recipes', user.uid]
+ * Use `recipesQueryKey(uid)` in mutation call-sites to invalidate the cache.
  */
 
-/**
- * Fetch and manage recipes for the authenticated user
- *
- * @returns Recipes array, loading state, error message, and refresh function
- *
- * Auto-refetches when user changes (login/logout).
- * Use refreshRecipes() to manually refetch after mutations.
- */
+/** Returns the query key for a user's recipe list (use at mutation call-sites to invalidate) */
+export const recipesQueryKey = (uid: string) => ['recipes', uid] as const;
+
 export function useRecipes() {
   const { user } = useAuth();
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Wrapped in useCallback with [user] dependency to prevent infinite loops
-  // Without useCallback, function would be recreated on every render, triggering
-  // useEffect infinitely (fetchRecipes is in useEffect's dependency array)
-  const fetchRecipes = useCallback(async () => {
-    if (!user) {
-      // User logged out - clear recipes immediately without API call
-      setRecipes([]);
-      setLoading(false);
-      return;
-    }
+  const {
+    data: recipes = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    // Disable the query while the user is not authenticated — avoids
+    // sending an unauthenticated Firestore request on initial render.
+    enabled: !!user,
+    queryKey: recipesQueryKey(user?.uid ?? ''),
+    queryFn: () => getUserRecipes(user!.uid),
+  });
 
-    try {
-      setLoading(true);
-      const userRecipes = await getUserRecipes(user.uid);
-      setRecipes(userRecipes);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  // Auto-fetch on user change (login/logout) or on mount
-  // fetchRecipes is stable thanks to useCallback, preventing infinite loops
-  useEffect(() => {
-    fetchRecipes();
-  }, [fetchRecipes]);
+  const error = queryError ? (queryError as Error).message : null;
 
   /**
-   * Manually refresh recipes from Firestore
+   * Manually force a fresh Firestore read.
    *
-   * Use after creating/updating/deleting recipes to sync state.
-   * Alternative to real-time listeners (which would increase read costs).
+   * Prefer relying on cache invalidation via `recipesQueryKey` after
+   * mutations. Use this only when the cache may be stale for a reason
+   * outside the normal mutation flow (e.g., server-side changes).
    */
-  const refreshRecipes = useCallback(async () => {
-    // Simply calls fetchRecipes - wrapped in useCallback for stable reference
-    await fetchRecipes();
-  }, [fetchRecipes]);
+  const refreshRecipes = async () => {
+    await refetch();
+  };
 
-  return { recipes, loading, error, refreshRecipes };
+  return { recipes: recipes as Recipe[], loading, error, refreshRecipes };
 }
