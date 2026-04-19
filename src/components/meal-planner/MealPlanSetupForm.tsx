@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sparkles, PenLine } from 'lucide-react';
+import { Sparkles, PenLine, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Category, MealPlanSetupConfig, MealType, Season } from '@/types';
+import { Category, MealPlanSetupConfig, MealType, MealTypeConfig, Season } from '@/types';
 import {
   SEASON_ICONS,
   SEASON_LABELS,
-  formatLocalDate,
   getCurrentSeason,
   getCurrentWeekMonday,
-  getWeekMonday,
 } from '@/lib/constants/seasons';
 import { cn } from '@/lib/utils/cn';
 import { FamilyContextToggle } from '@/components/family/family-context-toggle';
@@ -31,6 +29,17 @@ const ALL_MEAL_TYPES: { value: MealType; label: string }[] = [
   { value: 'colazione', label: 'Colazione' },
   { value: 'pranzo', label: 'Pranzo' },
   { value: 'cena', label: 'Cena' },
+];
+
+const DAY_CHIPS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+
+const DIETARY_OPTIONS = [
+  { value: 'senza_carne', label: 'Senza carne' },
+  { value: 'senza_pesce', label: 'Senza pesce' },
+  { value: 'vegetariano', label: 'Vegetariano' },
+  { value: 'vegano', label: 'Vegano' },
+  { value: 'senza_glutine', label: 'Senza glutine' },
+  { value: 'ricco_legumi', label: 'Ricco di legumi' },
 ];
 
 const MEAL_LABELS: Record<MealType, string> = {
@@ -55,45 +64,63 @@ export function MealPlanSetupForm({
 }: MealPlanSetupFormProps) {
   const [season, setSeason] = useState<Exclude<Season, 'tutte_stagioni'>>(getCurrentSeason());
   const [activeMealTypes, setActiveMealTypes] = useState<MealType[]>(['pranzo', 'cena']);
-  const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>([]);
   const [weekStartDate, setWeekStartDate] = useState(initialWeekStartDate ?? getCurrentWeekMonday());
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [courseCategoryMap, setCourseCategoryMap] = useState<Partial<Record<MealType, string>>>({});
+  const [mealTypeConfigs, setMealTypeConfigs] = useState<Partial<Record<MealType, MealTypeConfig>>>({});
   const [newRecipePerMeal, setNewRecipePerMeal] = useState<Partial<Record<MealType, number>>>({
     pranzo: 2,
     cena: 0,
   });
+  const [userNotes, setUserNotes] = useState('');
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
+  const [activeDays, setActiveDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
-  const isValid = activeMealTypes.length > 0;
+  const isValid = activeMealTypes.length > 0 && activeDays.length > 0;
 
   useEffect(() => {
-    const nextWeekStartDate = initialWeekStartDate ?? getCurrentWeekMonday();
-    setWeekStartDate(nextWeekStartDate);
-
-    // Surface the week selector when navigation lands on a week without a plan.
-    if (initialWeekStartDate && initialWeekStartDate !== getCurrentWeekMonday()) {
-      setShowAdvanced(true);
-    }
+    setWeekStartDate(initialWeekStartDate ?? getCurrentWeekMonday());
   }, [initialWeekStartDate]);
 
   function buildConfig(): MealPlanSetupConfig {
     const totalNewRecipes = Object.values(newRecipePerMeal).reduce((sum, n) => sum + (n ?? 0), 0);
+    const hasConfigs = Object.values(mealTypeConfigs).some(
+      c => c?.preferredCategoryId || c?.excludedCategoryIds?.length
+    );
     return {
       season,
       activeMealTypes,
-      excludedCategoryIds,
+      excludedCategoryIds: [],
       newRecipeCount: totalNewRecipes,
       weekStartDate,
-      courseCategoryMap: Object.keys(courseCategoryMap).length > 0 ? courseCategoryMap : undefined,
       newRecipePerMeal: Object.keys(newRecipePerMeal).length > 0 ? newRecipePerMeal : undefined,
+      userNotes: userNotes.trim() || null,
+      dietaryRestrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : null,
+      activeDays: activeDays.length < 7 ? activeDays : null,
+      mealTypeConfigs: hasConfigs ? mealTypeConfigs : null,
     };
+  }
+
+  function toggleDietaryRestriction(value: string) {
+    setDietaryRestrictions(prev =>
+      prev.includes(value) ? prev.filter(r => r !== value) : [...prev, value]
+    );
+  }
+
+  function toggleDay(dayIndex: number) {
+    setActiveDays(prev => {
+      if (prev.includes(dayIndex)) {
+        if (prev.length === 1) return prev;
+        return prev.filter(d => d !== dayIndex);
+      }
+      return [...prev, dayIndex].sort((a, b) => a - b);
+    });
   }
 
   function toggleMealType(type: MealType) {
     setActiveMealTypes(prev => {
       if (prev.includes(type)) {
         setNewRecipePerMeal(m => { const n = { ...m }; delete n[type]; return n; });
-        setCourseCategoryMap(m => { const n = { ...m }; delete n[type]; return n; });
+        setMealTypeConfigs(m => { const n = { ...m }; delete n[type]; return n; });
         return prev.filter(t => t !== type);
       }
       setNewRecipePerMeal(m => ({ ...m, [type]: 0 }));
@@ -105,19 +132,42 @@ export function MealPlanSetupForm({
     setNewRecipePerMeal(prev => ({ ...prev, [type]: count }));
   }
 
-  function setCourseCategory(type: MealType, categoryId: string) {
-    setCourseCategoryMap(prev => {
-      const next = { ...prev };
-      if (categoryId) next[type] = categoryId;
-      else delete next[type];
-      return next;
+  function setMealPreferred(type: MealType, categoryId: string) {
+    setMealTypeConfigs(prev => {
+      const existing = prev[type] ?? {};
+      const excluded = existing.excludedCategoryIds ?? [];
+      return {
+        ...prev,
+        [type]: {
+          ...existing,
+          preferredCategoryId: categoryId || null,
+          // auto-remove from excluded if the same category is chosen as preferred
+          excludedCategoryIds: categoryId ? excluded.filter(id => id !== categoryId) : excluded,
+        },
+      };
     });
   }
 
-  function toggleCategory(id: string) {
-    setExcludedCategoryIds(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
+  function addMealExclusion(type: MealType, categoryId: string) {
+    if (!categoryId) return;
+    setMealTypeConfigs(prev => {
+      const existing = prev[type]?.excludedCategoryIds ?? [];
+      if (existing.includes(categoryId)) return prev;
+      return {
+        ...prev,
+        [type]: { ...prev[type], excludedCategoryIds: [...existing, categoryId] },
+      };
+    });
+  }
+
+  function removeMealExclusion(type: MealType, categoryId: string) {
+    setMealTypeConfigs(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        excludedCategoryIds: (prev[type]?.excludedCategoryIds ?? []).filter(id => id !== categoryId),
+      },
+    }));
   }
 
   return (
@@ -145,7 +195,54 @@ export function MealPlanSetupForm({
         </div>
       </div>
 
-      {/* Meal types — flat list, all types on the same level */}
+      {/* Dietary restrictions */}
+      <div>
+        <p className="text-sm font-medium text-foreground mb-2">Preferenze dietetiche</p>
+        <div className="flex flex-wrap gap-2">
+          {DIETARY_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggleDietaryRestriction(opt.value)}
+              className={cn(
+                'px-3 py-1.5 rounded-full border text-sm font-medium transition-colors',
+                dietaryRestrictions.includes(opt.value)
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-foreground border-border hover:bg-accent'
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Day selector */}
+      <div>
+        <p className="text-sm font-medium text-foreground mb-2">Giorni da pianificare</p>
+        <div className="flex flex-wrap gap-2">
+          {DAY_CHIPS.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => toggleDay(i)}
+              className={cn(
+                'w-10 h-10 rounded-full border text-sm font-medium transition-colors',
+                activeDays.includes(i)
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-foreground border-border hover:bg-accent'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {activeDays.length === 0 && (
+          <p className="text-xs text-destructive mt-2">Seleziona almeno un giorno</p>
+        )}
+      </div>
+
+      {/* Meal types */}
       <div>
         <p className="text-sm font-medium text-foreground mb-2">Cosa vuoi pianificare</p>
         <div className="grid grid-cols-2 gap-2">
@@ -202,6 +299,25 @@ export function MealPlanSetupForm({
         </div>
       )}
 
+      {/* Notes and free-text preferences */}
+      <div>
+        <p className="text-sm font-medium text-foreground mb-1">Note e preferenze</p>
+        <textarea
+          value={userNotes}
+          onChange={e => setUserNotes(e.target.value.slice(0, 500))}
+          placeholder="Es: voglio ricette veloci da preparare, ho già delle zucchine in frigo..."
+          rows={3}
+          className={cn(
+            'w-full text-sm border border-border rounded-md px-3 py-2 resize-none',
+            'bg-background text-foreground placeholder:text-muted-foreground',
+            'focus:outline-none focus:ring-2 focus:ring-primary'
+          )}
+        />
+        {userNotes.length > 0 && (
+          <p className="text-xs text-muted-foreground mt-1 text-right">{userNotes.length}/500</p>
+        )}
+      </div>
+
       <FamilyContextToggle
         checked={useFamilyContext}
         onChange={onUseFamilyContextChange}
@@ -210,97 +326,117 @@ export function MealPlanSetupForm({
         compact
       />
 
-      {/* Advanced options */}
-      <button
-        type="button"
-        onClick={() => setShowAdvanced(v => !v)}
-        className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-      >
-        {showAdvanced ? 'Nascondi opzioni avanzate' : 'Mostra opzioni avanzate'}
-      </button>
+      {/* Advanced options: per-meal category settings */}
+      {activeMealTypes.length > 0 && categories.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(v => !v)}
+            className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+          >
+            {showAdvanced ? 'Nascondi impostazioni AI avanzate' : 'Mostra impostazioni AI avanzate'}
+          </button>
 
-      {showAdvanced && (
-        <div className="space-y-5 border-t pt-4">
-          {/* Week selector */}
-          <div>
-            <p className="text-sm font-medium text-foreground mb-1">Settimana</p>
-            <input
-              type="date"
-              value={weekStartDate}
-              min={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return formatLocalDate(d); })()}
-              max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() + 2); return formatLocalDate(d); })()}
-              onChange={e => {
-                const d = new Date(e.target.value + 'T00:00:00');
-                setWeekStartDate(getWeekMonday(d));
-              }}
-              className={cn(
-                'text-sm border border-border rounded-md px-3 py-1.5',
-                'bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
-              )}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Viene automaticamente arrotondata al lunedì della settimana selezionata
-            </p>
-          </div>
+          {showAdvanced && (
+            <div className="space-y-3 border-t pt-4">
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Impostazioni per portata</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Per ogni portata puoi indicare una categoria preferita e le categorie da escludere.
+                </p>
+              </div>
+              {activeMealTypes.map(type => {
+                const cfg = mealTypeConfigs[type] ?? {};
+                const excluded = cfg.excludedCategoryIds ?? [];
+                const preferredId = cfg.preferredCategoryId ?? '';
+                // A category can't be both preferred and excluded for the same meal type
+                const availableToExclude = categories.filter(
+                  c => !excluded.includes(c.id) && c.id !== preferredId
+                );
+                const availableToPrefer = categories.filter(
+                  c => !excluded.includes(c.id)
+                );
+                return (
+                  <div
+                    key={type}
+                    className="rounded-lg border border-border bg-muted/30 p-3 space-y-3"
+                  >
+                    <p className="text-sm font-semibold text-foreground">{MEAL_LABELS[type]}</p>
 
-          {/* Category preference per active meal type */}
-          {activeMealTypes.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-foreground mb-1">Categoria preferita per portata</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                L'AI darà priorità alle ricette di questa categoria quando pianifica ogni portata.
-              </p>
-              <div className="space-y-2">
-                {activeMealTypes.map(type => (
-                  <div key={type} className="flex items-center gap-3">
-                    <span className="text-sm text-foreground w-32 shrink-0">{MEAL_LABELS[type]}</span>
-                    <select
-                      value={courseCategoryMap[type] ?? ''}
-                      onChange={e => setCourseCategory(type, e.target.value)}
-                      className={cn(
-                        'flex-1 text-sm border border-border rounded-md px-2 py-1.5 bg-background',
-                        'focus:outline-none focus:ring-2 focus:ring-primary'
-                      )}
-                    >
-                      <option value="">Nessuna preferenza</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.icon ? `${cat.icon} ` : ''}{cat.name}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Preferred category */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">Preferisci</span>
+                      <select
+                        value={cfg.preferredCategoryId ?? ''}
+                        onChange={e => setMealPreferred(type, e.target.value)}
+                        className={cn(
+                          'flex-1 text-sm border border-border rounded-md px-2 py-1.5 bg-background',
+                          'focus:outline-none focus:ring-2 focus:ring-primary'
+                        )}
+                      >
+                        <option value="">Nessuna preferenza</option>
+                        {availableToPrefer.map(cat => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Excluded categories */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0 pt-1.5">Escludi</span>
+                      <div className="flex-1 space-y-2">
+                        {excluded.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {excluded.map(catId => {
+                              const cat = categories.find(c => c.id === catId);
+                              if (!cat) return null;
+                              return (
+                                <span
+                                  key={catId}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-xs font-medium"
+                                >
+                                  {cat.icon && <span>{cat.icon}</span>}
+                                  {cat.name}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeMealExclusion(type, catId)}
+                                    className="hover:opacity-70 transition-opacity"
+                                    aria-label={`Rimuovi ${cat.name}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {availableToExclude.length > 0 && (
+                          <select
+                            value=""
+                            onChange={e => { addMealExclusion(type, e.target.value); e.target.value = ''; }}
+                            className={cn(
+                              'text-sm border border-border rounded-md px-2 py-1.5 bg-background',
+                              'focus:outline-none focus:ring-2 focus:ring-primary'
+                            )}
+                          >
+                            <option value="">Aggiungi categoria...</option>
+                            {availableToExclude.map(cat => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
-
-          {/* Category exclusions */}
-          {categories.length > 0 && (
-            <div>
-              <p className="text-sm font-medium text-foreground mb-2">Escludi categorie</p>
-              <p className="text-xs text-muted-foreground mb-2">
-                Le ricette di queste categorie non verranno suggerite dall'AI
-              </p>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {categories.map(cat => (
-                  <label key={cat.id} className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={excludedCategoryIds.includes(cat.id)}
-                      onChange={() => toggleCategory(cat.id)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    <span className="text-sm">
-                      {cat.icon && <span className="mr-1">{cat.icon}</span>}
-                      {cat.name}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        </>
       )}
 
       {/* CTAs */}

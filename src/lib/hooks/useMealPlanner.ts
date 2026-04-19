@@ -50,6 +50,13 @@ interface UseMealPlannerReturn {
   updateSlot: (dayIndex: number, mealType: MealType, recipeId: string, title: string) => Promise<void>;
   clearSlot: (dayIndex: number, mealType: MealType) => Promise<void>;
   saveNewRecipeToCookbook: (slot: MealSlot, categoryName: string, seasons: Season[]) => Promise<string>;
+  regenerateSlot: (
+    dayIndex: number,
+    mealType: MealType,
+    existingRecipes: Recipe[],
+    categories: { id: string; name: string }[]
+  ) => Promise<void>;
+  regeneratingSlots: Set<string>;
   resetToSetup: () => void;
   loadPlan: (plan: MealPlan) => void;
   loadPlanForWeek: (weekStartDate: string) => Promise<void>;
@@ -62,6 +69,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
   const [currentPlan, setCurrentPlan] = useState<MealPlan | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [regeneratingSlots, setRegeneratingSlots] = useState<Set<string>>(new Set());
 
   /**
    * Load an existing plan (e.g., restored from Firebase on page mount).
@@ -114,13 +122,14 @@ export function useMealPlanner(): UseMealPlannerReturn {
     setError(null);
 
     try {
-      // Compact recipe summaries — keep token budget under control
+      // Compact recipe summaries — ingredient names included so Claude can apply dietary filters
       const recipeSummaries = existingRecipes.map(r => ({
         id: r.id,
         title: r.title,
         categoryId: r.categoryId,
         seasons: r.seasons ?? (r.season ? [r.season] : []),
         ingredientCount: r.ingredients.length,
+        ingredientNames: r.ingredients.map(i => i.name),
       }));
 
       const response = await fetch('/api/plan-meals', {
@@ -155,6 +164,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         activeMealTypes: config.activeMealTypes,
         season: config.season,
         generatedByAI: true,
+        activeDays: config.activeDays ?? null,
       });
 
       const plan: MealPlan = {
@@ -165,6 +175,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         activeMealTypes: config.activeMealTypes,
         season: config.season,
         generatedByAI: true,
+        activeDays: config.activeDays ?? null,
         createdAt: null as unknown as import('firebase/firestore').Timestamp,
         updatedAt: null as unknown as import('firebase/firestore').Timestamp,
       };
@@ -196,6 +207,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         activeMealTypes: config.activeMealTypes,
         season: config.season,
         generatedByAI: false,
+        activeDays: config.activeDays ?? null,
       });
 
       const plan: MealPlan = {
@@ -206,6 +218,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         activeMealTypes: config.activeMealTypes,
         season: config.season,
         generatedByAI: false,
+        activeDays: config.activeDays ?? null,
         createdAt: null as unknown as import('firebase/firestore').Timestamp,
         updatedAt: null as unknown as import('firebase/firestore').Timestamp,
       };
@@ -263,6 +276,75 @@ export function useMealPlanner(): UseMealPlannerReturn {
     setCurrentPlan(updatedPlan);
     await updateMealPlanSlots(currentPlan.id, updatedSlots);
   }, [currentPlan]);
+
+  /**
+   * Regenerate a single meal slot using AI without rebuilding the full plan.
+   *
+   * Reuses the /api/plan-meals pipeline with a single-day, single-meal config
+   * so the prompt logic, parsing, and family context stay consistent.
+   */
+  const regenerateSlot = useCallback(async (
+    dayIndex: number,
+    mealType: MealType,
+    existingRecipes: Recipe[],
+    categories: { id: string; name: string }[]
+  ) => {
+    if (!user || !currentPlan) return;
+
+    const slotKey = `${dayIndex}-${mealType}`;
+    setRegeneratingSlots(prev => new Set(prev).add(slotKey));
+
+    try {
+      const recipeSummaries = existingRecipes.map(r => ({
+        id: r.id,
+        title: r.title,
+        categoryId: r.categoryId,
+        seasons: r.seasons ?? (r.season ? [r.season] : []),
+        ingredientCount: r.ingredients.length,
+        ingredientNames: r.ingredients.map(i => i.name),
+      }));
+
+      const slotConfig: MealPlanSetupConfig = {
+        season: currentPlan.season,
+        activeMealTypes: [mealType],
+        activeDays: [dayIndex],
+        excludedCategoryIds: [],
+        newRecipeCount: 1,
+        newRecipePerMeal: { [mealType]: 1 },
+        weekStartDate: currentPlan.weekStartDate,
+      };
+
+      const response = await fetch('/api/plan-meals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await getFirebaseAuthHeader({ forceRefresh: true })),
+        },
+        body: JSON.stringify({ config: slotConfig, existingRecipes: recipeSummaries, categories }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.slots?.length) {
+        throw new Error(data.error ?? 'Nessun risultato dalla rigenerazione');
+      }
+
+      const newSlotData = data.slots[0] as MealSlot;
+      const updatedSlots = [
+        ...currentPlan.slots.filter(s => !(s.dayIndex === dayIndex && s.mealType === mealType)),
+        newSlotData,
+      ];
+
+      const updatedPlan = { ...currentPlan, slots: updatedSlots };
+      setCurrentPlan(updatedPlan);
+      await updateMealPlanSlots(currentPlan.id, updatedSlots);
+    } finally {
+      setRegeneratingSlots(prev => {
+        const next = new Set(prev);
+        next.delete(slotKey);
+        return next;
+      });
+    }
+  }, [user, currentPlan]);
 
   /**
    * Save an AI-generated new recipe to the cookbook, then convert the slot
@@ -354,6 +436,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
     updateSlot,
     clearSlot,
     saveNewRecipeToCookbook,
+    regenerateSlot,
+    regeneratingSlots,
     resetToSetup,
     loadPlan,
     loadPlanForWeek,

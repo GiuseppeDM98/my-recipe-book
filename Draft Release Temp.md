@@ -21,6 +21,10 @@
 - Added support for multiple timers running at the same time, so you can track an oven and a resting time simultaneously
 - Added a "Duration (min)" field to the step editor in recipe create and edit, so you can set timers for any step manually
 - Added an "Auto-detect durations" button in recipe edit that scans step text and pre-fills durations automatically, without overwriting values you already set
+- Added dietary preference chips to the meal planner setup — choose from Meat-free, Fish-free, Vegetarian, Vegan, Gluten-free, and Legume-rich to guide recipe selection
+- Added a free-text notes field to the meal planner setup so you can tell the AI things like "I want quick recipes" or "I already have zucchini in the fridge"
+- Added a regenerate button on each occupied meal slot — click ↺ to swap a single recipe without rebuilding the entire week
+- Added a day selector to the meal planner so you can plan only specific days (e.g. weekdays only) instead of the full week
 
 ## 🐛 Bug Fixes
 
@@ -50,6 +54,8 @@
 - Improved compatibility for older recipes that still use a single-season format
 - Improved planner actions by clearly separating "New plan" from "Delete plan"
 - Improved planner recovery when browsing weeks without a saved plan
+- Improved the meal planner advanced settings with unified per-meal category cards — set a preferred category and excluded categories for each meal type in one place instead of two separate sections
+- Improved season filtering in the meal planner so the selected season now applies to existing cookbook recipes, not just newly generated ones
 - Improved self-hosted setup with a documented fallback for installations that do not want Google sign-in
 - Improved AI recipe suggestions so they can optionally take your household composition into account for more suitable quantities
 - Improved the AI Assistant by keeping PDF upload focused on pure extraction, without household-based quantity adjustments

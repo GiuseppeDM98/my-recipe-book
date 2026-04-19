@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { parseExtractedRecipes } from '@/lib/utils/recipe-parser';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
-import { MealPlanSetupConfig, MealSlot, MealType } from '@/types';
+import { MealPlanSetupConfig, MealSlot, MealType, MealTypeConfig } from '@/types';
 import { resolveFamilyContextInput } from '@/lib/api/family-context';
 
 /**
@@ -68,9 +68,10 @@ REGOLE PER IL BLOCCO [PIANO]:
 - type: "existing" se usi una ricetta dal ricettario, "new" se generi una ricetta nuova
 - Se type="existing": includi recipeId (ID esatto dal ricettario) e title
 - Se type="new": includi title, category (nome categoria più adatta, es. "Primi Piatti", "Secondi Piatti", "Dolci") e seasons (array tra "primavera","estate","autunno","inverno","tutte_stagioni")
-- Distribuisci i pasti su tutti e 7 i giorni della settimana
+- Se l'utente ha specificato giorni specifici, genera slot SOLO per quei giorni (day: [n])
 - Non ripetere la stessa ricetta nella settimana
 - Rispetta la stagione indicata
+- Rispetta le restrizioni dietetiche indicate nei parametri
 
 REGOLE PER IL BLOCCO [RICETTE_NUOVE]:
 Usa ESATTAMENTE questa struttura per ogni ricetta nuova:
@@ -119,35 +120,67 @@ REGOLE GENERALI:
  */
 function buildPlanningMessage(
   config: MealPlanSetupConfig,
-  existingRecipes: { id: string; title: string; categoryId?: string; seasons?: string[]; ingredientCount: number }[],
+  existingRecipes: { id: string; title: string; categoryId?: string; seasons?: string[]; ingredientCount: number; ingredientNames?: string[] }[],
   categories: { id: string; name: string }[],
   weekLabel: string,
-  familyPromptContext: string
+  familyPromptContext: string,
+  seasonConstraintActive: boolean
 ): string {
   const categoryMap = new Map(categories.map(c => [c.id, c.name]));
 
   const recipeLines = existingRecipes.map(r => {
     const catName = r.categoryId ? (categoryMap.get(r.categoryId) ?? 'senza categoria') : 'senza categoria';
     const seasons = r.seasons && r.seasons.length > 0 ? r.seasons.join(', ') : 'tutte le stagioni';
-    return `ID:${r.id} | "${r.title}" | Categoria: ${catName} | Stagioni: ${seasons} | Ingredienti: ${r.ingredientCount}`;
+    const ingredients = r.ingredientNames?.length
+      ? r.ingredientNames.join(', ')
+      : `${r.ingredientCount} ingredienti`;
+    return `ID:${r.id} | "${r.title}" | Categoria: ${catName} | Stagioni: ${seasons} | Ingredienti: ${ingredients}`;
   });
-
-  const excludedCategoryNames = config.excludedCategoryIds
-    .map(id => categoryMap.get(id))
-    .filter(Boolean)
-    .join(', ');
 
   const mealTypeLabels = config.activeMealTypes.map(m => MEAL_LABELS[m]).join(', ');
 
-  // Build course-category hints when the user has configured course types with preferred categories
-  const courseCategoryHints = config.courseCategoryMap
-    ? Object.entries(config.courseCategoryMap)
-        .filter(([, catId]) => catId)
-        .map(([courseType, catId]) => {
-          const catName = categoryMap.get(catId!) ?? catId;
-          return `  - ${MEAL_LABELS[courseType as MealType] ?? courseType}: usa preferibilmente ricette della categoria "${catName}"`;
-        })
-        .join('\n')
+  const activeDayLabels = config.activeDays
+    ? config.activeDays.map(d => DAY_LABELS[Math.max(0, Math.min(6, d))])
+    : DAY_LABELS;
+
+  // Build per-meal category hints from mealTypeConfigs (new) or courseCategoryMap (legacy fallback)
+  let mealCategoryHints = '';
+  if (config.mealTypeConfigs && Object.keys(config.mealTypeConfigs).length > 0) {
+    const lines = Object.entries(config.mealTypeConfigs)
+      .filter(([mealType]) => config.activeMealTypes.includes(mealType as MealType))
+      .map(([mealType, cfg]) => {
+        const parts: string[] = [];
+        if (cfg?.preferredCategoryId) {
+          const name = categoryMap.get(cfg.preferredCategoryId) ?? cfg.preferredCategoryId;
+          parts.push(`usa preferibilmente ricette della categoria "${name}"`);
+        }
+        if (cfg?.excludedCategoryIds?.length) {
+          const names = cfg.excludedCategoryIds
+            .map(id => categoryMap.get(id) ?? id)
+            .join(', ');
+          parts.push(`NON usare ricette delle categorie: ${names}`);
+        }
+        return parts.length > 0
+          ? `  - ${MEAL_LABELS[mealType as MealType] ?? mealType}: ${parts.join('; ')}`
+          : null;
+      })
+      .filter(Boolean)
+      .join('\n');
+    if (lines) mealCategoryHints = lines;
+  } else if (config.courseCategoryMap) {
+    // Legacy fallback
+    mealCategoryHints = Object.entries(config.courseCategoryMap)
+      .filter(([, catId]) => catId)
+      .map(([courseType, catId]) => {
+        const catName = categoryMap.get(catId!) ?? catId;
+        return `  - ${MEAL_LABELS[courseType as MealType] ?? courseType}: usa preferibilmente ricette della categoria "${catName}"`;
+      })
+      .join('\n');
+  }
+
+  // Global excluded categories for display in prompt (legacy path only)
+  const legacyExcludedNames = !config.mealTypeConfigs && config.excludedCategoryIds?.length
+    ? config.excludedCategoryIds.map(id => categoryMap.get(id)).filter(Boolean).join(', ')
     : '';
 
   // Build per-meal new recipe instructions when the user set individual counts
@@ -168,17 +201,32 @@ PARAMETRI:
 - Stagione: ${config.season}
 - Tipi di pasto da pianificare: ${mealTypeLabels}
 - Ricette nuove da generare: ${config.newRecipeCount} in totale${
-  excludedCategoryNames ? `\n- Categorie ESCLUSE (non usare ricette di queste categorie): ${excludedCategoryNames}` : ''
+  legacyExcludedNames ? `\n- Categorie ESCLUSE (non usare ricette di queste categorie): ${legacyExcludedNames}` : ''
 }${
-  courseCategoryHints ? `\n- Preferenze di categoria per portata:\n${courseCategoryHints}` : ''
+  mealCategoryHints ? `\n- Impostazioni per portata:\n${mealCategoryHints}` : ''
+}${
+  config.dietaryRestrictions?.length
+    ? `\n- Restrizioni dietetiche: ${config.dietaryRestrictions.join(', ')}`
+    : ''
+}${
+  activeDayLabels.length < 7
+    ? `\n- Pianifica SOLO i seguenti giorni: ${activeDayLabels.join(', ')}`
+    : ''
+}${
+  config.userNotes
+    ? `\n\nNOTE UTENTE (tieni conto di queste preferenze):\n${config.userNotes}`
+    : ''
 }
 
 RICETTARIO DISPONIBILE (${existingRecipes.length} ricette):
 ${recipeLines.length > 0 ? recipeLines.join('\n') : '(nessuna ricetta nel ricettario)'}
 
 ISTRUZIONI:
-1. Assegna ricette esistenti dal ricettario a tutti gli slot richiesti (${mealTypeLabels} per ogni giorno)
-2. Preferisci ricette della stagione "${config.season}" o "tutte le stagioni"
+1. Assegna ricette esistenti dal ricettario a tutti gli slot richiesti (${mealTypeLabels} per ogni giorno${activeDayLabels.length < 7 ? ` — SOLO per: ${activeDayLabels.join(', ')}` : ''})
+2. ${seasonConstraintActive
+  ? `Il ricettario disponibile contiene GIÀ SOLO ricette per la stagione "${config.season}" o "tutte le stagioni". NON usare ricette di altre stagioni — se gli slot non bastano, genera nuove ricette (type="new").`
+  : `Preferisci ricette della stagione "${config.season}" o "tutte le stagioni" (poche ricette stagionali disponibili, puoi usare anche altre stagioni)`
+}
 3. NON usare ricette delle categorie escluse
 4. Rispetta le preferenze di categoria per portata se indicate
 5. ${newRecipeInstruction}${
@@ -304,6 +352,30 @@ function parsePlanResponse(
  *   success - boolean
  *   slots   - Array of slot assignments with existingRecipeId or newRecipeMarkdown
  */
+
+/**
+ * Compute the set of category IDs to hard-exclude from the recipe list before sending to Claude.
+ *
+ * With mealTypeConfigs: only categories excluded from ALL active meal types are filtered
+ * server-side. Per-meal exclusions (not in intersection) are enforced via prompt only.
+ * Without mealTypeConfigs: falls back to the legacy flat excludedCategoryIds list.
+ */
+function computeGlobalExclusions(config: MealPlanSetupConfig): Set<string> {
+  if (config.mealTypeConfigs && Object.keys(config.mealTypeConfigs).length > 0) {
+    const activeMealTypeConfigs = config.activeMealTypes
+      .map(mt => config.mealTypeConfigs![mt])
+      .filter((cfg): cfg is NonNullable<typeof cfg> => !!cfg?.excludedCategoryIds?.length);
+
+    if (activeMealTypeConfigs.length === 0) return new Set();
+
+    // Intersection: categories excluded in every active meal type config
+    const sets = activeMealTypeConfigs.map(cfg => new Set(cfg.excludedCategoryIds ?? []));
+    const intersection = new Set([...sets[0]].filter(id => sets.every(s => s.has(id))));
+    return intersection;
+  }
+  return new Set(config.excludedCategoryIds ?? []);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authResult = await requireAuthenticatedUser(request);
@@ -323,7 +395,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { config, existingRecipes, categories } = body as {
       config: MealPlanSetupConfig;
-      existingRecipes: { id: string; title: string; categoryId?: string; seasons?: string[]; ingredientCount: number }[];
+      existingRecipes: { id: string; title: string; categoryId?: string; seasons?: string[]; ingredientCount: number; ingredientNames?: string[] }[];
       categories: { id: string; name: string }[];
     };
     const familyContext = resolveFamilyContextInput(body);
@@ -342,12 +414,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Filter out recipes from excluded categories before sending to Claude.
-    // This is a server-side safeguard in addition to the prompt instruction.
-    const excludedSet = new Set(config.excludedCategoryIds ?? []);
-    const filteredRecipes = (existingRecipes ?? []).filter(
-      r => !r.categoryId || !excludedSet.has(r.categoryId)
+    // Compute the hard-excluded category set for server-side filtering.
+    // When mealTypeConfigs is present, hard-filter only categories excluded from ALL active meal
+    // types (intersection) — per-meal exclusions are enforced via prompt instructions only.
+    // When absent, fall back to the legacy flat excludedCategoryIds list.
+    const globalExcludedSet = computeGlobalExclusions(config);
+    const categoryFilteredRecipes = (existingRecipes ?? []).filter(
+      r => !r.categoryId || !globalExcludedSet.has(r.categoryId)
     );
+
+    // Season filter: only send recipes that match the selected season (or have no season /
+    // tutte_stagioni). This prevents Claude from picking off-season recipes even as a fallback.
+    // If fewer than 5 recipes survive the filter (user has barely tagged seasons), fall back to
+    // the full category-filtered list — better to get a plan than an empty one.
+    const seasonFiltered = categoryFilteredRecipes.filter(r => {
+      if (!r.seasons || r.seasons.length === 0) return true;
+      if (r.seasons.includes('tutte_stagioni')) return true;
+      return r.seasons.includes(config.season);
+    });
+    const filteredRecipes = seasonFiltered.length >= 5 ? seasonFiltered : categoryFilteredRecipes;
+    const seasonConstraintActive = filteredRecipes === seasonFiltered;
 
     // Build week label (e.g., "17-23 marzo 2026") for the prompt
     const weekStart = new Date(config.weekStartDate);
@@ -360,7 +446,8 @@ export async function POST(request: NextRequest) {
       filteredRecipes,
       categories ?? [],
       weekLabel,
-      familyContext.promptContext
+      familyContext.promptContext,
+      seasonConstraintActive
     );
     const existingRecipeIds = new Set(filteredRecipes.map(r => r.id));
 
@@ -378,7 +465,13 @@ export async function POST(request: NextRequest) {
       .map(block => (block as { type: 'text'; text: string }).text)
       .join('\n');
 
-    const { slots } = parsePlanResponse(fullText, existingRecipeIds);
+    let { slots } = parsePlanResponse(fullText, existingRecipeIds);
+
+    // Server-side safeguard: discard slots for days not in activeDays
+    if (config.activeDays && config.activeDays.length > 0) {
+      const activeDaySet = new Set(config.activeDays);
+      slots = slots.filter(s => activeDaySet.has(s.dayIndex));
+    }
 
     if (slots.length === 0) {
       return NextResponse.json(

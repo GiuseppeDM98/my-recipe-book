@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-19
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-19 (session 2)
 
 ## Quick Reference
 
@@ -54,7 +54,7 @@ src/
 │   ├── firebase/         # firestore, categories, cooking-sessions, cooking-history, meal-plans
 │   ├── hooks/            # useAuth, useRecipes, useMealPlanner, useCountdownTimer
 │   └── utils/            # parser (extractStepDuration exported), scaler, search helpers
-└── types/                # Recipe, MealPlan, CookingSession, CookingHistoryEntry, ...
+└── types/                # Recipe, MealPlan, MealTypeConfig, CookingSession, CookingHistoryEntry, ...
 ```
 
 ---
@@ -96,6 +96,15 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ---
 
 ## Recent Changes (Mar–Apr 2026)
+
+### Meal Planner Improvements (Apr 2026)
+- **Dietary preference chips**: setup form now has toggles for common dietary restrictions (Senza carne, Senza pesce, Vegetariano, Vegano, Senza glutine, Ricco di legumi); injected into the AI prompt
+- **Free-text notes**: textarea "Note e preferenze" (max 500 chars) in setup; injected as `NOTE UTENTE` block in the prompt; not persisted in Firestore
+- **Single slot regeneration**: `↺` button on each occupied calendar slot; reuses `/api/plan-meals` with a single-day/meal config; `regeneratingSlots: Set<string>` keyed as `"dayIndex-mealType"`
+- **Specific days selection**: chip selector Lun–Dom in setup; grid renders only active days; `activeDays` persisted in `MealPlan`; backward compat for old plans via `?? [0..6]`
+- **Unified per-meal category settings**: replaced separate "preferred category" + "excluded categories" sections with per-meal cards (Preferisci dropdown + Escludi chips); new `MealTypeConfig` type; same category cannot be both preferred and excluded for the same meal type
+- **Season filter (hard)**: server-side filter now sends only seasonal-matching recipes to Claude (+ `tutte_stagioni` + untagged); fallback to full pool if < 5 seasonal recipes survive; prompt language changes from soft ("Preferisci") to hard ("GIÀ SOLO")
+- **Ingredient names in AI summaries**: recipe summaries sent to Claude now include `ingredientNames: string[]`; previously Claude could only infer dietary constraints from recipe titles
 
 ### Cooking Timers, React Query, and UX (Apr 2026)
 - **React Query migration**: all data hooks and pages migrated from manual `useState+useEffect` to `@tanstack/react-query`; navigating back to a viewed recipe costs zero extra Firestore reads (2min stale time)

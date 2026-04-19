@@ -10,6 +10,8 @@ interface WeeklyCalendarGridProps {
   categories: Category[];
   onSlotClick: (dayIndex: number, mealType: MealType) => void;
   onSaveNewRecipe: (slot: MealSlot) => void;
+  onRegenerateSlot: (dayIndex: number, mealType: MealType) => void;
+  regeneratingSlots: Set<string>;
   weekStartDate: string;
 }
 
@@ -45,9 +47,12 @@ export function WeeklyCalendarGrid({
   plan,
   onSlotClick,
   onSaveNewRecipe,
+  onRegenerateSlot,
+  regeneratingSlots,
   weekStartDate,
 }: WeeklyCalendarGridProps) {
   const { activeMealTypes, slots } = plan;
+  const activeDays = plan.activeDays ?? [0, 1, 2, 3, 4, 5, 6];
 
   function getSlot(dayIndex: number, mealType: MealType): MealSlot | undefined {
     return slots.find(s => s.dayIndex === dayIndex && s.mealType === mealType);
@@ -71,11 +76,11 @@ export function WeeklyCalendarGrid({
         {/* Day headers */}
         <div
           className="grid gap-2 mb-2"
-          style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
+          style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, 1fr)` }}
         >
           {/* Empty corner */}
           <div />
-          {Array.from({ length: 7 }, (_, i) => (
+          {activeDays.map(i => (
             <div key={i} className="text-center">
               <p className="text-xs font-semibold text-foreground">{DAY_LABELS_SHORT[i]}</p>
               <p className="text-xs text-muted-foreground">{getDayDate(i)}</p>
@@ -88,7 +93,7 @@ export function WeeklyCalendarGrid({
           <div
             key={mealType}
             className="grid gap-2 mb-2"
-            style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
+            style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, 1fr)` }}
           >
             {/* Meal type label */}
             <div className="flex items-center">
@@ -97,9 +102,10 @@ export function WeeklyCalendarGrid({
               </span>
             </div>
 
-            {/* 7 day slots */}
-            {Array.from({ length: 7 }, (_, dayIndex) => {
+            {/* Active day slots */}
+            {activeDays.map(dayIndex => {
               const slot = getSlot(dayIndex, mealType);
+              const slotKey = `${dayIndex}-${mealType}`;
               return (
                 <MealSlotCell
                   key={dayIndex}
@@ -107,6 +113,8 @@ export function WeeklyCalendarGrid({
                   isNew={isNewRecipeSlot(slot)}
                   onClick={() => onSlotClick(dayIndex, mealType)}
                   onSaveNewRecipe={slot ? () => onSaveNewRecipe(slot) : undefined}
+                  onRegenerate={slot ? () => onRegenerateSlot(dayIndex, mealType) : undefined}
+                  isRegenerating={regeneratingSlots.has(slotKey)}
                 />
               );
             })}
@@ -119,7 +127,7 @@ export function WeeklyCalendarGrid({
           Each card = one day with meal rows inside
           ───────────────────────────────────────── */}
       <div className="block lg:hidden max-lg:portrait:block max-lg:landscape:hidden space-y-3">
-        {Array.from({ length: 7 }, (_, dayIndex) => (
+        {activeDays.map(dayIndex => (
           <div
             key={dayIndex}
             className={cn(
@@ -138,6 +146,7 @@ export function WeeklyCalendarGrid({
             <div className="space-y-2">
               {activeMealTypes.map(mealType => {
                 const slot = getSlot(dayIndex, mealType);
+                const slotKey = `${dayIndex}-${mealType}`;
                 return (
                   <div key={mealType} className="flex items-start gap-2">
                     <span className="text-xs text-muted-foreground w-[72px] shrink-0 pt-1">
@@ -149,6 +158,8 @@ export function WeeklyCalendarGrid({
                         isNew={isNewRecipeSlot(slot)}
                         onClick={() => onSlotClick(dayIndex, mealType)}
                         onSaveNewRecipe={slot ? () => onSaveNewRecipe(slot) : undefined}
+                        onRegenerate={slot ? () => onRegenerateSlot(dayIndex, mealType) : undefined}
+                        isRegenerating={regeneratingSlots.has(slotKey)}
                       />
                     </div>
                   </div>

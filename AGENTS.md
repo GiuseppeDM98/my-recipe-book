@@ -25,6 +25,8 @@
 | AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
 | Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
+| Planner stagione soft | Il selettore stagione non vincola le ricette esistenti se non filtrate | Filtrare server-side per stagione prima di inviare a Claude (fallback se < 5 ricette) |
+| Planner ingredienti mancanti | Vincoli dietetici ignorati su ricette esistenti | Includere `ingredientNames` nel summary, non solo il conteggio |
 | React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
 | React Query DevTools | L'icona non appare pur avendo QueryClientProvider | Serve il package separato `@tanstack/react-query-devtools` |
 | React Query + useEffect init | Cache revalidation ri-esegue `useEffect([recipe])` | Usare un ref `sessionInitialized` per guard one-time init |
@@ -152,17 +154,7 @@ Stale time: 2min globale, 5min per familyProfile.
 
 ### DevTools
 
-```bash
-npm install @tanstack/react-query-devtools
-```
-
-```tsx
-// In layout.tsx, dentro QueryClientProvider
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-<ReactQueryDevtools initialIsOpen={false} />
-```
-
-**Il package è separato dal core** — senza di esso l'icona non appare.
+**Il package è separato dal core**: `npm install @tanstack/react-query-devtools`. Senza di esso l'icona non appare anche con `QueryClientProvider` configurato.
 
 ### Guard per init one-time
 
@@ -410,14 +402,7 @@ Il modello atteso sugli endpoint AI resta `claude-sonnet-4-6`. Se cambia, aggior
 
 ### Docker Compose
 
-```bash
-docker compose --env-file .env.local build
-docker compose --env-file .env.local up --build
-docker compose --env-file .env.local up --build -d
-docker compose --env-file .env.local up -d
-docker compose --env-file .env.local logs -f app
-docker compose --env-file .env.local down
-```
+Tutti i comandi richiedono `--env-file .env.local`. Vedi CLAUDE.md per la lista completa.
 
 ### Reliable Build Check
 
@@ -430,3 +415,79 @@ npx next build --webpack
 ### Dependency Hygiene
 
 Dopo `npm audit fix`, se il lockfile aggiorna una dipendenza diretta importante gia' validata in build, allineare anche `package.json` per evitare drift tra manifest e lockfile.
+
+---
+
+## 10. Meal Planner Patterns
+
+### Recipe Summaries per AI
+
+Il summary ricette inviato a `/api/plan-meals` deve includere `ingredientNames` per permettere l'applicazione dei vincoli dietetici. Senza la lista ingredienti Claude inferisce solo dal titolo — inaffidabile per nomi neutri ("Tortino di riso", "Pasta rustica").
+
+```ts
+// ✅ Summary corretto (useMealPlanner.ts — generatePlan E regenerateSlot)
+{
+  id, title, categoryId,
+  seasons: r.seasons ?? (r.season ? [r.season] : []),
+  ingredientCount: r.ingredients.length,
+  ingredientNames: r.ingredients.map(i => i.name),
+}
+```
+
+Impatto token: ~+50-100 token/ricetta. Per 50 ricette ≈ +4000 token — entro budget.
+
+### Season Filter Server-Side
+
+Filtrare ricette per stagione **prima** di inviare a Claude, non solo via prompt:
+
+```ts
+const seasonFiltered = recipes.filter(r =>
+  !r.seasons?.length || r.seasons.includes('tutte_stagioni') || r.seasons.includes(config.season)
+);
+// fallback se < 5 ricette stagionali → usa pool completo (utente senza tag stagione)
+const toSend = seasonFiltered.length >= 5 ? seasonFiltered : recipes;
+```
+
+Quando il filtro è attivo → linguaggio hard nel prompt ("GIÀ SOLO ricette di stagione").
+Quando è disabilitato (fallback) → linguaggio soft ("Preferisci").
+
+Senza questo filtro la stagione nel setup impatta solo le ricette nuove generate, non quelle esistenti.
+
+### Per-Meal Category Config (`MealTypeConfig`)
+
+`MealTypeConfig` unifica preferenza + esclusione per portata (sostituisce `courseCategoryMap` + `excludedCategoryIds` flat):
+
+```ts
+interface MealTypeConfig {
+  preferredCategoryId?: string | null;
+  excludedCategoryIds?: string[] | null;
+}
+// MealPlanSetupConfig:
+mealTypeConfigs?: Partial<Record<MealType, MealTypeConfig>> | null;
+```
+
+Server-side hard filter: usa l'**intersezione** delle `excludedCategoryIds` di tutte le portate attive (categorie escluse da *tutte* → rimosse dal pool). Esclusioni per-portata non in intersezione → solo prompt instruction.
+
+Backward compat: l'API supporta ancora `courseCategoryMap` + `excludedCategoryIds`; il form usa solo `mealTypeConfigs`.
+
+Constraint UI: una categoria non può essere sia preferita che esclusa per la stessa portata — `setMealPreferred` rimuove automaticamente dal `excludedCategoryIds` se già presente.
+
+### Slot Regeneration
+
+`regeneratingSlots: Set<string>` usa chiave `"dayIndex-mealType"` (es. `"2-pranzo"`).
+
+Riutilizza `/api/plan-meals` con config single-slot (non serve un endpoint separato):
+
+```ts
+const slotConfig: MealPlanSetupConfig = {
+  season: currentPlan.season,
+  activeMealTypes: [mealType],
+  activeDays: [dayIndex],
+  excludedCategoryIds: [],
+  newRecipeCount: 1,
+  newRecipePerMeal: { [mealType]: 1 },
+  weekStartDate: currentPlan.weekStartDate,
+};
+```
+
+Il server restituisce 1 slot; il client lo sostituisce nell'array e scrive Firestore.

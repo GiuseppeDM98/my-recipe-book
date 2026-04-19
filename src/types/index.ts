@@ -410,8 +410,19 @@ export interface MealPlan {
   activeMealTypes: MealType[];     // Meal types the user included (controls calendar rows)
   season: Season;
   generatedByAI: boolean;
+  /** Days included in this plan: 0=Mon … 6=Sun. null/undefined = all 7 days. */
+  activeDays?: number[] | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+/**
+ * Per-meal-type category configuration for AI planning.
+ * Replaces the previous flat courseCategoryMap + excludedCategoryIds combo.
+ */
+export interface MealTypeConfig {
+  preferredCategoryId?: string | null;
+  excludedCategoryIds?: string[] | null;
 }
 
 /**
@@ -425,10 +436,17 @@ export interface MealPlanSetupConfig {
   /** Total new AI-generated recipes (sum of newRecipePerMeal values). */
   newRecipeCount: number;
   weekStartDate: string;           // "YYYY-MM-DD", always a Monday
-  /** Maps any meal type to preferred category ID.
-   *  Includes base types (colazione/pranzo/cena) and course types (primo/secondo/…). */
+  /** @deprecated Use mealTypeConfigs instead. */
   courseCategoryMap?: Partial<Record<MealType, string>>;
   /** Per-meal breakdown of how many AI-generated recipes to include.
    *  If present, overrides the global newRecipeCount in the AI prompt. */
   newRecipePerMeal?: Partial<Record<MealType, number>>;
+  /** Free-text notes and preferences from the user (e.g., "voglio ricette veloci"). */
+  userNotes?: string | null;
+  /** Dietary restrictions as string slugs (e.g., ["senza_carne", "vegetariano"]). */
+  dietaryRestrictions?: string[] | null;
+  /** Days to include in the plan: 0=Mon … 6=Sun. null/undefined = all 7 days. */
+  activeDays?: number[] | null;
+  /** Per-meal category settings (preferred + excluded). Supersedes courseCategoryMap + excludedCategoryIds. */
+  mealTypeConfigs?: Partial<Record<MealType, MealTypeConfig>> | null;
 }
