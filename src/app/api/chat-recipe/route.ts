@@ -84,6 +84,7 @@ REGOLE PER LE RICETTE:
 - Se uno step cita la quantità di un ingrediente, usa [QTY:n] invece del numero
 - Esempio corretto step: "Versa [QTY:1] di pasta nell'acqua"
 - Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
+- IMPORTANTE: scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
 - Ogni step deve descrivere UNA sola azione principale o un solo riferimento quantità principale
 - Se una frase contiene due quantità distinte o due trasformazioni diverse, spezzala in due step separati
 - Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)

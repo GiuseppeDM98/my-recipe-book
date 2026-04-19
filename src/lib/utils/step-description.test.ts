@@ -42,10 +42,11 @@ describe('step-description utilities', () => {
     );
   });
 
-  test('should keep non-scalable quantities unchanged', () => {
+  test('should keep non-scalable quantities unchanged and append name when absent', () => {
+    // "sale" is not in the surrounding text "Regola di ." — name is appended
     const step = createStep(`Regola di ${createStepQuantityToken('salt')}.`);
 
-    expect(renderStepDescription(step, ingredients, 4, 10)).toBe('Regola di q.b..');
+    expect(renderStepDescription(step, ingredients, 4, 10)).toBe('Regola di q.b. di sale.');
   });
 
   test('should leave unresolved tokens unchanged', () => {
@@ -54,6 +55,29 @@ describe('step-description utilities', () => {
     expect(renderStepDescription(step, ingredients, 4, 6)).toBe(
       'Aggiungi {{qty:missing-ingredient}} e mescola.'
     );
+  });
+
+  test('should append ingredient name when not present in step text', () => {
+    // AI omitted the name — token is the only reference to the ingredient
+    const step = createStep(`Trita grossolanamente ${createStepQuantityToken('apple-cubes')} e aggiungile.`);
+
+    expect(renderStepDescription(step, ingredients, 4, 4)).toBe(
+      'Trita grossolanamente 300 g di mele e aggiungile.'
+    );
+  });
+
+  test('should not duplicate name when already present in step text', () => {
+    // AI correctly wrote the name — token should yield quantity only
+    const step = createStep(`Taglia ${createStepQuantityToken('apple-cubes')} di mele a cubetti.`);
+
+    expect(renderStepDescription(step, ingredients, 4, 4)).toBe('Taglia 300 g di mele a cubetti.');
+  });
+
+  test('should strip parenthetical annotations from ingredient name', () => {
+    // "Mele (per cubetti)" → "mele" in the appended label
+    const step = createStep(`Usa ${createStepQuantityToken('apple-cubes')} nell'impasto.`);
+
+    expect(renderStepDescription(step, ingredients, 4, 4)).toBe("Usa 300 g di mele nell'impasto.");
   });
 
   test('should extract linked ingredient ids without duplicates', () => {

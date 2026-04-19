@@ -1439,7 +1439,7 @@ interface CookingSession {
 **Lifecycle**:
 1. Created when user starts cooking mode
 2. Updated when checkboxes are toggled
-3. **Auto-deleted** when 100% complete (all ingredients + steps checked)
+3. Completed when the user taps "Finish cooking" — writes a `cooking_history` entry, then deletes the session
 
 **Security**: Owner-only access
 
@@ -1529,7 +1529,7 @@ Body:
 - `500`: Internal server error
 
 **Implementation Details**:
-- **Model**: Claude Sonnet 4.5 (claude-sonnet-4-5-20241022)
+- **Model**: Claude Sonnet 4.6
 - **Context Window**: 200,000 tokens
 - **Max Output**: 16,000 tokens
 - **Vision**: Native PDF support (base64 encoding)

@@ -104,6 +104,7 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 - Se uno step usa la quantità di un ingrediente, NON riscrivere il numero nello step: usa il riferimento [QTY:n]
 - Esempio corretto step: "Taglia [QTY:1] di mele a cubetti"
 - Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
+- IMPORTANTE: scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
 
 ### 5. PROCEDIMENTO DETTAGLIATO
 - Usa elenchi puntati per tutti i passaggi

@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-17
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-19
 
 ## Quick Reference
 
@@ -120,6 +120,7 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 - **Legacy step adaptation**: edit recipe now includes a conservative auto-adapt action for upgrading existing static step quantities
 - **AI quantity linking**: newly AI-generated recipes can emit structured ingredient/step quantity references that are converted automatically during parsing
 - **Preset category colors**: category create/edit now uses a curated color palette instead of the browser color input
+- **Step ingredient name fallback**: `renderStepDescription` now detects when an ingredient name is absent from surrounding step text and appends it automatically (`"15 g di noci o mandorle"`); fixes existing recipes without data migration; all four AI route prompts updated to require the name alongside `[QTY:n]`
 
 ### Family Profile and AI Context (Apr 2026)
 - **New page** `/profilo-famiglia`: users can save household members and optional notes

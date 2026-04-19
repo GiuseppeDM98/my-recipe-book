@@ -310,6 +310,16 @@ Per ricette legacy:
 - usare il pulsante di adattamento automatico in modifica ricetta
 - convertire solo match ad alta confidenza; i casi ambigui devono restare invariati
 
+### `renderStepDescription` — name fallback
+
+`renderStepDescription` controlla se le keyword del nome dell'ingrediente (`getIngredientKeywords` + `normalizeText`) sono presenti nel testo circostante. Se non lo sono, appende automaticamente `"di {simplifiedName}"` alla quantità — es. `"15 g di noci o mandorle"`.
+
+Implicazioni pratiche:
+- le ricette esistenti con token ma senza nome nel testo sono corrette al runtime, senza migrazione
+- `simplifyIngredientName` rimuove le annotazioni parentetiche e porta in lowercase per uso mid-sentence
+- il prompt AI richiede esplicitamente il nome nello step accanto a `[QTY:n]`; il fallback è la rete di sicurezza, non la norma
+- la logica di keyword detection è condivisa con `adaptStepsToDynamicQuantities` — se cambi `getIngredientKeywords`, entrambi i flussi sono impattati
+
 ### AI Step Shape
 
 Quando aggiorni prompt AI per ricette:

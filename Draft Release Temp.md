@@ -24,6 +24,7 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed ingredient names disappearing from recipe steps when AI-generated or adapted recipes used a quantity reference without explicitly writing the ingredient name in the step text (e.g. "Add 15 g and stir" now correctly shows "Add 15 g of walnuts and stir")
 - Fixed AI Assistant requests failing with unauthorized errors after the new protected AI authentication checks
 - Fixed cooking sessions closing automatically as soon as all ingredients and steps were checked
 - Fixed ingredient quantities not updating when changing the number of servings for recipes added via the free-text AI flow
