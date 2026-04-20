@@ -43,510 +43,172 @@
 **Breakpoint `lg` = 1440px**.
 
 ```tsx
-// ❌ SBAGLIATO
-className="portrait:flex landscape:hidden"
-
-// ✅ CORRETTO
-className="max-lg:portrait:flex max-lg:landscape:hidden"
+className="max-lg:portrait:flex max-lg:landscape:hidden"  // ✅
+className="portrait:flex landscape:hidden"                 // ❌ applica a desktop
 ```
 
-Pattern attivo:
 - Desktop (≥1440px): sidebar sempre visibile
 - Mobile portrait: bottom navigation
 - Mobile landscape: hamburger + sidebar drawer
 
-Bottom nav su iOS: aggiungere `pb-safe`.
-
 **Sticky button sopra la bottom nav:**
 ```tsx
-// Rimane visibile durante lo scroll, si solleva sopra la bottom nav su mobile
-<div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-white border-t py-4 z-10 flex gap-4">
+<div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-white border-t py-4 z-10">
 ```
 
 ---
 
 ## 2. Firebase Patterns
 
-### `null` vs `undefined`
+**`null` vs `undefined`**: Firebase rifiuta `undefined` in scrittura — usare sempre `null` per campi opzionali.
 
-Firebase rifiuta `undefined` in scrittura.
+**Composite Index**: query `where(...) + orderBy(...)` richiedono indice in `firebase/firestore.indexes.json`. Se l'errore è catturato in un `catch` generico, lato UI sembra solo "nessun dato". Dopo ogni modifica: `firebase deploy --only firestore`.
 
-```ts
-// ❌
-{ servings: servings || undefined }
+Indici attivi:
+- `categories`: `userId ASC, order ASC`
+- `cooking_history`: `userId ASC, completedAt DESC`
+- `cooking_sessions`: `userId ASC, lastUpdatedAt DESC`
+- `meal_plans`: `userId ASC, weekStartDate DESC`
+- `recipes`: `userId ASC, createdAt DESC`
+- `subcategories`: `categoryId ASC, userId ASC, order ASC`
 
-// ✅
-{ servings: servings || null }
-```
+**User Profile Extensions**: per preferenze utente che non richiedono query dedicate, usare `users/{uid}` esistente anziché aprire una nuova collection (es. `familyProfile`).
 
-### Composite Index (CRITICAL)
-
-Query con `where(...) + orderBy(...)` richiedono indice esplicito. Se l'errore e' catturato in un `catch` generico, lato UI puo' sembrare solo "nessun dato".
-
-Indici oggi attivi da mantenere allineati nel repo:
-- `categories`: `userId ASC`, `order ASC`
-- `cooking_history`: `userId ASC`, `completedAt DESC`
-- `cooking_sessions`: `userId ASC`, `lastUpdatedAt DESC`
-- `meal_plans`: `userId ASC`, `weekStartDate DESC`
-- `recipes`: `userId ASC`, `createdAt DESC`
-- `subcategories`: `categoryId ASC`, `userId ASC`, `order ASC`
-
-Quando cambi rules o indexes:
-
-```bash
-firebase deploy --only firestore
-```
-
-### Data Ownership
-
-Ogni documento utente deve avere `userId` e ogni query deve filtrarlo.
-
-```ts
-query(collection(db, 'recipes'), where('userId', '==', userId))
-```
-
-### User Profile Extensions
-
-Se aggiungi preferenze persistenti utente che non richiedono query dedicate, preferisci il documento esistente `users/{uid}` invece di aprire una nuova collection.
-
-Pattern corretto per il profilo famiglia:
-- storage: `users/{uid}.familyProfile`
-- campi: `members`, `notes`
-- campi opzionali persistiti: `null`, non `undefined`
-- nessun deploy rules necessario se non cambi il modello di permessi
-
-### Cooking History
-
-Le statistiche non leggono da `cooking_sessions`.
-
-Pattern corretto:
-- `cooking_sessions`: stato effimero della sessione attiva
-- `cooking_history`: evento append-only creato solo quando l'utente preme `Termina cottura`
-
-Se la pagina statistiche mostra `Missing or insufficient permissions`, il primo sospetto e' quasi sempre: rules/indexes locali non ancora deployati.
+**Cooking History**: `cooking_sessions` = stato effimero; `cooking_history` = evento append-only creato solo da `Termina cottura`. Statistiche leggono solo da `cooking_history`.
 
 ---
 
 ## 3. React Query Patterns
 
-### Regole base
-
 ```ts
-// ✅ Query disabilitata finché l'auth non è pronta
-useQuery({
-  queryKey: ['recipes', user?.uid ?? ''],
-  queryFn: () => getUserRecipes(user!.uid),
-  enabled: !!user,
-});
-
-// ❌ NON usare onSnapshot — il progetto evita listener real-time per costi Firestore
+// ✅ Disabilitata finché l'auth non è pronta
+useQuery({ queryKey: ['recipes', user?.uid ?? ''], queryFn: ..., enabled: !!user });
+// ❌ NON usare onSnapshot — evitato per costi Firestore
 ```
 
-### Query keys standard
+**Query keys standard:**
 
 | Key | Uso |
 |-----|-----|
 | `['recipes', uid]` | Lista ricette utente |
 | `['recipe', id, uid]` | Singola ricetta (shared tra detail/edit/cooking) |
 | `['categories', uid]` | Categorie |
-| `['subcategories', uid, categoryIds[]]` | Subcategorie (dipende da categories) |
+| `['subcategories', uid, categoryIds[]]` | Subcategorie |
 | `['cookingSessions', uid]` | Sessioni attive |
-| `['familyProfile', uid]` | Profilo famiglia |
-| `['shoppingList', uid, weekStartDate]` | Lista della spesa settimanale (derivata da MealPlan) |
+| `['familyProfile', uid]` | Profilo famiglia (staleTime 5min) |
+| `['shoppingList', uid, weekStartDate]` | Lista della spesa (derivata da MealPlan) |
 
 Stale time: 2min globale, 5min per familyProfile.
 
-### DevTools
-
-**Il package è separato dal core**: `npm install @tanstack/react-query-devtools`. Senza di esso l'icona non appare anche con `QueryClientProvider` configurato.
-
-### Guard per init one-time
-
-React Query può revalidare la cache in background, ri-eseguendo `useEffect([recipe])`. Usare un ref per init che deve avvenire una volta sola:
-
+**Guard per init one-time** (evita ri-esecuzione su cache revalidation):
 ```ts
 const sessionInitialized = useRef(false);
-
 useEffect(() => {
   if (!recipe || sessionInitialized.current) return;
   sessionInitialized.current = true;
-  // init sessione cottura...
 }, [recipe]);
 ```
 
 ---
 
-## 4. React State Patterns
+## 4. Cooking Mode
 
-### `useState(prop)` non segue i cambi
-
+**Setup Screen Pattern**: non creare sessioni in `useEffect`.
 ```ts
-// ❌
-const [expanded, setExpanded] = useState(forceExpanded);
-
-// ✅
-const [expanded, setExpanded] = useState(forceExpanded);
-useEffect(() => {
-  if (forceExpanded) setExpanded(true);
-}, [forceExpanded]);
+useEffect(() => { setIsSetupMode(!await getCookingSession(recipeId, userId)); }, []);
+const handleStart = () => createCookingSession(recipeId, userId, servings); // solo da click
 ```
 
-### Viewed state vs loaded entity
+**Completion Pattern**: non auto-eliminare la sessione al 100%. Mostrare `Termina cottura` esplicitamente → solo allora: creare `cooking_history` + cancellare `cooking_session`.
 
-Per entita' opzionali navigabili, non legare il contesto solo ai dati caricati.
-
+**Timer multipli in parallelo:**
 ```ts
-// ❌
-const viewedWeek = currentPlan?.weekStartDate;
-
-// ✅
-const viewedWeek = currentPlan?.weekStartDate ?? setupWeekStartDate;
-```
-
----
-
-## 5. Cooking Mode
-
-### Setup Screen Pattern
-
-Non creare sessioni in `useEffect`.
-
-```ts
-useEffect(() => {
-  const session = await getCookingSession(recipeId, userId);
-  setIsSetupMode(!session);
-}, []);
-
-const handleStart = () => createCookingSession(recipeId, userId, servings);
-```
-
-### Completion Pattern
-
-Non auto-eliminare la sessione al 100%.
-
-Pattern corretto:
-- aggiornare checkbox ingredienti/step normalmente
-- mostrare banner "Ricetta completata"
-- chiudere esplicitamente con pulsante `Termina cottura`
-- in quel momento: creare `cooking_history` + cancellare `cooking_session`
-
-Questo evita che l'utente perda la sessione appena completa l'ultimo item e rende le statistiche affidabili.
-
-### Timer Pattern (multipli in parallelo)
-
-Non usare un singolo `setInterval` + un singolo stato per gestire più timer.
-
-```ts
-// ✅ Pattern corretto per timer multipli
 const intervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 const [secondsMap, setSecondsMap] = useState<Record<string, number>>({});
-
-// start: aggiunge/sovrascrive un timer per stepId
-// stop(stepId): ferma un timer specifico
-// timer.timers: Array<{stepId, secondsLeft}> per il render
+// Cleanup obbligatorio:
+useEffect(() => () => { intervalsRef.current.forEach(clearInterval); }, []);
 ```
 
-Cleanup imprescindibile allo smontaggio:
-```ts
-useEffect(() => {
-  return () => { intervalsRef.current.forEach(clearInterval); };
-}, []);
-```
-
-### Section Auto-Close Pattern (collapsible lists)
-
-Per rilevare la transizione "sezione appena completata" senza triggering al mount:
-
-```ts
-// ✅ Inizializzato con il valore corrente, non con []
-const prevCheckedRef = useRef<string[]>(checkedIngredients);
-
-useEffect(() => {
-  if (!interactive) return;
-  const newlyCompleted: string[] = [];
-  groupedItems.forEach(group => {
-    const ids = group.items.map(i => i.id);
-    const wasComplete = ids.every(id => prevCheckedRef.current.includes(id));
-    const isComplete = ids.every(id => checkedIngredients.includes(id));
-    if (!wasComplete && isComplete) newlyCompleted.push(group.key);
-  });
-  if (newlyCompleted.length > 0) {
-    setExpandedSections(prev => { const next = new Set(prev); newlyCompleted.forEach(k => next.delete(k)); return next; });
-  }
-  prevCheckedRef.current = checkedIngredients;
-}, [checkedIngredients, interactive]);
-```
-
-Animazione collapse — sostituire `{isExpanded && <div>}` con div sempre renderizzato:
-
-```tsx
-<div className={cn(
-  'overflow-hidden transition-all duration-300 ease-in-out',
-  isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
-)}>
-```
-
-⚠️ Se il componente aveva un blocco IIFE per "reserve step numbers" per le sezioni collassate, va **rimosso**: con render sempre attivo il counter si incrementa comunque e il blocco causa doppio conteggio.
-
-### Italian Quantity Format
-
-- `1,5 kg`, non `1.5 kg`
-- no frazioni tipo `1/2`
-- preservare range: `2-3` → `4-6`
+**Section Auto-Close**: inizializzare `prevCheckedRef` con il valore corrente, non con `[]`, altrimenti le sezioni già complete al mount si chiudono al caricamento. Usare `max-h` + `opacity` CSS (div sempre renderizzato) per animare il collapse — non `{isExpanded && <div>}`.
 
 ---
 
-## 6. Recipe Data Structure
-
-Storage recipe:
+## 5. Recipe Data Structure
 
 ```ts
 interface Ingredient { id; name; quantity; section?: string | null; }
-interface Step {
-  id; order; description; section?: string | null;
-  sectionOrder?: number | null;
-  duration?: number | null; // minuti; null = nessun timer
-}
+interface Step { id; order; description; section?: string | null; sectionOrder?: number | null; duration?: number | null; }
 ```
 
-### Step Duration — Regole
+**Step Duration**: `duration?: number | null` — `null` = nessun timer. Form: `max={9999}`. `extractStepDuration()` esportata da `recipe-parser.ts` (usata sia dal parser che dall'auto-detect).
 
-- Campo opzionale `duration?: number | null` — `null` = nessun timer
-- Input form: `min={1}` `max={9999}` — 24h lievitazione = 1440 min; il limite 999 triggera un errore nativo del browser
-- `extractStepDuration(raw)` è esportata da `recipe-parser.ts` e riutilizzata nel form (auto-detect) e nel parser
-- Due passate: prima il token AI `[DUR:N]`, poi regex italiana (range → valore maggiore, ore+min, solo ore, solo min, secondi→min)
-
-### AI Duration Token
-
-Aggiungere a tutti i prompt AI nella sezione PROCEDIMENTO:
+**AI Duration Token**: su tutti i prompt AI nella sezione PROCEDIMENTO:
 ```
-- Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
-- Esempio CORRETTO: "Cuocere a fuoco medio per 10 minuti. [DUR:10]"
-- NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più tempi
+Se uno step ha UN SOLO tempo chiaramente identificabile, aggiungi [DUR:N] alla fine (N = minuti interi).
+NON aggiungere se il tempo è un range, ambiguo, o lo step ha più tempi.
 ```
+Consistente con `[ING:n]` e `[QTY:n]`.
 
-Questo è consistente con `[ING:n]` e `[QTY:n]` già presenti.
+**Dynamic Step Quantities**: storage `{{qty:ingredientId}}`, risolto a runtime. AI emette `[ING:n]`/`[QTY:n]`, convertiti nel parser. Ricette legacy: usare il pulsante auto-adapt in modifica, solo match ad alta confidenza.
 
-### Dynamic Step Quantities
+**`renderStepDescription` — name fallback**: se le keyword del nome ingrediente non sono nel testo circostante, appende automaticamente `"di {simplifiedName}"`. Se cambi `getIngredientKeywords`, impatta sia il rendering che `adaptStepsToDynamicQuantities`.
 
-Se uno step deve seguire le porzioni, non salvare il numero statico nel testo finale.
-
-Pattern corretto:
-- storage step: token interno `{{qty:ingredientId}}`
-- rendering dettaglio/cottura: risoluzione via utility, non parsing testo in UI
-- ricette AI nuove: usare marker intermedi `[ING:n]` negli ingredienti e `[QTY:n]` negli step, poi convertire nel parser
-
-Per ricette legacy:
-- nessuna migrazione bulk
-- usare il pulsante di adattamento automatico in modifica ricetta
-- convertire solo match ad alta confidenza; i casi ambigui devono restare invariati
-
-### `renderStepDescription` — name fallback
-
-`renderStepDescription` controlla se le keyword del nome dell'ingrediente (`getIngredientKeywords` + `normalizeText`) sono presenti nel testo circostante. Se non lo sono, appende automaticamente `"di {simplifiedName}"` alla quantità — es. `"15 g di noci o mandorle"`.
-
-Implicazioni pratiche:
-- le ricette esistenti con token ma senza nome nel testo sono corrette al runtime, senza migrazione
-- `simplifyIngredientName` rimuove le annotazioni parentetiche e porta in lowercase per uso mid-sentence
-- il prompt AI richiede esplicitamente il nome nello step accanto a `[QTY:n]`; il fallback è la rete di sicurezza, non la norma
-- la logica di keyword detection è condivisa con `adaptStepsToDynamicQuantities` — se cambi `getIngredientKeywords`, entrambi i flussi sono impattati
-
-### AI Step Shape
-
-Quando aggiorni prompt AI per ricette:
-- ogni step deve rappresentare UNA sola azione principale o un solo riferimento quantita'
-- se una frase contiene due quantita' distinte, spezzarla in due step
-
-Questo riduce i casi ambigui nel collegamento automatico ingredienti ↔ step.
-
-### Step Ordering
-
-Nel form ricetta il riordino e' lineare globale, non per sezione.
-
-Pattern corretto:
-- spostare lo step nell'array
-- rinormalizzare sempre `order` a `1..n`
-- lasciare invariata la semantica di `section`
+**Step Ordering**: riordino globale (non per sezione); rinormalizzare sempre `order` a `1..n`.
 
 ---
 
-## 7. UI Components
+## 6. UI Components
 
-### Sheet Accessibility
+**Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 
-Radix richiede `SheetDescription`.
-
-```tsx
-<SheetHeader>
-  <SheetTitle>Titolo</SheetTitle>
-  <SheetDescription className="sr-only">Descrizione</SheetDescription>
-</SheetHeader>
-```
-
-### Category Colors
-
-Per categorie usare palette preset, non `input[type=color]`.
-
-Motivo:
-- UX piu' stabile su mobile
-- evita colori fuori palette e inconsistenza visiva
+**Category Colors**: usare palette preset, non `input[type=color]` — UX più stabile su mobile, evita colori fuori palette.
 
 ---
 
-## 8. API Routes
+## 7. API Routes
 
-### AI Route Authentication
-
-Tutte le route AI richiedono auth Firebase lato server.
-
+**AI Route Authentication:**
 ```ts
 const idToken = await auth.currentUser?.getIdToken(true);
-fetch('/api/format-recipe', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${idToken}`,
-  },
-});
+fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 ```
+- `NEXT_PUBLIC_FIREBASE_*` bastano per il client, NON per la verifica server-side
+- In locale: `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY`
+- Su Vercel: preferire `FIREBASE_ADMIN_CREDENTIALS_BASE64`
+- JSON Firebase Admin usa snake_case (`project_id`, `client_email`, `private_key`)
 
-Gotcha che costa debug:
-- le `NEXT_PUBLIC_FIREBASE_*` bastano per il client, NON per la verifica server-side
-- in locale puoi usare `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY`
-- su Vercel e' piu' robusto `FIREBASE_ADMIN_CREDENTIALS_BASE64`
-- se sono presenti entrambe, il codice usa prima `FIREBASE_ADMIN_CREDENTIALS_BASE64`
-- il JSON Firebase Admin reale usa snake_case (`project_id`, `client_email`, `private_key`)
+**File Limit**: upload AI max 4.4MB (limite Vercel). Validare client-side.
 
-### File Limit
+**Family Context Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Pianificatore` ✓ · `Carica PDF` ✗ (estrazione pura).
 
-Upload AI: max 4.4MB. Validare client-side.
-
-### Family Context Scope
-
-Il contesto famiglia serve per adattare quantità/porzioni, non per alterare input che devono restare fedeli alla sorgente.
-
-Pattern corretto:
-- `Chat AI`: SI'
-- `Testo libero`: SI'
-- `Pianificatore`: SI'
-- `Carica PDF`: NO, deve restare estrazione pura
-
-### Model Consistency
-
-Il modello atteso sugli endpoint AI resta `claude-sonnet-4-6`. Se cambia, aggiornare tutti gli endpoint correlati.
+**Model**: `claude-sonnet-4-6` su tutti gli endpoint AI. Se cambia, aggiornare tutti.
 
 ---
 
-## 9. Deployment
+## 8. Deployment
 
-### Docker Compose
-
-Tutti i comandi richiedono `--env-file .env.local`. Vedi CLAUDE.md per la lista completa.
-
-### Reliable Build Check
-
-Se `npm run build` fallisce in sandbox su Turbopack/process binding:
-
-```bash
-npx next build --webpack
-```
-
-### Dependency Hygiene
-
-Dopo `npm audit fix`, se il lockfile aggiorna una dipendenza diretta importante gia' validata in build, allineare anche `package.json` per evitare drift tra manifest e lockfile.
+- Docker Compose: sempre `--env-file .env.local` (non legge `.env.local` automaticamente)
+- Build affidabile in sandbox: `npx next build --webpack` (evita problemi Turbopack)
+- Dopo `npm audit fix`: allineare `package.json` se il lockfile aggiorna una dipendenza diretta già validata
 
 ---
 
-## 10. Meal Planner Patterns
+## 9. Meal Planner Patterns
 
-### Recipe Summaries per AI
-
-Il summary ricette inviato a `/api/plan-meals` deve includere `ingredientNames` per permettere l'applicazione dei vincoli dietetici. Senza la lista ingredienti Claude inferisce solo dal titolo — inaffidabile per nomi neutri ("Tortino di riso", "Pasta rustica").
-
+**Recipe Summaries per AI**: includere `ingredientNames` nel summary inviato a `/api/plan-meals` — senza di essi Claude non può applicare vincoli dietetici su ricette con nomi neutri.
 ```ts
-// ✅ Summary corretto (useMealPlanner.ts — generatePlan E regenerateSlot)
-{
-  id, title, categoryId,
-  seasons: r.seasons ?? (r.season ? [r.season] : []),
-  ingredientCount: r.ingredients.length,
-  ingredientNames: r.ingredients.map(i => i.name),
-}
+{ id, title, categoryId, seasons: r.seasons ?? (r.season ? [r.season] : []),
+  ingredientCount: r.ingredients.length, ingredientNames: r.ingredients.map(i => i.name) }
 ```
 
-Impatto token: ~+50-100 token/ricetta. Per 50 ricette ≈ +4000 token — entro budget.
+**Season Filter Server-Side**: filtrare ricette per stagione *prima* di inviare a Claude, non solo via prompt. Fallback a pool completo se < 5 ricette stagionali. Linguaggio hard nel prompt ("GIÀ SOLO") solo quando il filtro è attivo.
 
-### Season Filter Server-Side
+**`MealTypeConfig`**: unifica preferenza + esclusione per portata. Server-side hard filter usa l'**intersezione** delle `excludedCategoryIds` di tutte le portate attive. UI: una categoria non può essere sia preferita che esclusa — `setMealPreferred` la rimuove automaticamente da `excludedCategoryIds`.
 
-Filtrare ricette per stagione **prima** di inviare a Claude, non solo via prompt:
+**Slot Regeneration**: chiave `"dayIndex-mealType"`. Riutilizza `/api/plan-meals` con `activeMealTypes: [mealType], activeDays: [dayIndex], newRecipeCount: 1`.
 
-```ts
-const seasonFiltered = recipes.filter(r =>
-  !r.seasons?.length || r.seasons.includes('tutte_stagioni') || r.seasons.includes(config.season)
-);
-// fallback se < 5 ricette stagionali → usa pool completo (utente senza tag stagione)
-const toSend = seasonFiltered.length >= 5 ? seasonFiltered : recipes;
-```
-
-Quando il filtro è attivo → linguaggio hard nel prompt ("GIÀ SOLO ricette di stagione").
-Quando è disabilitato (fallback) → linguaggio soft ("Preferisci").
-
-Senza questo filtro la stagione nel setup impatta solo le ricette nuove generate, non quelle esistenti.
-
-### Per-Meal Category Config (`MealTypeConfig`)
-
-`MealTypeConfig` unifica preferenza + esclusione per portata (sostituisce `courseCategoryMap` + `excludedCategoryIds` flat):
-
-```ts
-interface MealTypeConfig {
-  preferredCategoryId?: string | null;
-  excludedCategoryIds?: string[] | null;
-}
-// MealPlanSetupConfig:
-mealTypeConfigs?: Partial<Record<MealType, MealTypeConfig>> | null;
-```
-
-Server-side hard filter: usa l'**intersezione** delle `excludedCategoryIds` di tutte le portate attive (categorie escluse da *tutte* → rimosse dal pool). Esclusioni per-portata non in intersezione → solo prompt instruction.
-
-Backward compat: l'API supporta ancora `courseCategoryMap` + `excludedCategoryIds`; il form usa solo `mealTypeConfigs`.
-
-Constraint UI: una categoria non può essere sia preferita che esclusa per la stessa portata — `setMealPreferred` rimuove automaticamente dal `excludedCategoryIds` se già presente.
-
-### Shopping List — Derived Views
-
-La lista della spesa è una vista derivata del `MealPlan` già in Firestore. Non serve una collection separata.
-
-Pattern corretto:
-- Fetch `MealPlan` + batch `getRecipesByIds()` → `buildContributions()` → `aggregateIngredients()`
-- Slot con `newRecipe` (ParsedRecipe) hanno gli ingredienti inline: nessuna chiamata Firestore aggiuntiva
-- Stato effimero (spunti, articoli custom) → localStorage, non Firestore
-
-**localStorage key strategy per feature settimanali:**
-```
-shopping_list:{uid}:{weekStartDate}
-```
-La chiave include `uid` (isolamento multi-device) e `weekStartDate` (no cross-week contamination).
-
-**Aggregazione ingredienti — due binari:**
-- Binario A (somma numerica): stessa unità + valore parseable → sommare (es. "200 g" + "150 g" → "350 g")
-- Binario B (concatenazione): unità diverse o non-numeriche → join con " + " (es. "2 spicchi + q.b.")
-- Nessun fuzzy matching sui nomi: "pomodori pelati" e "pomodori" restano voci separate (merge inattesi confondono più dei duplicati)
-
-### Slot Regeneration
-
-`regeneratingSlots: Set<string>` usa chiave `"dayIndex-mealType"` (es. `"2-pranzo"`).
-
-Riutilizza `/api/plan-meals` con config single-slot (non serve un endpoint separato):
-
-```ts
-const slotConfig: MealPlanSetupConfig = {
-  season: currentPlan.season,
-  activeMealTypes: [mealType],
-  activeDays: [dayIndex],
-  excludedCategoryIds: [],
-  newRecipeCount: 1,
-  newRecipePerMeal: { [mealType]: 1 },
-  weekStartDate: currentPlan.weekStartDate,
-};
-```
-
-Il server restituisce 1 slot; il client lo sostituisce nell'array e scrive Firestore.
+**Shopping List — Derived View**: lista derivata dal `MealPlan`, nessuna collection Firestore separata.
+- Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato)
+- Slot `newRecipe` (ParsedRecipe) → ingredienti inline, zero Firestore reads aggiuntive
+- Stato effimero (spunti, articoli custom) → localStorage key `shopping_list:{uid}:{weekStartDate}`
+- Aggregazione: somma numerica se stessa unità; fallback `" + "` per tutto il resto; nessun fuzzy matching sui nomi
