@@ -132,6 +132,30 @@ export async function updateRecipe(recipeId: string, updates: Partial<Recipe>): 
 }
 
 /**
+ * Batch-fetch multiple recipes by ID in parallel, validating ownership for each.
+ *
+ * Returns a Map<recipeId, Recipe> for O(1) lookups. Silently skips IDs that
+ * do not exist or belong to another user.
+ *
+ * Deduplicates the input IDs to avoid redundant reads (typical meal plan has
+ * 5-15 unique recipes across 21 slots).
+ */
+export async function getRecipesByIds(
+  recipeIds: string[],
+  userId: string
+): Promise<Map<string, Recipe>> {
+  const uniqueIds = [...new Set(recipeIds)];
+  const results = await Promise.all(uniqueIds.map(id => getRecipe(id, userId)));
+
+  const map = new Map<string, Recipe>();
+  results.forEach((recipe, i) => {
+    if (recipe) map.set(uniqueIds[i], recipe);
+  });
+
+  return map;
+}
+
+/**
  * Delete a recipe from Firestore
  *
  * @param recipeId - Recipe document ID

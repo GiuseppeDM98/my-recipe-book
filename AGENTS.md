@@ -152,6 +152,7 @@ useQuery({
 | `['subcategories', uid, categoryIds[]]` | Subcategorie (dipende da categories) |
 | `['cookingSessions', uid]` | Sessioni attive |
 | `['familyProfile', uid]` | Profilo famiglia |
+| `['shoppingList', uid, weekStartDate]` | Lista della spesa settimanale (derivata da MealPlan) |
 
 Stale time: 2min globale, 5min per familyProfile.
 
@@ -509,6 +510,26 @@ Server-side hard filter: usa l'**intersezione** delle `excludedCategoryIds` di t
 Backward compat: l'API supporta ancora `courseCategoryMap` + `excludedCategoryIds`; il form usa solo `mealTypeConfigs`.
 
 Constraint UI: una categoria non può essere sia preferita che esclusa per la stessa portata — `setMealPreferred` rimuove automaticamente dal `excludedCategoryIds` se già presente.
+
+### Shopping List — Derived Views
+
+La lista della spesa è una vista derivata del `MealPlan` già in Firestore. Non serve una collection separata.
+
+Pattern corretto:
+- Fetch `MealPlan` + batch `getRecipesByIds()` → `buildContributions()` → `aggregateIngredients()`
+- Slot con `newRecipe` (ParsedRecipe) hanno gli ingredienti inline: nessuna chiamata Firestore aggiuntiva
+- Stato effimero (spunti, articoli custom) → localStorage, non Firestore
+
+**localStorage key strategy per feature settimanali:**
+```
+shopping_list:{uid}:{weekStartDate}
+```
+La chiave include `uid` (isolamento multi-device) e `weekStartDate` (no cross-week contamination).
+
+**Aggregazione ingredienti — due binari:**
+- Binario A (somma numerica): stessa unità + valore parseable → sommare (es. "200 g" + "150 g" → "350 g")
+- Binario B (concatenazione): unità diverse o non-numeriche → join con " + " (es. "2 spicchi + q.b.")
+- Nessun fuzzy matching sui nomi: "pomodori pelati" e "pomodori" restano voci separate (merge inattesi confondono più dei duplicati)
 
 ### Slot Regeneration
 

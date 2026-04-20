@@ -2,6 +2,10 @@
 
 ## ✨ New Features
 
+- Added a Weekly Shopping List page that automatically generates your shopping list from the current week's meal plan — ingredients from all recipes are aggregated and organised by section
+- Added the ability to check off items as you shop, with a progress bar showing how many items you have left
+- Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan
+- Added week navigation on the shopping list page so you can view the list for past and future weeks
 - Added a new Statistics page to track your most cooked recipes, total completed cooking sessions, and recent completions
 - Added cooking history tracking so completed sessions can power long-term stats and activity insights
 - Added manual step reordering when creating or editing recipes

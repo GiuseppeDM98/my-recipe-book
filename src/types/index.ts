@@ -425,6 +425,38 @@ export interface MealTypeConfig {
   excludedCategoryIds?: string[] | null;
 }
 
+// ============================================
+// Shopping List Types
+// ============================================
+
+/**
+ * A single item on the shopping list.
+ *
+ * AGGREGATION:
+ * - Plan items are aggregated by ingredient name (case-insensitive, trimmed).
+ * - displayQuantity holds the final quantity: summed if same unit and numeric,
+ *   or joined with " + " fallback for mixed/non-summable quantities.
+ * - Custom items (isCustom = true) are added manually by the user and stored
+ *   in localStorage keyed by {userId}:{weekStartDate}.
+ *
+ * ID STRATEGY:
+ * - Plan items: slug(name) derived from lowercased, trimmed ingredient name
+ * - Custom items: crypto.randomUUID() generated at creation time
+ */
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  displayQuantity: string;
+  section: string | null;
+  recipeSource: Array<{
+    recipeTitle: string;
+    dayIndex: number;
+    mealType: MealType;
+  }>;
+  isMerged: boolean;
+  isCustom: boolean;
+}
+
 /**
  * Setup configuration collected before plan generation.
  * Passed verbatim to /api/plan-meals.

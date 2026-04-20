@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-20 (session 3)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-20 (session 4)
 
 ## Quick Reference
 
@@ -18,7 +18,8 @@ Digital recipe book for home cooks with:
 - recipe CRUD and categorization
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation
 - cooking mode with active session tracking and per-step countdown timers
-- weekly meal planning
+- weekly meal planning with AI-assisted generation
+- weekly shopping list aggregated from the meal plan
 - family-aware AI quantity guidance via saved household profile
 - historical cooking statistics
 
@@ -33,7 +34,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 | Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
-| Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `@tanstack/react-query` |
+| Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `ingredient-aggregator.ts`, `@tanstack/react-query` |
 
 ---
 
@@ -43,17 +44,18 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 src/
 ├── app/
 │   ├── (auth)/           # Login, Register
-│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Statistiche
+│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Lista spesa, Statistiche
 │   └── api/              # extract-recipes, format-recipe, suggest-category, chat-recipe, plan-meals
 ├── components/
 │   ├── layout/           # Header, Sidebar, BottomNavigation, MoreSheet
 │   ├── meal-planner/     # Planner setup, grid, header, slot actions
+│   ├── shopping-list/    # ShoppingListContent, ShoppingSection, ShoppingItemRow, AddCustomItemSheet
 │   ├── recipe/           # RecipeForm, RecipeDetail, cooking-related lists
 │   └── ui/               # Shared primitives and pickers
 ├── lib/
 │   ├── firebase/         # firestore, categories, cooking-sessions, cooking-history, meal-plans
-│   ├── hooks/            # useAuth, useRecipes, useMealPlanner, useCountdownTimer
-│   └── utils/            # parser (extractStepDuration exported), scaler, search helpers
+│   ├── hooks/            # useAuth, useRecipes, useMealPlanner, useCountdownTimer, useShoppingList
+│   └── utils/            # parser (extractStepDuration exported), scaler, aggregator, search helpers
 └── types/                # Recipe, MealPlan, MealTypeConfig, CookingSession, CookingHistoryEntry, ...
 ```
 
@@ -87,6 +89,7 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 - all queries require `enabled: !!user` — never run without authenticated user
 - no `onSnapshot` real-time listeners — deliberately avoided for Firestore cost control
 - shared cache key `['recipe', id, uid]` across detail / edit / cooking pages
+- shopping list uses `['shoppingList', uid, weekStartDate]` — derived from MealPlan, no dedicated Firestore collection
 
 ### Step Duration
 - `Step.duration?: number | null` — minutes; null means no timer
@@ -96,6 +99,18 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ---
 
 ## Recent Changes (Mar–Apr 2026)
+
+### Weekly Shopping List (Apr 2026)
+- **New page** `/lista-spesa`: aggregates all ingredients from the current week's meal plan into a checkable shopping list
+- **Week navigation**: prev/next arrows reuse `addWeeksToDateString` + `getCurrentWeekMonday` from `src/lib/constants/seasons.ts`
+- **Ingredient aggregation**: `buildContributions()` + `aggregateIngredients()` in `src/lib/utils/ingredient-aggregator.ts`; same-unit numeric sum, `" + "` concatenation fallback; no fuzzy name matching
+- **Both slot types included**: existing cookbook recipes (fetched via `getRecipesByIds()`) and AI-generated `newRecipe` slots (ingredients read inline from `ParsedRecipe`, no extra Firestore reads)
+- **localStorage persistence**: checked state and custom items keyed by `shopping_list:{uid}:{weekStartDate}`; no new Firestore collection
+- **Custom items**: users can add manual items via a bottom sheet; custom items show a delete button
+- **Progress bar**: checked/total count with percentage, turns green at 100%
+- **Collapsible sections**: one section per ingredient group; null section shown last as "Senza categoria"
+- **Navigation**: "Lista della spesa" added to sidebar (after Pianificatore) and MoreSheet
+- **New utility**: `getRecipesByIds(ids, userId)` in `firestore.ts` — batch fetch via `Promise.all`, deduplicates IDs, returns `Map<id, Recipe>`
 
 ### Cooking Mode UX Polish (Apr 2026)
 - **Today highlight in planner**: `WeeklyCalendarGrid` now highlights the current day with a primary-color ring (desktop) or border/tint (mobile card); uses local year/month/date comparison, not timestamp
