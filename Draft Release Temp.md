@@ -62,6 +62,9 @@
 - Improved navigation performance so revisiting a recipe page no longer reloads data from the server when the content is still fresh
 - Improved the "Save Changes" button in recipe editing so it stays visible at the bottom of the screen while scrolling through long recipes
 - Improved AI-assisted recipe formatting and PDF extraction to automatically detect and store step durations, activating the timer button without any manual input
+- Improved the meal planner calendar so today's date is visually highlighted, making it easier to orient yourself at a glance
+- Improved cooking mode so completed ingredient and step sections turn green with a checkmark, giving clear visual feedback as you work through a recipe
+- Improved cooking mode so sections collapse automatically with a smooth animation once all their items are checked, reducing visual noise as you progress through the recipe
 
 ## 🔒 Security
 

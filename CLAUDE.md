@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-19 (session 2)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-20 (session 3)
 
 ## Quick Reference
 
@@ -96,6 +96,11 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ---
 
 ## Recent Changes (Mar–Apr 2026)
+
+### Cooking Mode UX Polish (Apr 2026)
+- **Today highlight in planner**: `WeeklyCalendarGrid` now highlights the current day with a primary-color ring (desktop) or border/tint (mobile card); uses local year/month/date comparison, not timestamp
+- **Section completion visual**: `IngredientListCollapsible` and `StepsListCollapsible` turn green (`border-green-400 bg-green-50`) when all items in a section are checked; includes ✓ in the section header; both named sections and flat (null) sections supported; no effect in non-interactive mode
+- **Section auto-collapse with animation**: when a section becomes fully complete, it collapses automatically with a 300ms `max-h` + opacity transition; uses `prevCheckedRef` initialized at mount to avoid collapsing already-complete sections on page reload; user can manually re-open; once a section is complete the auto-close won't re-trigger
 
 ### Meal Planner Improvements (Apr 2026)
 - **Dietary preference chips**: setup form now has toggles for common dietary restrictions (Senza carne, Senza pesce, Vegetariano, Vegano, Senza glutine, Ricco di legumi); injected into the AI prompt

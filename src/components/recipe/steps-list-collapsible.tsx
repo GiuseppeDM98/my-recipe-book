@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Ingredient, Step } from '@/types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { renderStepDescription } from '@/lib/utils/step-description';
+import { cn } from '@/lib/utils/cn';
 
 /**
  * StepsListCollapsible - Step viewer with global numbering across sections
@@ -116,6 +117,39 @@ export function StepsListCollapsible({
     new Set(defaultExpanded ? groupedSteps.map(g => g.section || 'no-section') : [])
   );
 
+  // Initialized with current value to avoid auto-closing already-complete sections on mount
+  const prevCheckedRef = useRef<string[]>(checkedSteps);
+
+  function isSectionComplete(items: { id: string }[]): boolean {
+    if (!interactive || items.length === 0) return false;
+    return items.every(item => checkedSteps.includes(item.id));
+  }
+
+  useEffect(() => {
+    if (!interactive) return;
+
+    const newlyCompleted: string[] = [];
+    groupedSteps.forEach(group => {
+      const key = group.section || 'no-section';
+      const ids = group.steps.map(s => s.id);
+      if (ids.length === 0) return;
+
+      const wasComplete = ids.every(id => prevCheckedRef.current.includes(id));
+      const isComplete = ids.every(id => checkedSteps.includes(id));
+      if (!wasComplete && isComplete) newlyCompleted.push(key);
+    });
+
+    if (newlyCompleted.length > 0) {
+      setExpandedSections(prev => {
+        const next = new Set(prev);
+        newlyCompleted.forEach(key => next.delete(key));
+        return next;
+      });
+    }
+
+    prevCheckedRef.current = checkedSteps;
+  }, [checkedSteps, interactive]);
+
   const toggleSection = (section: string | null) => {
     const key = section || 'no-section';
     const newExpanded = new Set(expandedSections);
@@ -148,8 +182,14 @@ export function StepsListCollapsible({
 
         // If no section, render steps directly without collapsible header
         if (!hasSection) {
+          const sectionComplete = isSectionComplete(group.steps);
           return (
-            <div key={sectionKey} className="space-y-4">
+            <div key={sectionKey} className={cn(
+              'space-y-4',
+              interactive && sectionComplete
+                ? 'rounded-lg border border-green-400 bg-green-50 p-3 transition-colors duration-300'
+                : ''
+            )}>
               {group.steps.map((step) => {
                 globalStepNumber++;
                 const isChecked = checkedSteps.includes(step.id);
@@ -231,28 +271,39 @@ export function StepsListCollapsible({
         }
 
         // Render collapsible section
+        const sectionComplete = isSectionComplete(group.steps);
         return (
-          <div key={sectionKey} className="border rounded-lg overflow-hidden">
+          <div key={sectionKey} className={cn(
+            'border rounded-lg overflow-hidden transition-colors duration-300',
+            sectionComplete ? 'border-green-400 bg-green-50' : 'border-border'
+          )}>
             {/* Section Header */}
             <button
               onClick={() => toggleSection(group.section)}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+              className={cn(
+                'w-full flex items-center justify-between p-4 transition-colors',
+                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-50 hover:bg-gray-100'
+              )}
             >
               <div className="flex items-center gap-3">
                 {isExpanded ? (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
+                  <ChevronDown className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
                 ) : (
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
+                  <ChevronRight className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
                 )}
-                <h3 className="font-semibold text-lg text-gray-900">
+                <h3 className={cn('font-semibold text-lg', sectionComplete ? 'text-green-700' : 'text-gray-900')}>
                   {group.section}
                 </h3>
+                {sectionComplete && <span className="ml-2 text-green-600">&#10003;</span>}
               </div>
             </button>
 
-            {/* Section Steps */}
-            {isExpanded && (
-              <div className="p-4 space-y-4 border-t">
+            {/* Section Steps — always rendered for animation and global counter correctness */}
+            <div className={cn(
+              'border-t overflow-hidden transition-all duration-300 ease-in-out',
+              isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+            )}>
+              <div className="p-4 space-y-4">
                 {group.steps.map((step) => {
                   globalStepNumber++;
                   const isChecked = checkedSteps.includes(step.id);
@@ -327,15 +378,7 @@ export function StepsListCollapsible({
                   );
                 })}
               </div>
-            )}
-
-            {/* Reserve numbers for collapsed section steps */}
-            {/* WHY: Prevents step numbers from changing when user expands/collapses */}
-            {/* Example: If steps 4-5 are hidden, step 6 stays 6 (doesn't become 4) */}
-            {!isExpanded && (() => {
-              group.steps.forEach(() => globalStepNumber++);
-              return null; // No render, just increment counter
-            })()}
+            </div>
           </div>
         );
       })}

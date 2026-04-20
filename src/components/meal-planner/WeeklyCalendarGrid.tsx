@@ -66,6 +66,17 @@ export function WeeklyCalendarGrid({
     return d.getDate().toString();
   }
 
+  function isToday(dayIndex: number): boolean {
+    const today = new Date();
+    const d = new Date(weekStartDate + 'T00:00:00');
+    d.setDate(d.getDate() + dayIndex);
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate()
+    );
+  }
+
   return (
     <>
       {/* ─────────────────────────────────────────
@@ -81,9 +92,9 @@ export function WeeklyCalendarGrid({
           {/* Empty corner */}
           <div />
           {activeDays.map(i => (
-            <div key={i} className="text-center">
-              <p className="text-xs font-semibold text-foreground">{DAY_LABELS_SHORT[i]}</p>
-              <p className="text-xs text-muted-foreground">{getDayDate(i)}</p>
+            <div key={i} className={cn('text-center rounded-md px-1 py-0.5', isToday(i) && 'bg-primary/10 ring-1 ring-primary/40')}>
+              <p className={cn('text-xs font-semibold', isToday(i) ? 'text-primary' : 'text-foreground')}>{DAY_LABELS_SHORT[i]}</p>
+              <p className={cn('text-xs', isToday(i) ? 'text-primary/70' : 'text-muted-foreground')}>{getDayDate(i)}</p>
             </div>
           ))}
         </div>
@@ -131,15 +142,16 @@ export function WeeklyCalendarGrid({
           <div
             key={dayIndex}
             className={cn(
-              'rounded-xl border border-border bg-card p-3',
+              'rounded-xl border bg-card p-3',
+              isToday(dayIndex) ? 'border-primary/50 bg-primary/5' : 'border-border'
             )}
           >
             {/* Day header */}
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-semibold text-foreground">
+              <span className={cn('text-sm font-semibold', isToday(dayIndex) ? 'text-primary' : 'text-foreground')}>
                 {DAY_LABELS_FULL[dayIndex]}
               </span>
-              <span className="text-xs text-muted-foreground">{getDayDate(dayIndex)}</span>
+              <span className={cn('text-xs', isToday(dayIndex) ? 'text-primary/70' : 'text-muted-foreground')}>{getDayDate(dayIndex)}</span>
             </div>
 
             {/* Meal type rows */}

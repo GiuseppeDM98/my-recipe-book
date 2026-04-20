@@ -27,6 +27,9 @@
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
 | Planner stagione soft | Il selettore stagione non vincola le ricette esistenti se non filtrate | Filtrare server-side per stagione prima di inviare a Claude (fallback se < 5 ricette) |
 | Planner ingredienti mancanti | Vincoli dietetici ignorati su ricette esistenti | Includere `ingredientNames` nel summary, non solo il conteggio |
+| Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
+| Collapsible always-render counter | IIFE "reserve numbers" rimane dopo aver tolto il conditional render → doppio conteggio | Rimuovere il blocco IIFE reserve quando il contenuto diventa sempre renderizzato |
+| isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
 | React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
 | React Query DevTools | L'icona non appare pur avendo QueryClientProvider | Serve il package separato `@tanstack/react-query-devtools` |
 | React Query + useEffect init | Cache revalidation ri-esegue `useEffect([recipe])` | Usare un ref `sessionInitialized` per guard one-time init |
@@ -248,6 +251,41 @@ useEffect(() => {
   return () => { intervalsRef.current.forEach(clearInterval); };
 }, []);
 ```
+
+### Section Auto-Close Pattern (collapsible lists)
+
+Per rilevare la transizione "sezione appena completata" senza triggering al mount:
+
+```ts
+// ✅ Inizializzato con il valore corrente, non con []
+const prevCheckedRef = useRef<string[]>(checkedIngredients);
+
+useEffect(() => {
+  if (!interactive) return;
+  const newlyCompleted: string[] = [];
+  groupedItems.forEach(group => {
+    const ids = group.items.map(i => i.id);
+    const wasComplete = ids.every(id => prevCheckedRef.current.includes(id));
+    const isComplete = ids.every(id => checkedIngredients.includes(id));
+    if (!wasComplete && isComplete) newlyCompleted.push(group.key);
+  });
+  if (newlyCompleted.length > 0) {
+    setExpandedSections(prev => { const next = new Set(prev); newlyCompleted.forEach(k => next.delete(k)); return next; });
+  }
+  prevCheckedRef.current = checkedIngredients;
+}, [checkedIngredients, interactive]);
+```
+
+Animazione collapse — sostituire `{isExpanded && <div>}` con div sempre renderizzato:
+
+```tsx
+<div className={cn(
+  'overflow-hidden transition-all duration-300 ease-in-out',
+  isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+)}>
+```
+
+⚠️ Se il componente aveva un blocco IIFE per "reserve step numbers" per le sezioni collassate, va **rimosso**: con render sempre attivo il counter si incrementa comunque e il blocco causa doppio conteggio.
 
 ### Italian Quantity Format
 
