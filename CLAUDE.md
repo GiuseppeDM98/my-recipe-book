@@ -233,3 +233,26 @@ Composite indexes currently maintained in repo:
 | `POST /api/plan-meals` | Weekly meal-plan generation |
 
 All endpoints above require an authenticated Firebase session.
+
+---
+
+## Design Context
+
+### Users
+Famiglie italiane che cucinano insieme. L'app viene usata in cucina durante la preparazione dei pasti — spesso con le mani occupate, luce naturale, e ritmo quotidiano. Non è un'app di scoperta o social: è uno strumento personale e privato, usato da persone che la conoscono bene.
+
+### Brand Personality
+**Curato, elegante, gastronomico.** Come un cookbook italiano di qualità — raffinato ma non freddo, ispirazionale ma non pretenzioso. In 3 parole di design: **preciso, caldo, editoriale.**
+
+### Aesthetic Direction
+- **Light mode.** Sfondi caldi come carta panna/pergamena (oklch ~97% con hue caldo), mai bianco puro. Accenti terrosi: terracotta, verde salvia.
+- **Tipografia**: Bodoni Moda (display) + Jost (body) — editoriale italiano, leggibile in cucina.
+- **Palette OKLCH**: background crema oklch(97% 0.01 75), testo marrone scuro oklch(18% 0.03 55), accento terracotta oklch(52% 0.13 42), verde salvia oklch(50% 0.08 148).
+- **Anti-riferimenti**: niente Instagram/food social, niente AI/SaaS dashboard, niente delivery app, niente corporate.
+
+### Design Principles
+1. **Cookbook over app** — ogni schermata dovrebbe sembrare una pagina di un libro di cucina curato.
+2. **Contenuto al centro** — testo, ingredienti, passaggi sono la sostanza; l'interfaccia li serve.
+3. **Calore senza rumore** — colori naturali e tipografia elegante; niente decorazioni fini a se stesse.
+4. **Leggibilità in cucina** — testo grande, contrasto alto, zone di tocco generose.
+5. **Privatezza come orgoglio** — niente social, niente condivisione forzata.
