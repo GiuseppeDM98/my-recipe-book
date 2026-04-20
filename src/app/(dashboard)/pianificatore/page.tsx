@@ -49,6 +49,8 @@ export default function PianificatorePage() {
     updateSlot,
     clearSlot,
     saveNewRecipeToCookbook,
+    regenerateSlot,
+    regeneratingSlots,
     resetToSetup,
     loadPlan,
     loadPlanForWeek,
@@ -388,6 +390,14 @@ export default function PianificatorePage() {
                   ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }, 50);
             }}
+            onRegenerateSlot={async (dayIndex, mealType) => {
+              try {
+                await regenerateSlot(dayIndex, mealType, recipes, categories);
+              } catch {
+                toast.error('Errore nella rigenerazione dello slot');
+              }
+            }}
+            regeneratingSlots={regeneratingSlots}
             weekStartDate={currentPlan.weekStartDate}
           />
 

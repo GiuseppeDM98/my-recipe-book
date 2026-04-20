@@ -88,6 +88,7 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 - Se uno step cita la quantità di un ingrediente, usa il riferimento [QTY:n] invece del numero
 - Esempio corretto step: "Unisci [QTY:1] di pasta e mescola"
 - Usa [QTY:n] solo quando il collegamento con l'ingrediente è chiaro e diretto
+- IMPORTANTE: scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
 - Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
 - Esempio CORRETTO: "Cuocere a fuoco medio per 10 minuti. [DUR:10]"
 - Esempio CORRETTO: "Lasciar lievitare in luogo tiepido per 1 ora. [DUR:60]"

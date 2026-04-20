@@ -2,6 +2,10 @@
 
 ## ✨ New Features
 
+- Added a Weekly Shopping List page that automatically generates your shopping list from the current week's meal plan — ingredients from all recipes are aggregated and organised by section
+- Added the ability to check off items as you shop, with a progress bar showing how many items you have left
+- Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan
+- Added week navigation on the shopping list page so you can view the list for past and future weeks
 - Added a new Statistics page to track your most cooked recipes, total completed cooking sessions, and recent completions
 - Added cooking history tracking so completed sessions can power long-term stats and activity insights
 - Added manual step reordering when creating or editing recipes
@@ -21,9 +25,14 @@
 - Added support for multiple timers running at the same time, so you can track an oven and a resting time simultaneously
 - Added a "Duration (min)" field to the step editor in recipe create and edit, so you can set timers for any step manually
 - Added an "Auto-detect durations" button in recipe edit that scans step text and pre-fills durations automatically, without overwriting values you already set
+- Added dietary preference chips to the meal planner setup — choose from Meat-free, Fish-free, Vegetarian, Vegan, Gluten-free, and Legume-rich to guide recipe selection
+- Added a free-text notes field to the meal planner setup so you can tell the AI things like "I want quick recipes" or "I already have zucchini in the fridge"
+- Added a regenerate button on each occupied meal slot — click ↺ to swap a single recipe without rebuilding the entire week
+- Added a day selector to the meal planner so you can plan only specific days (e.g. weekdays only) instead of the full week
 
 ## 🐛 Bug Fixes
 
+- Fixed ingredient names disappearing from recipe steps when AI-generated or adapted recipes used a quantity reference without explicitly writing the ingredient name in the step text (e.g. "Add 15 g and stir" now correctly shows "Add 15 g of walnuts and stir")
 - Fixed AI Assistant requests failing with unauthorized errors after the new protected AI authentication checks
 - Fixed cooking sessions closing automatically as soon as all ingredients and steps were checked
 - Fixed ingredient quantities not updating when changing the number of servings for recipes added via the free-text AI flow
@@ -49,12 +58,17 @@
 - Improved compatibility for older recipes that still use a single-season format
 - Improved planner actions by clearly separating "New plan" from "Delete plan"
 - Improved planner recovery when browsing weeks without a saved plan
+- Improved the meal planner advanced settings with unified per-meal category cards — set a preferred category and excluded categories for each meal type in one place instead of two separate sections
+- Improved season filtering in the meal planner so the selected season now applies to existing cookbook recipes, not just newly generated ones
 - Improved self-hosted setup with a documented fallback for installations that do not want Google sign-in
 - Improved AI recipe suggestions so they can optionally take your household composition into account for more suitable quantities
 - Improved the AI Assistant by keeping PDF upload focused on pure extraction, without household-based quantity adjustments
 - Improved navigation performance so revisiting a recipe page no longer reloads data from the server when the content is still fresh
 - Improved the "Save Changes" button in recipe editing so it stays visible at the bottom of the screen while scrolling through long recipes
 - Improved AI-assisted recipe formatting and PDF extraction to automatically detect and store step durations, activating the timer button without any manual input
+- Improved the meal planner calendar so today's date is visually highlighted, making it easier to orient yourself at a glance
+- Improved cooking mode so completed ingredient and step sections turn green with a checkmark, giving clear visual feedback as you work through a recipe
+- Improved cooking mode so sections collapse automatically with a smooth animation once all their items are checked, reducing visual noise as you progress through the recipe
 
 ## 🔒 Security
 

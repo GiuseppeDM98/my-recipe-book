@@ -167,6 +167,18 @@ Plan your meals for the week — AI-assisted or fully manual.
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
 - **Persistent**: Plans are saved to Firebase and the current week is restored automatically on your next visit
 
+### Weekly Shopping List
+
+Turn your meal plan into a ready-to-use shopping list in one tap.
+
+- **Auto-generated from your plan**: All ingredients from the week's recipes are aggregated automatically — including AI-generated recipes not yet saved to your cookbook
+- **Smart aggregation**: Matching ingredients from different recipes are combined (e.g., two recipes using 200 g and 150 g of tomatoes → "350 g tomatoes")
+- **Checkboxes**: Check off items as you shop; a progress bar shows how many items remain
+- **Custom items**: Add anything not in your plan with a name and optional quantity
+- **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
+- **Week navigation**: Browse the shopping list for any week, not just the current one
+- **Persistent check state**: Checked items and custom additions are saved locally per week
+
 ### Mobile-First Responsive Design
 
 <img width="373" height="829" alt="image" src="https://github.com/user-attachments/assets/0b0bd5b9-97dd-49be-b784-1cc0b0c81eb4" />
@@ -1439,7 +1451,7 @@ interface CookingSession {
 **Lifecycle**:
 1. Created when user starts cooking mode
 2. Updated when checkboxes are toggled
-3. **Auto-deleted** when 100% complete (all ingredients + steps checked)
+3. Completed when the user taps "Finish cooking" — writes a `cooking_history` entry, then deletes the session
 
 **Security**: Owner-only access
 
@@ -1529,7 +1541,7 @@ Body:
 - `500`: Internal server error
 
 **Implementation Details**:
-- **Model**: Claude Sonnet 4.5 (claude-sonnet-4-5-20241022)
+- **Model**: Claude Sonnet 4.6
 - **Context Window**: 200,000 tokens
 - **Max Output**: 16,000 tokens
 - **Vision**: Native PDF support (base64 encoding)

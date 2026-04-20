@@ -26,6 +26,10 @@ export function createStepQuantityToken(ingredientId: string): string {
  * if no token is present, the original description is returned unchanged.
  * If a token cannot be resolved, it is left as-is to avoid silently altering
  * user-authored instructions.
+ *
+ * When the ingredient name is absent from the surrounding step text (which can
+ * happen when the AI omits it), the name is appended to the quantity so the
+ * rendered step remains readable ("15 g di noci o mandorle" instead of "15 g").
  */
 export function renderStepDescription(
   step: Step,
@@ -40,12 +44,30 @@ export function renderStepDescription(
       return token;
     }
 
-    if (originalServings <= 0 || targetServings <= 0) {
-      return ingredient.quantity;
+    const scaledQty = (originalServings <= 0 || targetServings <= 0)
+      ? ingredient.quantity
+      : scaleQuantity(ingredient.quantity, originalServings, targetServings);
+
+    const textWithoutToken = step.description.replace(token, '');
+    if (ingredientNameInContext(ingredient.name, textWithoutToken)) {
+      return scaledQty;
     }
 
-    return scaleQuantity(ingredient.quantity, originalServings, targetServings);
+    return `${scaledQty} di ${simplifyIngredientName(ingredient.name)}`;
   });
+}
+
+function ingredientNameInContext(name: string, text: string): boolean {
+  const keywords = getIngredientKeywords(name);
+  if (keywords.length === 0) return true;
+  const normalizedText = normalizeText(text);
+  return keywords.some(kw => normalizedText.includes(kw));
+}
+
+// Strip parenthetical annotations and lowercase for mid-sentence use.
+// "Noci o mandorle (o misto)" → "noci o mandorle"
+function simplifyIngredientName(name: string): string {
+  return name.replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
 }
 
 /**

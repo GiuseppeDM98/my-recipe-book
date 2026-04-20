@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-17
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-20 (session 4)
 
 ## Quick Reference
 
@@ -18,7 +18,8 @@ Digital recipe book for home cooks with:
 - recipe CRUD and categorization
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation
 - cooking mode with active session tracking and per-step countdown timers
-- weekly meal planning
+- weekly meal planning with AI-assisted generation
+- weekly shopping list aggregated from the meal plan
 - family-aware AI quantity guidance via saved household profile
 - historical cooking statistics
 
@@ -33,7 +34,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 | Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
-| Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `@tanstack/react-query` |
+| Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `ingredient-aggregator.ts`, `@tanstack/react-query` |
 
 ---
 
@@ -43,18 +44,19 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 src/
 ├── app/
 │   ├── (auth)/           # Login, Register
-│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Statistiche
+│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Lista spesa, Statistiche
 │   └── api/              # extract-recipes, format-recipe, suggest-category, chat-recipe, plan-meals
 ├── components/
 │   ├── layout/           # Header, Sidebar, BottomNavigation, MoreSheet
 │   ├── meal-planner/     # Planner setup, grid, header, slot actions
+│   ├── shopping-list/    # ShoppingListContent, ShoppingSection, ShoppingItemRow, AddCustomItemSheet
 │   ├── recipe/           # RecipeForm, RecipeDetail, cooking-related lists
 │   └── ui/               # Shared primitives and pickers
 ├── lib/
 │   ├── firebase/         # firestore, categories, cooking-sessions, cooking-history, meal-plans
-│   ├── hooks/            # useAuth, useRecipes, useMealPlanner, useCountdownTimer
-│   └── utils/            # parser (extractStepDuration exported), scaler, search helpers
-└── types/                # Recipe, MealPlan, CookingSession, CookingHistoryEntry, ...
+│   ├── hooks/            # useAuth, useRecipes, useMealPlanner, useCountdownTimer, useShoppingList
+│   └── utils/            # parser (extractStepDuration exported), scaler, aggregator, search helpers
+└── types/                # Recipe, MealPlan, MealTypeConfig, CookingSession, CookingHistoryEntry, ...
 ```
 
 ---
@@ -87,6 +89,7 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 - all queries require `enabled: !!user` — never run without authenticated user
 - no `onSnapshot` real-time listeners — deliberately avoided for Firestore cost control
 - shared cache key `['recipe', id, uid]` across detail / edit / cooking pages
+- shopping list uses `['shoppingList', uid, weekStartDate]` — derived from MealPlan, no dedicated Firestore collection
 
 ### Step Duration
 - `Step.duration?: number | null` — minutes; null means no timer
@@ -96,6 +99,32 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ---
 
 ## Recent Changes (Mar–Apr 2026)
+
+### Weekly Shopping List (Apr 2026)
+- **New page** `/lista-spesa`: aggregates all ingredients from the current week's meal plan into a checkable shopping list
+- **Week navigation**: prev/next arrows reuse `addWeeksToDateString` + `getCurrentWeekMonday` from `src/lib/constants/seasons.ts`
+- **Ingredient aggregation**: `buildContributions()` + `aggregateIngredients()` in `src/lib/utils/ingredient-aggregator.ts`; same-unit numeric sum, `" + "` concatenation fallback; no fuzzy name matching
+- **Both slot types included**: existing cookbook recipes (fetched via `getRecipesByIds()`) and AI-generated `newRecipe` slots (ingredients read inline from `ParsedRecipe`, no extra Firestore reads)
+- **localStorage persistence**: checked state and custom items keyed by `shopping_list:{uid}:{weekStartDate}`; no new Firestore collection
+- **Custom items**: users can add manual items via a bottom sheet; custom items show a delete button
+- **Progress bar**: checked/total count with percentage, turns green at 100%
+- **Collapsible sections**: one section per ingredient group; null section shown last as "Senza categoria"
+- **Navigation**: "Lista della spesa" added to sidebar (after Pianificatore) and MoreSheet
+- **New utility**: `getRecipesByIds(ids, userId)` in `firestore.ts` — batch fetch via `Promise.all`, deduplicates IDs, returns `Map<id, Recipe>`
+
+### Cooking Mode UX Polish (Apr 2026)
+- **Today highlight in planner**: `WeeklyCalendarGrid` now highlights the current day with a primary-color ring (desktop) or border/tint (mobile card); uses local year/month/date comparison, not timestamp
+- **Section completion visual**: `IngredientListCollapsible` and `StepsListCollapsible` turn green (`border-green-400 bg-green-50`) when all items in a section are checked; includes ✓ in the section header; both named sections and flat (null) sections supported; no effect in non-interactive mode
+- **Section auto-collapse with animation**: when a section becomes fully complete, it collapses automatically with a 300ms `max-h` + opacity transition; uses `prevCheckedRef` initialized at mount to avoid collapsing already-complete sections on page reload; user can manually re-open; once a section is complete the auto-close won't re-trigger
+
+### Meal Planner Improvements (Apr 2026)
+- **Dietary preference chips**: setup form now has toggles for common dietary restrictions (Senza carne, Senza pesce, Vegetariano, Vegano, Senza glutine, Ricco di legumi); injected into the AI prompt
+- **Free-text notes**: textarea "Note e preferenze" (max 500 chars) in setup; injected as `NOTE UTENTE` block in the prompt; not persisted in Firestore
+- **Single slot regeneration**: `↺` button on each occupied calendar slot; reuses `/api/plan-meals` with a single-day/meal config; `regeneratingSlots: Set<string>` keyed as `"dayIndex-mealType"`
+- **Specific days selection**: chip selector Lun–Dom in setup; grid renders only active days; `activeDays` persisted in `MealPlan`; backward compat for old plans via `?? [0..6]`
+- **Unified per-meal category settings**: replaced separate "preferred category" + "excluded categories" sections with per-meal cards (Preferisci dropdown + Escludi chips); new `MealTypeConfig` type; same category cannot be both preferred and excluded for the same meal type
+- **Season filter (hard)**: server-side filter now sends only seasonal-matching recipes to Claude (+ `tutte_stagioni` + untagged); fallback to full pool if < 5 seasonal recipes survive; prompt language changes from soft ("Preferisci") to hard ("GIÀ SOLO")
+- **Ingredient names in AI summaries**: recipe summaries sent to Claude now include `ingredientNames: string[]`; previously Claude could only infer dietary constraints from recipe titles
 
 ### Cooking Timers, React Query, and UX (Apr 2026)
 - **React Query migration**: all data hooks and pages migrated from manual `useState+useEffect` to `@tanstack/react-query`; navigating back to a viewed recipe costs zero extra Firestore reads (2min stale time)
@@ -120,6 +149,7 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 - **Legacy step adaptation**: edit recipe now includes a conservative auto-adapt action for upgrading existing static step quantities
 - **AI quantity linking**: newly AI-generated recipes can emit structured ingredient/step quantity references that are converted automatically during parsing
 - **Preset category colors**: category create/edit now uses a curated color palette instead of the browser color input
+- **Step ingredient name fallback**: `renderStepDescription` now detects when an ingredient name is absent from surrounding step text and appends it automatically (`"15 g di noci o mandorle"`); fixes existing recipes without data migration; all four AI route prompts updated to require the name alongside `[QTY:n]`
 
 ### Family Profile and AI Context (Apr 2026)
 - **New page** `/profilo-famiglia`: users can save household members and optional notes

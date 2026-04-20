@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Ingredient } from '@/types';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
 /**
  * IngredientListCollapsible - Section-based ingredient viewer
@@ -81,6 +82,39 @@ export function IngredientListCollapsible({
     new Set(defaultExpanded ? groupedIngredients.map(g => g.section || 'no-section') : [])
   );
 
+  // Initialized with current value to avoid auto-closing already-complete sections on mount
+  const prevCheckedRef = useRef<string[]>(checkedIngredients);
+
+  function isSectionComplete(items: { id: string }[]): boolean {
+    if (!interactive || items.length === 0) return false;
+    return items.every(item => checkedIngredients.includes(item.id));
+  }
+
+  useEffect(() => {
+    if (!interactive) return;
+
+    const newlyCompleted: string[] = [];
+    groupedIngredients.forEach(group => {
+      const key = group.section || 'no-section';
+      const ids = group.ingredients.map(i => i.id);
+      if (ids.length === 0) return;
+
+      const wasComplete = ids.every(id => prevCheckedRef.current.includes(id));
+      const isComplete = ids.every(id => checkedIngredients.includes(id));
+      if (!wasComplete && isComplete) newlyCompleted.push(key);
+    });
+
+    if (newlyCompleted.length > 0) {
+      setExpandedSections(prev => {
+        const next = new Set(prev);
+        newlyCompleted.forEach(key => next.delete(key));
+        return next;
+      });
+    }
+
+    prevCheckedRef.current = checkedIngredients;
+  }, [checkedIngredients, interactive]);
+
   const toggleSection = (section: string | null) => {
     const key = section || 'no-section';
     const newExpanded = new Set(expandedSections);
@@ -105,8 +139,14 @@ export function IngredientListCollapsible({
         // WHY: Simple recipes often have single section → avoid unnecessary UI chrome
         // Named sections get collapsible headers below (lines 109-163)
         if (!hasSection) {
+          const sectionComplete = isSectionComplete(group.ingredients);
           return (
-            <ul key={sectionKey} className="space-y-3">
+            <div key={sectionKey} className={cn(
+              interactive && sectionComplete
+                ? 'rounded-lg border border-green-400 bg-green-50 p-3 transition-colors duration-300'
+                : ''
+            )}>
+            <ul className="space-y-3">
               {group.ingredients.map((ingredient) => {
                 const isChecked = checkedIngredients.includes(ingredient.id);
                 return (
@@ -135,32 +175,44 @@ export function IngredientListCollapsible({
                 );
               })}
             </ul>
+            </div>
           );
         }
 
         // Render collapsible section
+        const sectionComplete = isSectionComplete(group.ingredients);
         return (
-          <div key={sectionKey} className="border rounded-lg overflow-hidden">
+          <div key={sectionKey} className={cn(
+            'border rounded-lg overflow-hidden transition-colors duration-300',
+            sectionComplete ? 'border-green-400 bg-green-50' : 'border-border'
+          )}>
             {/* Section Header */}
             <button
               onClick={() => toggleSection(group.section)}
-              className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+              className={cn(
+                'w-full flex items-center justify-between p-4 transition-colors',
+                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-50 hover:bg-gray-100'
+              )}
             >
               <div className="flex items-center gap-3">
                 {isExpanded ? (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
+                  <ChevronDown className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
                 ) : (
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
+                  <ChevronRight className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
                 )}
-                <h3 className="font-semibold text-lg text-gray-900">
+                <h3 className={cn('font-semibold text-lg', sectionComplete ? 'text-green-700' : 'text-gray-900')}>
                   {group.section}
                 </h3>
+                {sectionComplete && <span className="ml-2 text-green-600">&#10003;</span>}
               </div>
             </button>
 
             {/* Section Ingredients */}
-            {isExpanded && (
-              <div className="p-4 border-t">
+            <div className={cn(
+              'border-t overflow-hidden transition-all duration-300 ease-in-out',
+              isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+            )}>
+              <div className="p-4">
                 <ul className="space-y-3">
                   {group.ingredients.map((ingredient) => {
                     const isChecked = checkedIngredients.includes(ingredient.id);
@@ -191,7 +243,7 @@ export function IngredientListCollapsible({
                   })}
                 </ul>
               </div>
-            )}
+            </div>
           </div>
         );
       })}
