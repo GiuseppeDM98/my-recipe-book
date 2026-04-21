@@ -9,6 +9,9 @@
 | Gotcha | Problema | Soluzione |
 |--------|----------|-----------|
 | Orientation classes | `portrait:` applica anche a desktop | Usare `max-lg:portrait:` |
+| Page self-padding | Pagina interna aggiunge `p-4 lg:p-8` su layout che già fornisce `portrait:p-4` / `lg:px-10` | Pagine dentro dashboard layout non devono aggiungere padding esterno; usare `max-w-*` solo per centrare contenuto |
+| Flex tab bar overflow | Tab con `px-5` fisso in `flex` container traboccano su ≤375px (3 tab ≈ 420px > 343px disponibili) | `px-3 sm:px-5` + `flex-shrink-0` + `overflow-x-auto` sul container |
+| CSS grid su landscape stretto | `repeat(N, 1fr)` con N=7 su iPhone SE landscape (~568px) = ~65px per colonna — celle illeggibili | `repeat(N, minmax(72px, 1fr))` + `overflow-x-auto` sul wrapper |
 | Firebase optional | `undefined` causa errori silenziosi | Usare `null` |
 | Firestore composite index | query `where + orderBy` fallisce o rompe in runtime | Aggiungere indice in `firebase/firestore.indexes.json` e deployare |
 | Firestore deploy drift | Rules/indexes aggiornati nel repo ma non in Firebase | Eseguire `firebase deploy --only firestore` |
@@ -61,6 +64,30 @@ className="portrait:flex landscape:hidden"                 // ❌ applica a desk
 **Sticky button sopra la bottom nav:**
 ```tsx
 <div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10">
+```
+
+**Le pagine non devono aggiungere il proprio padding esterno:**
+Il `<main>` nel dashboard layout fornisce già tutti i padding per viewport:
+- `lg:px-10 lg:py-8` — desktop
+- `max-lg:portrait:p-4 max-lg:portrait:pb-20` — mobile portrait
+- `max-lg:landscape:p-4` — mobile landscape
+
+```tsx
+// ❌ SBAGLIATO — crea doppio padding (es. 32px su portrait invece di 16px)
+return <div className="p-4 sm:p-6 lg:p-8">...</div>
+
+// ✅ CORRETTO — usa max-w solo per centrare contenuto, non per padding di pagina
+return <div className="max-w-2xl mx-auto">...</div>
+```
+
+**Grid con colonne a larghezza minima + scroll orizzontale:**
+```tsx
+// ❌ SBAGLIATO — su 7 colonne in 568px landscape = ~65px per colonna (illeggibile)
+style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
+
+// ✅ CORRETTO — mantiene un minimo leggibile, scroll se necessario
+<div className="overflow-x-auto">
+  <div style={{ gridTemplateColumns: `80px repeat(7, minmax(72px, 1fr))` }}>
 ```
 
 ---

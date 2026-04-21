@@ -25,7 +25,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
-      <h1 className="font-display text-5xl font-semibold italic leading-tight mb-4">{recipe.title}</h1>
+      <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold italic leading-tight mb-4">{recipe.title}</h1>
       {recipe.description && (
         <p className="font-display italic text-lg text-muted-foreground mb-6">{recipe.description}</p>
       )}

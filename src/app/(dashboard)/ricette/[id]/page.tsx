@@ -57,14 +57,14 @@ export default function RecipePage() {
 
   return (
     <div>
-      <div className="flex justify-end gap-4 mb-4">
-        <Button asChild>
+      <div className="flex flex-wrap justify-end gap-2 sm:gap-4 mb-4">
+        <Button asChild size="sm" className="sm:h-10 sm:px-4 sm:py-2">
           <Link href={`/ricette/${id}/edit`}>Modifica</Link>
         </Button>
-        <Button variant="destructive" onClick={handleDelete}>
+        <Button variant="destructive" size="sm" className="sm:h-10 sm:px-4 sm:py-2" onClick={handleDelete}>
           Elimina
         </Button>
-        <Button asChild variant="secondary">
+        <Button asChild variant="secondary" size="sm" className="sm:h-10 sm:px-4 sm:py-2">
           <Link href={`/ricette/${id}/cooking`}>Modalità Cottura</Link>
         </Button>
       </div>

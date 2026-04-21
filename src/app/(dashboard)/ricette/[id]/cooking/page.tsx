@@ -310,8 +310,7 @@ export default function CookingModePage() {
   // Pre-cooking configuration: user selects servings before starting.
   if (isSetupMode) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto">
           <div className="flex items-center mb-6">
             <Button
               variant="outline"
@@ -385,14 +384,13 @@ export default function CookingModePage() {
             </Button>
           </div>
         </div>
-      </div>
     );
   }
 
   // === COOKING MODE RENDER ===
   // Active cooking: ingredient/step tracking with explicit completion CTA.
   return (
-    <div className="p-4 sm:p-6 lg:p-8 text-xl">
+    <div className="text-xl">
       {/* Floating timer overlay — un chip per ogni timer attivo, fixed top-right.
           Rimane sopra l'header (top-16) per non sovrapporre i controlli di navigazione. */}
       {timer.timers.length > 0 && (
@@ -436,7 +434,7 @@ export default function CookingModePage() {
         </Button>
       </div>
 
-      <h1 className="font-display text-5xl font-semibold italic leading-tight mb-6 text-center">{recipe.title}</h1>
+      <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold italic leading-tight mb-6 text-center">{recipe.title}</h1>
 
       {/* Servings selector */}
       <div className="mb-8 p-4 bg-muted/50 rounded-lg border border-border">

@@ -72,6 +72,8 @@ src/
 
 Always use `max-lg:portrait:` instead of bare `portrait:`.
 
+Pages inside the dashboard layout must **not** add their own outer padding — `<main>` in `layout.tsx` already handles all viewport-specific padding. Use `max-w-* mx-auto` only for content centering.
+
 ### Firebase Data
 - optional persisted fields: use `null`, never `undefined`
 - all user-owned queries must filter by `userId`
@@ -101,6 +103,14 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ---
 
 ## Recent Changes (Apr 2026)
+
+### Responsive Sweep (Apr 2026)
+- **Cooking page padding fix**: rimosso wrapper `p-4 sm:p-6 lg:p-8` da setup mode e cooking mode — il layout gestisce già il padding per tutti i viewport
+- **Titoli ricetta**: `text-5xl` fisso → `text-3xl sm:text-4xl lg:text-5xl` in `recipe-detail.tsx` e cooking mode
+- **AI Assistant tab bar**: `px-3 sm:px-5` + `overflow-x-auto` + `flex-shrink-0` — i 3 tab traboccavano su ≤375px
+- **Recipe detail action buttons**: `flex-wrap gap-2 sm:gap-4` — 3 bottoni senza wrap traboccavano su schermi stretti
+- **Lista spesa**: aggiunto `max-w-2xl mx-auto` (allineato alla convenzione pagine testo)
+- **WeeklyCalendarGrid**: `minmax(72px, 1fr)` + `overflow-x-auto` sul wrapper della desktop grid — su landscape stretto (iPhone SE ~568px) colonne a ~65px erano illeggibili
 
 ### Layout System & Typography Polish (Apr 2026)
 - **h1 uniformati**: tutte le pagine usano `font-display text-4xl font-semibold italic` — erano inconsistenti (alcune `text-3xl font-bold`, alcune `text-2xl`)

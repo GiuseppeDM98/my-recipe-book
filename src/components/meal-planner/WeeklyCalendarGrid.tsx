@@ -82,12 +82,14 @@ export function WeeklyCalendarGrid({
       {/* ─────────────────────────────────────────
           DESKTOP GRID (≥1440px and landscape)
           8-column grid: meal labels | 7 days
+          overflow-x-auto ensures narrow landscape phones can scroll
+          rather than cramping columns below 72px.
           ───────────────────────────────────────── */}
-      <div className="hidden lg:block max-lg:portrait:hidden max-lg:landscape:block">
+      <div className="hidden lg:block max-lg:portrait:hidden max-lg:landscape:block overflow-x-auto">
         {/* Day headers */}
         <div
-          className="grid gap-2 mb-2"
-          style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, 1fr)` }}
+          className="grid gap-2 mb-2 min-w-0"
+          style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, minmax(72px, 1fr))` }}
         >
           {/* Empty corner */}
           <div />
@@ -104,7 +106,7 @@ export function WeeklyCalendarGrid({
           <div
             key={mealType}
             className="grid gap-2 mb-2"
-            style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, 1fr)` }}
+            style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, minmax(72px, 1fr))` }}
           >
             {/* Meal type label */}
             <div className="flex items-center">

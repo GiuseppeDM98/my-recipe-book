@@ -456,11 +456,11 @@ export default function RecipeExtractorPage() {
 
       {/* Input Card with Tab Switcher */}
       <div className="bg-background rounded-lg border">
-        {/* Tab switcher */}
-        <div className="flex border-b">
+        {/* Tab switcher — overflow-x-auto prevents tabs from overflowing on narrow screens */}
+        <div className="flex border-b overflow-x-auto">
           <button
             onClick={() => handleModeSwitch('pdf')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px
+            className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'pdf'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -471,7 +471,7 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('text')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px
+            className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'text'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -482,7 +482,7 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('chat')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px
+            className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'chat'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'

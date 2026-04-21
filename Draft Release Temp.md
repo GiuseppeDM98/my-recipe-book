@@ -32,6 +32,9 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed cooking mode pages displaying with excessive padding on all screen sizes — content was pushed in from both the layout and the page itself
+- Fixed recipe page action buttons (Edit, Delete, Start Cooking) overflowing off-screen on narrow mobile phones
+- Fixed the AI Assistant tabs (Upload PDF, Free Text, Chat AI) overflowing horizontally on phones narrower than about 400px
 - Fixed input fields, dropdowns, and text areas in recipe editing and the family profile page showing a white background instead of the app's warm cream theme
 - Fixed ingredient names disappearing from recipe steps when AI-generated or adapted recipes used a quantity reference without explicitly writing the ingredient name in the step text (e.g. "Add 15 g and stir" now correctly shows "Add 15 g of walnuts and stir")
 - Fixed AI Assistant requests failing with unauthorized errors after the new protected AI authentication checks
@@ -47,6 +50,9 @@
 
 ## 🔧 Improvements
 
+- Improved recipe and cooking mode page titles to scale down gracefully on mobile instead of filling the screen at a fixed large size
+- Improved the shopping list page layout so the content sits at a comfortable reading width on large screens, matching the style of the statistics and family profile pages
+- Improved the meal planner weekly calendar on small landscape phones — day columns now maintain a minimum readable width and the grid scrolls horizontally when needed, instead of squeezing all seven days into illegible narrow cells
 - Improved the recipe card design — recipe titles now display in the editorial Bodoni Moda italic font, with the category shown as a small coloured label above the title and a cleaner footer row for cooking time and servings
 - Improved the recipe detail page — servings, prep time, cook time, and total time are now shown as a single inline row with large numerals and short labels, replacing four identical boxes that made every recipe look the same
 - Improved visual consistency across all pages — every page heading now uses the same editorial italic display font and size, giving the app a more unified and refined look
