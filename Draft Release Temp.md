@@ -47,6 +47,13 @@
 
 ## 🔧 Improvements
 
+- Improved the recipe card design — recipe titles now display in the editorial Bodoni Moda italic font, with the category shown as a small coloured label above the title and a cleaner footer row for cooking time and servings
+- Improved the recipe detail page — servings, prep time, cook time, and total time are now shown as a single inline row with large numerals and short labels, replacing four identical boxes that made every recipe look the same
+- Improved visual consistency across all pages — every page heading now uses the same editorial italic display font and size, giving the app a more unified and refined look
+- Improved the navigation sidebar with semantic grouping — AI tools (AI Assistant, Meal Planner, Shopping List) are now grouped under a clear "AI Tools" section label, with a more refined active page highlight and no unnecessary visual weight
+- Improved desktop layout breathing room — the main content area now has more generous horizontal and vertical padding, making pages feel more open and less cramped
+- Improved the meal planner week navigation and action buttons — they are now centred above the plan content instead of spread to opposite edges, making the layout feel more balanced
+
 - Improved recipe filters on the recipe list page — filters are now hidden by default in a collapsible panel; tap "Filter" to expand season, category, and subcategory controls; active filters appear as removable chips so you always know what is applied
 - Improved editorial typography throughout the app — recipe titles, page headings, and section labels (Ingredients, Preparation, Notes) now display in Bodoni Moda italic as intended, giving the interface a stronger cookbook feel
 - Improved cooking mode with a persistent "Finish cooking" button in a sticky footer — the button is always visible and activates automatically when all ingredients and steps are checked; it can no longer be accidentally dismissed

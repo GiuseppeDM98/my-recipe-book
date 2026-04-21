@@ -45,32 +45,41 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 text-center">
-        <div className="p-4 bg-secondary rounded-lg">
-          <div className="text-sm text-muted-foreground">Porzioni</div>
-          <div className="text-xl font-semibold">{recipe.servings || 'N/A'}</div>
-        </div>
-        <div className="p-4 bg-secondary rounded-lg">
-          <div className="text-sm text-muted-foreground">Preparazione</div>
-          <div className="text-xl font-semibold">{recipe.prepTime ? `${recipe.prepTime} min` : 'N/A'}</div>
-        </div>
-        <div className="p-4 bg-secondary rounded-lg">
-          <div className="text-sm text-muted-foreground">Cottura</div>
-          <div className="text-xl font-semibold">{recipe.cookTime ? `${recipe.cookTime} min` : 'N/A'}</div>
-        </div>
-        <div className="p-4 bg-secondary rounded-lg">
-          <div className="text-sm text-muted-foreground">Totale</div>
-          <div className="text-xl font-semibold">{recipe.totalTime ? `${recipe.totalTime} min` : 'N/A'}</div>
-        </div>
+      {/* Recipe meta — inline editorial row, no identical boxes */}
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 mb-8 pb-6 border-b border-border">
+        {recipe.servings && (
+          <div>
+            <span className="text-2xl font-bold tabular-nums">{recipe.servings}</span>
+            <span className="text-sm text-muted-foreground ml-1.5">porzioni</span>
+          </div>
+        )}
+        {recipe.prepTime && (
+          <div>
+            <span className="text-2xl font-bold tabular-nums">{recipe.prepTime}</span>
+            <span className="text-sm text-muted-foreground ml-1.5">min prep.</span>
+          </div>
+        )}
+        {recipe.cookTime && (
+          <div>
+            <span className="text-2xl font-bold tabular-nums">{recipe.cookTime}</span>
+            <span className="text-sm text-muted-foreground ml-1.5">min cottura</span>
+          </div>
+        )}
+        {recipe.totalTime && (
+          <div>
+            <span className="text-2xl font-bold tabular-nums text-primary">{recipe.totalTime}</span>
+            <span className="text-sm text-muted-foreground ml-1.5">min totali</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <h2 className="font-display text-2xl font-semibold mb-4">Ingredienti</h2>
+          <h2 className="font-display text-2xl font-semibold italic mb-4">Ingredienti</h2>
           <IngredientListCollapsible ingredients={recipe.ingredients} defaultExpanded={false} />
         </div>
         <div className="lg:col-span-2">
-          <h2 className="font-display text-2xl font-semibold mb-4">Preparazione</h2>
+          <h2 className="font-display text-2xl font-semibold italic mb-4">Preparazione</h2>
           <StepsListCollapsible
             steps={recipe.steps}
             ingredients={recipe.ingredients}
@@ -83,7 +92,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
 
       {recipe.notes && (
         <div className="mt-8">
-          <h2 className="font-display text-2xl font-semibold mb-4">Note</h2>
+          <h2 className="font-display text-2xl font-semibold italic mb-4">Note</h2>
           <p className="text-foreground whitespace-pre-line">{recipe.notes}</p>
         </div>
       )}

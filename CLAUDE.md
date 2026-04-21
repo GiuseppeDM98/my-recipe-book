@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-21 (session 6)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-21 (session 7)
 
 ## Quick Reference
 
@@ -100,7 +100,18 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 
 ---
 
-## Recent Changes (Mar–Apr 2026)
+## Recent Changes (Apr 2026)
+
+### Layout System & Typography Polish (Apr 2026)
+- **h1 uniformati**: tutte le pagine usano `font-display text-4xl font-semibold italic` — erano inconsistenti (alcune `text-3xl font-bold`, alcune `text-2xl`)
+- **h2 editoriali**: Ingredienti, Preparazione, Note, Piatti più preparati, Ultime cotture — tutti in `italic`
+- **Header brand**: "Il Mio Ricettario" ora in `font-display italic text-2xl font-semibold`
+- **Recipe card rewrite**: titolo in display font italic, categoria come label uppercase tiny colorata, footer `border-t` per tempo/porzioni; rimosso il shell shadcn `<Card>` generico
+- **Recipe detail stats**: sostituiti 4 box identici `p-4 bg-secondary` con riga inline editoriale (`text-2xl font-bold` + label small)
+- **Sidebar raggruppata**: sezione "Strumenti AI" (Assistente, Pianificatore, Lista spesa); active state `bg-primary/10 text-primary`; link diretti senza Button component
+- **Padding desktop**: `lg:p-6` → `lg:px-10 lg:py-8`
+- **PlannerHeader centrato**: da `justify-between` a `flex-col items-center` — navigazione e azioni centrate
+- **Regola max-width**: pagine griglia (ricette, categorie) senza max-w; pagine testo (statistiche, profilo) con `max-w mx-auto`; `container mx-auto` rimosso ovunque (non configurato in tailwind.config.js)
 
 ### UX Polish & Design System (Apr 2026)
 - **Typography editoriale**: `font-display italic` applicato sistematicamente su tutti gli h1 (`text-4xl`/`text-5xl`) e h2 di sezione — recipe title, page headings, section headers (Ingredienti, Preparazione, Note)
@@ -146,42 +157,17 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 - **Season filter (hard)**: server-side filter now sends only seasonal-matching recipes to Claude (+ `tutte_stagioni` + untagged); fallback to full pool if < 5 seasonal recipes survive; prompt language changes from soft ("Preferisci") to hard ("GIÀ SOLO")
 - **Ingredient names in AI summaries**: recipe summaries sent to Claude now include `ingredientNames: string[]`; previously Claude could only infer dietary constraints from recipe titles
 
-### Cooking Timers, React Query, and UX (Apr 2026)
-- **React Query migration**: all data hooks and pages migrated from manual `useState+useEffect` to `@tanstack/react-query`; navigating back to a viewed recipe costs zero extra Firestore reads (2min stale time)
-- **Per-step countdown timers**: cooking mode now shows an "▶ Avvia timer" button for any step with a duration; multiple timers can run in parallel (each step has its own independent countdown)
-- **Floating timer overlay**: all active timers are shown as fixed chips (top-right), each with step label, MM:SS countdown, and a stop button
-- **Step duration field**: recipe create/edit now has a "Durata (min)" input per step (`max={9999}`, supports up to ~166h)
-- **Auto-detect durations**: edit recipe now includes an "Auto-rileva durate" button that scans step text and pre-fills durations non-destructively (skips steps that already have a value)
-- **AI duration tokens**: all four AI route prompts now emit `[DUR:N]` on steps with a single clear duration; the parser strips the token and sets `step.duration` automatically
-- **`extractStepDuration`**: two-pass detection (AI token first, then Italian regex: ranges, hours+minutes, hours, minutes, seconds); exported from `recipe-parser.ts` for reuse
-- **Sticky save button**: "Salva Modifiche" in recipe edit is now `sticky bottom-0 max-lg:portrait:bottom-20` so it stays visible while scrolling long recipes
+### Cooking Mode & Timers (Apr 2026)
+- **React Query migration**: tutti i data hook migrati da `useState+useEffect` a `@tanstack/react-query`
+- **Per-step countdown timers**: cooking mode con `▶ Avvia timer` per ogni step con durata; timer multipli in parallelo
+- **Floating timer overlay**: chip fissi top-right con MM:SS countdown e stop button
+- **Completion CTA**: `Termina cottura` in sticky footer — non più auto-close al 100%
+- **Cooking history**: `cooking_history` collection per statistiche; statistiche in `/statistiche`
 
-### Cooking Mode and Statistics (Apr 2026)
-- **Manual cooking completion**: reaching 100% progress no longer auto-closes the session
-- **Completion CTA**: cooking mode now shows an explicit `Termina cottura` action when all items are checked
-- **Persistent cooking history**: completed sessions are recorded in new Firestore collection `cooking_history`
-- **New page** `/statistiche`: shows total completed sessions, most cooked recipes, and recent completions
-- **New collection**: `cooking_history` requires Firestore rules and composite index `(userId ASC, completedAt DESC)`
-
-### Recipe and Category UX (Apr 2026)
-- **Step reordering**: recipe create/edit now supports manual step ordering with move up/down controls
-- **Dynamic step quantities**: recipe steps can now follow ingredient scaling through internal quantity references
-- **Legacy step adaptation**: edit recipe now includes a conservative auto-adapt action for upgrading existing static step quantities
-- **AI quantity linking**: newly AI-generated recipes can emit structured ingredient/step quantity references that are converted automatically during parsing
-- **Preset category colors**: category create/edit now uses a curated color palette instead of the browser color input
-- **Step ingredient name fallback**: `renderStepDescription` now detects when an ingredient name is absent from surrounding step text and appends it automatically (`"15 g di noci o mandorle"`); fixes existing recipes without data migration; all four AI route prompts updated to require the name alongside `[QTY:n]`
-
-### Family Profile and AI Context (Apr 2026)
-- **New page** `/profilo-famiglia`: users can save household members and optional notes
-- **Persistent household profile**: family context is stored in `users/{uid}.familyProfile` and reused across supported AI flows
-- **Targeted AI usage**: family profile can be enabled in free-text formatting, AI chat, and the weekly planner; PDF extraction is excluded (pure extraction)
-
-### Weekly Meal Planner (Mar–Apr 2026)
-- **New page** `/pianificatore`: 3-step flow (setup → generating → calendar)
-- **AI generation**: `POST /api/plan-meals` mixes cookbook recipes and optional new AI recipes
-- **Two-block AI output**: `[PIANO]` JSON lines + `[RICETTE_NUOVE]` markdown recipes
-- **Weekly history**: users can keep multiple saved weeks; planner restores the current week on mount
-- **Real week navigation**: arrows move across adjacent weeks and open setup for empty weeks
+### Meal Planner & Family Profile (Mar–Apr 2026)
+- **Pianificatore** `/pianificatore`: flow 3-step (setup → generating → calendar); AI genera con ricette esistenti + nuove
+- **Shopping list** `/lista-spesa`: aggregata da MealPlan; localStorage per spunti/articoli custom; nessuna collection Firestore
+- **Family Profile** `/profilo-famiglia`: contesto famiglia in `users/{uid}.familyProfile`; usato in chat/testo/pianificatore, non in PDF
 
 ---
 

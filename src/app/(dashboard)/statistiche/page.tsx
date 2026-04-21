@@ -37,7 +37,7 @@ export default function StatistichePage() {
   }
 
   return (
-    <div className="max-w-4xl space-y-10">
+    <div className="max-w-4xl mx-auto space-y-10">
       <div>
         <h1 className="font-display text-4xl font-semibold italic">Statistiche</h1>
         <p className="text-muted-foreground mt-1">Le tue abitudini in cucina</p>
@@ -85,7 +85,7 @@ export default function StatistichePage() {
           {/* Liste dettagliate */}
           <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-8">
             <div>
-              <h2 className="font-display text-xl font-semibold mb-4">Piatti più preparati</h2>
+              <h2 className="font-display text-xl font-semibold italic mb-4">Piatti più preparati</h2>
               <div className="space-y-2">
                 {recipeStats.slice(0, 10).map((stat, index) => (
                   <div
@@ -111,7 +111,7 @@ export default function StatistichePage() {
             </div>
 
             <div>
-              <h2 className="font-display text-xl font-semibold mb-4">Ultime cotture</h2>
+              <h2 className="font-display text-xl font-semibold italic mb-4">Ultime cotture</h2>
               <div className="space-y-2">
                 {historyEntries.slice(0, 8).map((entry) => (
                   <div key={entry.id} className="rounded-lg border px-4 py-3">

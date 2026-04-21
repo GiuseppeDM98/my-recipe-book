@@ -254,11 +254,10 @@ export default function PianificatorePage() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-[1200px] mx-auto space-y-6">
       {/* Page title */}
-      <div className="flex items-center gap-2">
-        <CalendarDays className="h-5 w-5 text-primary" />
-        <h1 className="font-display text-2xl font-semibold italic">Pianificatore pasti</h1>
+      <div>
+        <h1 className="font-display text-4xl font-semibold italic">Pianificatore pasti</h1>
       </div>
 
       {(step === 'setup' || (step === 'calendar' && currentPlan)) && (
@@ -275,7 +274,7 @@ export default function PianificatorePage() {
 
       {/* ── STEP: SETUP ──────────────────────────────── */}
       {step === 'setup' && (
-        <div className="max-w-lg space-y-6">
+        <div className="max-w-lg mx-auto space-y-6">
           {savedPlans.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <div>

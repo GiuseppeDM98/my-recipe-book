@@ -108,8 +108,8 @@ export default function CottureInCorsoPage() {
   }
 
   return (
-    <div className="container mx-auto">
-      <div className="flex items-center gap-3 mb-8">
+    <div>
+      <div className="mb-8">
         <h1 className="font-display text-4xl font-semibold italic">In cucina</h1>
       </div>
 

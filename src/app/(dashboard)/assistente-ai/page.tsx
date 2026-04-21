@@ -15,7 +15,7 @@ import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { useRecipes, recipesQueryKey } from '@/lib/hooks/useRecipes';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine, MessageSquare } from 'lucide-react';
+import { AlertCircle, CheckCircle2, FileText, PenLine, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Category, Season } from '@/types';
 import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
@@ -433,9 +433,8 @@ export default function RecipeExtractorPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3 mb-2">
-          <Sparkles className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Assistente Ricette AI</h1>
+        <div className="mb-2">
+          <h1 className="font-display text-4xl font-semibold italic">Assistente AI</h1>
         </div>
         <p className="text-muted-foreground">
           Carica un PDF, scrivi una ricetta in formato libero, oppure chatta con l'AI per farti suggerire nuove ricette.

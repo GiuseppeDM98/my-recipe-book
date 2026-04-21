@@ -40,6 +40,8 @@
 | `animate-bounce` datato | Bounce easing su typing indicator o bottoni appare datato | Usare `animate-pulse` per indicatori di attività; easing `ease-out` per motion intenzionale |
 | `next/font` in `'use client'` | Errore runtime — `next/font/google` funziona solo in Server Components | Root layout deve essere server component; estrarre QueryClient+Auth in `src/components/providers.tsx` |
 | Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
+| `container mx-auto` non configurato | `container` di Tailwind si espande senza limiti se non configurato in `tailwind.config.js` | Usare `max-w-*` espliciti (`max-w-4xl`, `max-w-5xl`) invece di `container` |
+| `max-w-*` senza `mx-auto` | Contenuto rimane allineato a sinistra su desktop wide anche con `max-w` | Aggiungere sempre `mx-auto` insieme a `max-w-*` su pagine con contenuto centrato |
 
 ---
 
@@ -188,6 +190,11 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 **Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 
 **Category Colors**: usare palette preset, non `input[type=color]` — UX più stabile su mobile, evita colori fuori palette.
+
+**Layout max-width per tipo di pagina**:
+- Pagine con griglia card (ricette, categorie, cotture): **nessun max-w** — la grid gestisce già la responsività
+- Pagine a contenuto testuale stretto (statistiche, profilo, lista spesa): `max-w-Xrem mx-auto` per leggibilità
+- Pagine miste/centrate (pianificatore): `max-w-[1200px] mx-auto`; i sotto-pannelli di form usano `max-w-lg mx-auto`
 
 ---
 

@@ -67,8 +67,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           />
 
           <main className={cn(
-            'flex-1',
-            'lg:p-6',
+            'flex-1 min-w-0',
+            'lg:px-10 lg:py-8',
             'max-lg:portrait:p-4 max-lg:portrait:pb-20',
             'max-lg:landscape:p-4'
           )}>

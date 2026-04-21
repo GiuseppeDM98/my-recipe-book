@@ -2,7 +2,6 @@
 
 import { Recipe, Category, Subcategory } from '@/types';
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
 
 interface RecipeCardProps {
@@ -12,7 +11,6 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe, categories = [], subcategories = [] }: RecipeCardProps) {
-  // Find category and subcategory for this recipe
   const category = categories.find(cat => cat.id === recipe.categoryId);
   const subcategory = subcategories.find(sub => sub.id === recipe.subcategoryId);
 
@@ -28,58 +26,62 @@ export function RecipeCard({ recipe, categories = [], subcategories = [] }: Reci
   const seasonsToShow = recipe.seasons || (recipe.season ? [recipe.season] : []);
 
   return (
-    <Link href={`/ricette/${recipe.id}`}>
-      <Card className="hover:shadow-lg transition-shadow duration-200 relative">
-        {/* Season Badges (multiple) */}
+    <Link href={`/ricette/${recipe.id}`} className="group block">
+      <article className="relative h-full rounded-xl border border-border bg-card p-5 transition-shadow duration-200 hover:shadow-md">
+        {/* Season badges — top-right corner */}
         {seasonsToShow.length > 0 && (
-          <div className="absolute top-3 right-3 flex gap-1">
+          <div className="absolute top-4 right-4 flex gap-1">
             {seasonsToShow.map(season => (
-              <div
+              <span
                 key={season}
-                className="text-xl bg-background/80 rounded-full p-1"
+                className="text-lg"
                 title={SEASON_LABELS[season]}
               >
                 {SEASON_ICONS[season]}
-              </div>
+              </span>
             ))}
           </div>
         )}
 
-        <CardHeader>
-          <CardTitle>{recipe.title}</CardTitle>
-          <CardDescription>{recipe.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Category and Subcategory */}
-          {(category || subcategory) && (
-            <div className="mb-3 flex items-center gap-2 flex-wrap">
-              {category && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium"
-                  style={{
-                    backgroundColor: `${category.color}20`,
-                    color: category.color,
-                  }}
-                >
-                  {category.icon && <span>{category.icon}</span>}
-                  {category.name}
-                </span>
-              )}
+        {/* Category badge */}
+        {category && (
+          <div className="mb-3">
+            <span
+              className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide"
+              style={{ color: category.color }}
+            >
+              {category.icon && <span>{category.icon}</span>}
+              {category.name}
               {subcategory && (
-                <span className="inline-flex items-center px-2 py-1 rounded-md text-sm bg-muted text-muted-foreground">
-                  {subcategory.name}
+                <span className="text-muted-foreground font-normal normal-case tracking-normal">
+                  {' '}· {subcategory.name}
                 </span>
               )}
-            </div>
-          )}
-
-          {/* Time and Servings */}
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <span>{recipe.totalTime ? `${recipe.totalTime} min` : ''}</span>
-            <span>{recipe.servings ? `${recipe.servings} porzioni` : ''}</span>
+            </span>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* Title — editorial display font */}
+        <h2 className="font-display text-xl font-semibold italic leading-snug mb-2 pr-8 group-hover:text-primary transition-colors">
+          {recipe.title}
+        </h2>
+
+        {/* Description */}
+        {recipe.description && (
+          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-4">
+            {recipe.description}
+          </p>
+        )}
+
+        {/* Footer meta — time + servings */}
+        {(recipe.totalTime || recipe.servings) && (
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-auto pt-3 border-t border-border">
+            {recipe.totalTime && <span>{recipe.totalTime} min</span>}
+            {recipe.totalTime && recipe.servings && <span>·</span>}
+            {recipe.servings && <span>{recipe.servings} porzioni</span>}
+          </div>
+        )}
+      </article>
     </Link>
   );
 }

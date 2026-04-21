@@ -247,9 +247,9 @@ export default function GestioneCategoriePage() {
   }
 
   return (
-    <div className="container mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Categorie</h1>
+    <div>
+      <div className="mb-8">
+        <h1 className="font-display text-4xl font-semibold italic">Categorie</h1>
       </div>
 
       {/* Create Form */}

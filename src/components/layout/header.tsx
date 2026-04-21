@@ -33,7 +33,7 @@ export function Header({ sidebarOpen, onSidebarToggle }: HeaderProps) {
         </Button>
 
         <Link href="/ricette" aria-label="Torna alle ricette">
-          <h1 className="text-xl font-bold">Il Mio Ricettario</h1>
+          <span className="font-display text-2xl font-semibold italic">Il Mio Ricettario</span>
         </Link>
       </div>
 
