@@ -44,9 +44,9 @@ Designed for home cooks who want to digitize their recipe collections without co
 
 ### Design Philosophy
 
-> Clean, text-based interface optimized for actual cooking use. Focus on content (ingredients, steps, techniques) over visual aesthetics. Your recipes, your data, your device.
+> Curated, warm, editorial. Like a quality Italian cookbook — refined but not cold, inspiring but not pretentious.
 
-This project deliberately avoids image-heavy interfaces common in recipe apps. Instead, it prioritizes speed, clarity, and functionality—exactly what you need when you're cooking.
+The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself.
 
 ---
 
@@ -408,6 +408,7 @@ NEXT_PUBLIC_REGISTRATIONS_ENABLED=true
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Fallback | **Server Only** | Firebase Admin client email when not using base64 credentials |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Fallback | **Server Only** | Firebase Admin private key when not using base64 credentials |
 | `NEXT_PUBLIC_REGISTRATIONS_ENABLED` | No | Client+Server | Enable/disable new user registrations |
+| `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS` | No | Client | Show test account panel on login page (dev only) |
 
 \* Required for AI features. The app works without it for manual recipe entry.
 \** Required for AI features because all AI routes now verify the caller's Firebase ID token server-side.
@@ -456,7 +457,8 @@ The application will start at [http://localhost:3000](http://localhost:3000)
   - Enhanced developer experience with IntelliSense
 
 - **[Tailwind CSS 3.4](https://tailwindcss.com/)** - Utility-first CSS framework
-  - Custom HSL design system
+  - OKLCH color system with warm cream palette and terracotta accents
+  - Bodoni Moda (display) + Jost (body) via `next/font/google`
   - Responsive breakpoints (custom 1440px `lg` breakpoint)
   - Mobile-first approach
 
@@ -1713,7 +1715,7 @@ Looking for where to start? Try these:
 - **Add i18n Support**: Implement English localization
 - **Mobile UI Enhancements**: Improve animations and transitions
 - **Documentation**: Fix typos, improve examples, add missing sections
-- **Accessibility**: Add ARIA labels, improve keyboard navigation
+- **Accessibility**: Extend WCAG AA coverage (contrast ratios, screen reader testing)
 - **Performance**: Optimize re-renders, add loading states
 
 ### Areas Needing Contributions

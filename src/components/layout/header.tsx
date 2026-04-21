@@ -15,7 +15,7 @@ export function Header({ sidebarOpen, onSidebarToggle }: HeaderProps) {
   const { user, signOut } = useAuth();
 
   return (
-    <header className="flex items-center justify-between p-4 bg-white border-b">
+    <header className="flex items-center justify-between p-4 bg-background border-b">
       <div className="flex items-center gap-3">
         {/* Hamburger - SOLO mobile landscape */}
         <Button
@@ -27,12 +27,12 @@ export function Header({ sidebarOpen, onSidebarToggle }: HeaderProps) {
             'max-lg:portrait:hidden',
             'max-lg:landscape:flex'
           )}
-          aria-label="Toggle menu"
+          aria-label="Apri menu"
         >
           <Menu className="h-6 w-6" />
         </Button>
 
-        <Link href="/ricette">
+        <Link href="/ricette" aria-label="Torna alle ricette">
           <h1 className="text-xl font-bold">Il Mio Ricettario</h1>
         </Link>
       </div>

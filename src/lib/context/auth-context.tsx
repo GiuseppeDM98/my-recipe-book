@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // to protected routes until auth state is known
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Spinner size="lg" />
           <p className="text-sm text-gray-600">Caricamento...</p>

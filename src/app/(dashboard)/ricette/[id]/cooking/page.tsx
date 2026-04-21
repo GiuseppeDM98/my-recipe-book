@@ -329,7 +329,7 @@ export default function CookingModePage() {
             <p className="text-xl text-gray-600">Prepara la tua modalità cottura</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 border-2 border-primary/20">
+          <div className="bg-card rounded-lg shadow-lg p-6 sm:p-8 border-2 border-primary/20">
             <h2 className="text-2xl font-semibold mb-6 text-center">Per quante persone cucini?</h2>
 
             <div className="mb-8 p-6 bg-gray-50 rounded-lg">

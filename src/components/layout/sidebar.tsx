@@ -69,7 +69,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         // - Static positioning (part of layout flow)
         // - Fixed width (64 = 256px)
         'lg:w-64 lg:flex-shrink-0 lg:block lg:relative',
-        'lg:border-r lg:bg-white',
+        'lg:border-r lg:bg-background',
 
         // ========================================
         // Mobile portrait (<1440px, portrait): Completely hidden
@@ -86,7 +86,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         // - Transform controls visibility (off-screen vs on-screen)
         'max-lg:landscape:fixed max-lg:landscape:inset-y-0 max-lg:landscape:left-0',
         'max-lg:landscape:z-50 max-lg:landscape:w-64',
-        'max-lg:landscape:bg-white max-lg:landscape:border-r max-lg:landscape:shadow-lg',
+        'max-lg:landscape:bg-background max-lg:landscape:border-r max-lg:landscape:shadow-lg',
         'max-lg:landscape:transition-transform max-lg:landscape:duration-300',
 
         // Sliding animation (landscape only)
@@ -98,7 +98,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link key={item.href} href={item.href} passHref>
+              <Link
+                key={item.href}
+                href={item.href}
+                passHref
+                aria-current={pathname === item.href ? 'page' : undefined}
+              >
                 <Button
                   variant={pathname === item.href ? 'secondary' : 'ghost'}
                   className={cn(

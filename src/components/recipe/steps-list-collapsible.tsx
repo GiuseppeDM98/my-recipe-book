@@ -202,14 +202,20 @@ export function StepsListCollapsible({
                 return (
                   <div
                     key={step.id}
-                    className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-gray-50 p-3 rounded transition-colors' : ''}`}
+                    className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-secondary/50 p-3 rounded transition-colors' : ''}`}
                     onClick={() => interactive && onToggleStep?.(step.id)}
+                    {...(interactive ? {
+                      role: 'button' as const,
+                      tabIndex: 0,
+                      onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleStep?.(step.id); } },
+                    } : {})}
                   >
                     {interactive && (
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => onToggleStep?.(step.id)}
+                        tabIndex={-1}
                         className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
                       />
                     )}
@@ -280,9 +286,10 @@ export function StepsListCollapsible({
             {/* Section Header */}
             <button
               onClick={() => toggleSection(group.section)}
+              aria-expanded={isExpanded}
               className={cn(
                 'w-full flex items-center justify-between p-4 transition-colors',
-                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-50 hover:bg-gray-100'
+                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-secondary hover:bg-secondary/80'
               )}
             >
               <div className="flex items-center gap-3">
@@ -298,11 +305,13 @@ export function StepsListCollapsible({
               </div>
             </button>
 
-            {/* Section Steps — always rendered for animation and global counter correctness */}
+            {/* Section Steps — grid-rows animation è GPU-friendly, sempre renderizzato per global counter */}
             <div className={cn(
-              'border-t overflow-hidden transition-all duration-300 ease-in-out',
-              isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+              'border-t grid motion-reduce:transition-none',
+              'transition-[grid-template-rows] duration-300 ease-in-out',
+              isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
             )}>
+            <div className="overflow-hidden">
               <div className="p-4 space-y-4">
                 {group.steps.map((step) => {
                   globalStepNumber++;
@@ -378,6 +387,7 @@ export function StepsListCollapsible({
                   );
                 })}
               </div>
+            </div>
             </div>
           </div>
         );

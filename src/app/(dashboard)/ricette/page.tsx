@@ -222,7 +222,7 @@ export default function RecipesPage() {
               id="category-filter"
               value={selectedCategoryId}
               onChange={(e) => setSelectedCategoryId(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-4 py-2 border border-input rounded-lg bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="all">Tutte le categorie ({recipes.length})</option>
               {categories.map((cat) => {
@@ -246,7 +246,7 @@ export default function RecipesPage() {
               value={selectedSubcategoryId}
               onChange={(e) => setSelectedSubcategoryId(e.target.value)}
               disabled={selectedCategoryId === 'all'}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-muted disabled:cursor-not-allowed"
             >
               <option value="all">
                 {selectedCategoryId === 'all'

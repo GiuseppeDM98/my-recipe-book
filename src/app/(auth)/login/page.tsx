@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { appConfig } from '@/lib/utils/config';
 
+const showTestCredentials = process.env.NEXT_PUBLIC_SHOW_TEST_CREDENTIALS === 'true';
+
 export default function LoginPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -18,16 +20,16 @@ export default function LoginPage() {
   }, [user, router]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-foreground">
             Accedi al tuo ricettario
           </h2>
           {appConfig.registrationsEnabled && (
-            <p className="mt-2 text-center text-sm text-gray-600">
+            <p className="mt-2 text-center text-sm text-muted-foreground">
               Non hai un account?{' '}
-              <Link href="/register" className="font-medium text-primary-600 hover:text-primary-500">
+              <Link href="/register" className="font-medium text-primary hover:text-primary/80">
                 Registrati
               </Link>
             </p>
@@ -35,19 +37,21 @@ export default function LoginPage() {
         </div>
         <AuthForm mode="login" showGoogleButton={appConfig.registrationsEnabled} />
 
-        {/* Test Account Credentials */}
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">
-            Account di Test
-          </h3>
-          <div className="text-sm text-blue-800 space-y-1">
-            <p><span className="font-medium">Email:</span> test@test.com</p>
-            <p><span className="font-medium">Password:</span> admin1</p>
+        {/* Credenziali di test — visibili solo se NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true */}
+        {showTestCredentials && (
+          <div className="mt-6 p-4 bg-secondary border border-border rounded-lg">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              Account di Test
+            </h3>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p><span className="font-medium">Email:</span> test@test.com</p>
+              <p><span className="font-medium">Password:</span> admin1</p>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Nota: L&apos;account di test ha l&apos;estrazione AI disabilitata
+            </p>
           </div>
-          <p className="text-xs text-blue-600 mt-2">
-            Nota: L'account di test ha l'estrazione AI disabilitata
-          </p>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -240,8 +240,8 @@ export function RecipeChatInput({
                 key={prompt}
                 onClick={() => handleStarterPrompt(prompt)}
                 disabled={disabled}
-                className="text-xs px-3 py-1.5 rounded-full bg-white border border-blue-300 text-blue-700
-                  hover:bg-blue-100 hover:border-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-xs px-3 py-1.5 rounded-full bg-background border border-primary/30 text-primary
+                  hover:bg-primary-100 hover:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {prompt}
               </button>
@@ -308,7 +308,7 @@ export function RecipeChatInput({
           className={`flex-1 rounded-xl border px-4 py-3 text-sm leading-relaxed resize-none
             placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
             disabled:opacity-50 disabled:cursor-not-allowed
-            ${isSending || disabled ? 'bg-gray-50' : 'bg-white border-gray-300'}`}
+            ${isSending || disabled ? 'bg-muted' : 'bg-background border-input'}`}
         />
         <Button
           type="button"

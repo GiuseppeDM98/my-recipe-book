@@ -152,23 +152,29 @@ export function IngredientListCollapsible({
                 return (
                   <li
                     key={ingredient.id}
-                    className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors' : ''}`}
+                    className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-secondary/50 p-2 rounded transition-colors' : ''}`}
                     onClick={() => interactive && onToggleIngredient?.(ingredient.id)}
+                    {...(interactive ? {
+                      role: 'button',
+                      tabIndex: 0,
+                      onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleIngredient?.(ingredient.id); } },
+                    } : {})}
                   >
                     {interactive ? (
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => onToggleIngredient?.(ingredient.id)}
+                        tabIndex={-1}
                         className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
                       />
                     ) : (
                       <span className="flex-shrink-0 mr-3 text-primary">&#10003;</span>
                     )}
-                    <div className={isChecked && interactive ? 'line-through text-gray-400' : ''}>
+                    <div className={isChecked && interactive ? 'line-through text-muted-foreground' : ''}>
                       <span className="font-medium">{ingredient.name}</span>
                       {ingredient.quantity && (
-                        <span className="text-gray-500 ml-2">({ingredient.quantity})</span>
+                        <span className="text-muted-foreground ml-2">({ingredient.quantity})</span>
                       )}
                     </div>
                   </li>
@@ -189,9 +195,10 @@ export function IngredientListCollapsible({
             {/* Section Header */}
             <button
               onClick={() => toggleSection(group.section)}
+              aria-expanded={isExpanded}
               className={cn(
                 'w-full flex items-center justify-between p-4 transition-colors',
-                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-gray-50 hover:bg-gray-100'
+                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-secondary hover:bg-secondary/80'
               )}
             >
               <div className="flex items-center gap-3">
@@ -207,11 +214,13 @@ export function IngredientListCollapsible({
               </div>
             </button>
 
-            {/* Section Ingredients */}
+            {/* Section Ingredients — grid-rows animation è GPU-friendly (no layout thrash) */}
             <div className={cn(
-              'border-t overflow-hidden transition-all duration-300 ease-in-out',
-              isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+              'border-t grid motion-reduce:transition-none',
+              'transition-[grid-template-rows] duration-300 ease-in-out',
+              isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
             )}>
+              <div className="overflow-hidden">
               <div className="p-4">
                 <ul className="space-y-3">
                   {group.ingredients.map((ingredient) => {
@@ -242,6 +251,7 @@ export function IngredientListCollapsible({
                     );
                   })}
                 </ul>
+              </div>
               </div>
             </div>
           </div>
