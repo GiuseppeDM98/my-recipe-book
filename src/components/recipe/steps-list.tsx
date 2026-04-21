@@ -40,7 +40,7 @@ export function StepsList({
                 <div className="space-y-2">
                   {lines.map((line, idx) => (
                     <div key={idx} className="flex items-start gap-2">
-                      <span className="text-gray-500 mt-1 flex-shrink-0">•</span>
+                      <span className="text-muted-foreground mt-1 flex-shrink-0">•</span>
                       <p className="flex-1">{line}</p>
                     </div>
                   ))}

@@ -437,7 +437,7 @@ export default function RecipeExtractorPage() {
           <Sparkles className="w-8 h-8 text-primary" />
           <h1 className="text-3xl font-bold">Assistente Ricette AI</h1>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Carica un PDF, scrivi una ricetta in formato libero, oppure chatta con l'AI per farti suggerire nuove ricette.
         </p>
       </div>
@@ -461,10 +461,10 @@ export default function RecipeExtractorPage() {
         <div className="flex border-b">
           <button
             onClick={() => handleModeSwitch('pdf')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px
               ${inputMode === 'pdf'
                 ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <FileText className="w-4 h-4" />
@@ -472,10 +472,10 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('text')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px
               ${inputMode === 'text'
                 ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <PenLine className="w-4 h-4" />
@@ -483,10 +483,10 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('chat')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px
               ${inputMode === 'chat'
                 ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <MessageSquare className="w-4 h-4" />
@@ -548,10 +548,10 @@ export default function RecipeExtractorPage() {
           {isExtracting && inputMode !== 'chat' && (
             <div className="mt-6 text-center">
               <div className="inline-flex items-center gap-2 text-primary">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
                 <span className="font-medium">{loadingMessage}</span>
               </div>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Questo processo può richiedere alcuni secondi
               </p>
             </div>

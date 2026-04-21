@@ -32,6 +32,7 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed input fields, dropdowns, and text areas in recipe editing and the family profile page showing a white background instead of the app's warm cream theme
 - Fixed ingredient names disappearing from recipe steps when AI-generated or adapted recipes used a quantity reference without explicitly writing the ingredient name in the step text (e.g. "Add 15 g and stir" now correctly shows "Add 15 g of walnuts and stir")
 - Fixed AI Assistant requests failing with unauthorized errors after the new protected AI authentication checks
 - Fixed cooking sessions closing automatically as soon as all ingredients and steps were checked
@@ -46,6 +47,12 @@
 
 ## 🔧 Improvements
 
+- Improved recipe filters on the recipe list page — filters are now hidden by default in a collapsible panel; tap "Filter" to expand season, category, and subcategory controls; active filters appear as removable chips so you always know what is applied
+- Improved editorial typography throughout the app — recipe titles, page headings, and section labels (Ingredients, Preparation, Notes) now display in Bodoni Moda italic as intended, giving the interface a stronger cookbook feel
+- Improved cooking mode with a persistent "Finish cooking" button in a sticky footer — the button is always visible and activates automatically when all ingredients and steps are checked; it can no longer be accidentally dismissed
+- Improved empty states across the app with distinct visuals per page — each empty page now has a relevant emoji, italic heading, and a softer background instead of a generic dashed border
+- Improved meal planner slot design — cookbook recipes and AI-generated recipes are now distinguished by small corner badges (book icon vs. sparkle icon) instead of colored side borders
+- Improved shopping list week navigation with an explicit "Week of…" label so the selected week is always clear
 - Improved the overall visual design with a warm cream background and terracotta accents inspired by Italian cookbooks, replacing the default white interface
 - Improved typography throughout the app with Bodoni Moda editorial headings and Jost body text, giving the interface a more refined cookbook feel
 - Improved season badges on recipe detail pages to use the app's warm terracotta palette instead of blue

@@ -262,14 +262,14 @@ export function RecipeChatInput({
                 className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap
                   ${msg.role === 'user'
                     ? 'bg-primary text-white rounded-br-sm'
-                    : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                    : 'bg-muted text-foreground rounded-bl-sm'
                   }`}
               >
                 {msg.content}
 
                 {/* Recipe generation indicator */}
                 {msg.hasRecipes && (
-                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-200 text-xs text-primary font-medium">
+                  <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border text-xs text-primary font-medium">
                     <Sparkles className="w-3 h-3" />
                     Ricette generate — vedi sotto
                   </div>
@@ -281,11 +281,11 @@ export function RecipeChatInput({
           {/* Typing indicator while waiting for response */}
           {isSending && (
             <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-3">
+              <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-3">
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse [animation-delay:0ms]" />
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse [animation-delay:200ms]" />
+                  <span className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse [animation-delay:400ms]" />
                 </div>
               </div>
             </div>
@@ -306,7 +306,7 @@ export function RecipeChatInput({
           disabled={isSending || disabled}
           rows={2}
           className={`flex-1 rounded-xl border px-4 py-3 text-sm leading-relaxed resize-none
-            placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+            placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
             disabled:opacity-50 disabled:cursor-not-allowed
             ${isSending || disabled ? 'bg-muted' : 'bg-background border-input'}`}
         />
@@ -328,7 +328,7 @@ export function RecipeChatInput({
 
       {/* Keyboard hint — only shown when chat has started */}
       {hasMessages && (
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Invio per inviare · Shift+Invio per andare a capo
         </p>
       )}

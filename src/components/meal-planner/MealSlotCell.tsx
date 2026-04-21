@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
+import { Plus, Sparkles, ArrowRight, RefreshCw, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { MealSlot } from '@/types';
 
@@ -38,8 +38,8 @@ export function isNewRecipeSlot(slot: MealSlot | undefined): boolean {
  *
  * THREE VISUAL STATES:
  * - Empty: dashed border with "+" affordance — invites user to assign a recipe
- * - Existing recipe (green left border): recipe from the user's cookbook
- * - AI-generated new recipe (purple left border): not yet saved to cookbook;
+ * - Existing recipe (book badge): recipe from the user's cookbook
+ * - AI-generated new recipe (sparkle badge): not yet saved to cookbook;
  *   shows a "Salva" button so user can add it to their cookbook
  *
  * WHY SEPARATE onSaveNewRecipe from onClick:
@@ -70,44 +70,47 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
     if (isRegenerating) {
       return (
         <div className={cn(
-          'w-full min-h-[64px] rounded-lg border border-purple-200 bg-purple-50',
-          'border-l-4 border-l-purple-400',
+          'w-full min-h-[64px] rounded-lg border border-border bg-muted/40',
           'p-2 flex items-center justify-center'
         )}>
-          <RefreshCw className="h-4 w-4 text-purple-400 animate-spin" />
+          <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
         </div>
       );
     }
     return (
       <div
         className={cn(
-          'w-full min-h-[64px] rounded-lg border border-purple-200 bg-purple-50',
-          'border-l-4 border-l-purple-400',
-          'p-2 flex flex-col gap-1 group'
+          'w-full min-h-[64px] rounded-lg border border-border bg-muted/30',
+          'p-2 flex flex-col gap-1 group relative'
         )}
       >
-        <div className="flex items-start justify-between gap-1">
+        {/* AI badge — top-left corner, identifies origin without side-stripe */}
+        <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-0.5 rounded-sm bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary leading-none">
+          <Sparkles className="h-2.5 w-2.5" />
+          AI
+        </span>
+
+        <div className="flex items-start justify-between gap-1 pl-8">
           <button
             onClick={onClick}
-            className="text-left text-xs font-medium text-purple-900 line-clamp-2 hover:underline leading-tight flex-1"
+            className="text-left text-xs font-medium text-foreground line-clamp-2 hover:underline leading-tight flex-1"
           >
             {slot.recipeTitle}
           </button>
           {onRegenerate && (
             <button
               onClick={e => { e.stopPropagation(); onRegenerate(); }}
-              className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-purple-400 hover:text-purple-700 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
               title="Rigenera"
             >
               <RefreshCw className="h-3 w-3" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1 mt-auto">
-          <Sparkles className="h-3 w-3 text-purple-400 shrink-0" />
+        <div className="flex items-center gap-1 mt-auto pl-8">
           <button
             onClick={e => { e.stopPropagation(); onSaveNewRecipe?.(); }}
-            className="text-xs text-purple-600 hover:text-purple-800 hover:underline font-medium"
+            className="text-xs text-primary hover:underline font-medium"
           >
             Salva nel ricettario
           </button>
@@ -120,33 +123,36 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
   if (isRegenerating) {
     return (
       <div className={cn(
-        'w-full min-h-[64px] rounded-lg border border-green-200 bg-green-50',
-        'border-l-4 border-l-green-400',
+        'w-full min-h-[64px] rounded-lg border border-border bg-muted/40',
         'p-2 flex items-center justify-center'
       )}>
-        <RefreshCw className="h-4 w-4 text-green-400 animate-spin" />
+        <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
       </div>
     );
   }
   return (
     <div
       className={cn(
-        'w-full min-h-[64px] rounded-lg border border-green-200 bg-green-50',
-        'border-l-4 border-l-green-400',
-        'p-2 flex flex-col gap-1 group'
+        'w-full min-h-[64px] rounded-lg border border-border bg-card',
+        'p-2 flex flex-col gap-1 group relative'
       )}
     >
-      <div className="flex items-start justify-between gap-1">
+      {/* Cookbook badge — top-left corner, identifies source */}
+      <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-0.5 rounded-sm bg-secondary px-1 py-0.5 text-[10px] font-medium text-muted-foreground leading-none">
+        <BookOpen className="h-2.5 w-2.5" />
+      </span>
+
+      <div className="flex items-start justify-between gap-1 pl-8">
         <button
           onClick={onClick}
-          className="text-left text-xs font-medium text-green-900 line-clamp-2 hover:underline leading-tight flex-1"
+          className="text-left text-xs font-medium text-foreground line-clamp-2 hover:underline leading-tight flex-1"
         >
           {slot.recipeTitle}
         </button>
         {onRegenerate && (
           <button
             onClick={e => { e.stopPropagation(); onRegenerate(); }}
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-green-400 hover:text-green-700 transition-opacity"
+            className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
             title="Rigenera"
           >
             <RefreshCw className="h-3 w-3" />
@@ -154,10 +160,10 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
         )}
       </div>
       {slot.existingRecipeId && (
-        <div className="mt-auto">
+        <div className="mt-auto pl-8">
           <Link
             href={`/ricette/${slot.existingRecipeId}`}
-            className="flex items-center gap-0.5 text-xs text-green-700 hover:text-green-900 hover:underline font-medium"
+            className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline font-medium"
             onClick={e => e.stopPropagation()}
           >
             Vai alla ricetta

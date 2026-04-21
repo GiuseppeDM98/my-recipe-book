@@ -258,7 +258,7 @@ export default function PianificatorePage() {
       {/* Page title */}
       <div className="flex items-center gap-2">
         <CalendarDays className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-bold">Pianificatore pasti</h1>
+        <h1 className="font-display text-2xl font-semibold italic">Pianificatore pasti</h1>
       </div>
 
       {(step === 'setup' || (step === 'calendar' && currentPlan)) && (

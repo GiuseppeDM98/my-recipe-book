@@ -93,7 +93,7 @@ export function CategorySelector({
         <select
           value={selectedCategoryId || ''}
           onChange={(e) => onCategoryChange(e.target.value)}
-          className="w-full border rounded-md p-2"
+          className="w-full border border-input rounded-md p-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           <option value="">Seleziona categoria</option>
           {categories.map(cat => (
@@ -112,7 +112,7 @@ export function CategorySelector({
           <select
             value={selectedSubcategoryId || ''}
             onChange={(e) => onSubcategoryChange(e.target.value)}
-            className="w-full border rounded-md p-2"
+            className="w-full border border-input rounded-md p-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           >
             <option value="">Seleziona sottocategoria</option>
             {subcategories.map(sub => (

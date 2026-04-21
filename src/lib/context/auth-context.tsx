@@ -180,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Spinner size="lg" />
-          <p className="text-sm text-gray-600">Caricamento...</p>
+          <p className="text-sm text-muted-foreground">Caricamento...</p>
         </div>
       </div>
     );

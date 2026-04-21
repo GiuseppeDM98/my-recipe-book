@@ -219,7 +219,7 @@ export function StepsListCollapsible({
                         className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
                       />
                     )}
-                    <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${isChecked && interactive ? 'bg-gray-400' : 'bg-primary'} text-primary-foreground font-bold mr-4`}>
+                    <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${isChecked && interactive ? 'bg-muted-foreground' : 'bg-primary'} text-primary-foreground font-bold mr-4`}>
                       {globalStepNumber}
                     </div>
                     <div className={`flex-1 ${isChecked && interactive ? 'opacity-50' : ''}`}>
@@ -228,15 +228,15 @@ export function StepsListCollapsible({
                         if (lines.length === 0) return null;
 
                         if (lines.length === 1) {
-                          return <p className={`text-gray-800 ${isChecked && interactive ? 'line-through' : ''}`}>{lines[0]}</p>;
+                          return <p className={`text-foreground ${isChecked && interactive ? 'line-through' : ''}`}>{lines[0]}</p>;
                         }
 
                         return (
                           <div className="space-y-2">
                             {lines.map((line, idx) => (
                               <div key={idx} className="flex items-start gap-2">
-                                <span className="text-gray-500 mt-1 flex-shrink-0">•</span>
-                                <p className={`text-gray-800 flex-1 ${isChecked && interactive ? 'line-through' : ''}`}>{line}</p>
+                                <span className="text-muted-foreground mt-1 flex-shrink-0">•</span>
+                                <p className={`text-foreground flex-1 ${isChecked && interactive ? 'line-through' : ''}`}>{line}</p>
                               </div>
                             ))}
                           </div>
@@ -262,7 +262,7 @@ export function StepsListCollapsible({
                             )
                           ) : (
                             // Vista statica (non interattiva)
-                            <p className={`text-sm text-gray-500 ${isChecked && interactive ? 'line-through' : ''}`}>
+                            <p className={`text-sm text-muted-foreground ${isChecked && interactive ? 'line-through' : ''}`}>
                               Tempo: {step.duration} min
                             </p>
                           )}
@@ -294,11 +294,11 @@ export function StepsListCollapsible({
             >
               <div className="flex items-center gap-3">
                 {isExpanded ? (
-                  <ChevronDown className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
+                  <ChevronDown className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-muted-foreground')} />
                 ) : (
-                  <ChevronRight className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
+                  <ChevronRight className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-muted-foreground')} />
                 )}
-                <h3 className={cn('font-semibold text-lg', sectionComplete ? 'text-green-700' : 'text-gray-900')}>
+                <h3 className={cn('font-semibold text-lg', sectionComplete ? 'text-green-700' : 'text-foreground')}>
                   {group.section}
                 </h3>
                 {sectionComplete && <span className="ml-2 text-green-600">&#10003;</span>}
@@ -325,7 +325,7 @@ export function StepsListCollapsible({
                   return (
                     <div
                       key={step.id}
-                      className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-gray-50 p-3 rounded transition-colors' : ''}`}
+                      className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-muted/50 p-3 rounded transition-colors' : ''}`}
                       onClick={() => interactive && onToggleStep?.(step.id)}
                     >
                       {interactive && (
@@ -336,7 +336,7 @@ export function StepsListCollapsible({
                           className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
                         />
                       )}
-                      <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${isChecked && interactive ? 'bg-gray-400' : 'bg-primary'} text-primary-foreground font-bold mr-4`}>
+                      <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${isChecked && interactive ? 'bg-muted-foreground' : 'bg-primary'} text-primary-foreground font-bold mr-4`}>
                         {globalStepNumber}
                       </div>
                       <div className={`flex-1 ${isChecked && interactive ? 'opacity-50' : ''}`}>
@@ -345,15 +345,15 @@ export function StepsListCollapsible({
                           if (lines.length === 0) return null;
 
                           if (lines.length === 1) {
-                            return <p className={`text-gray-800 ${isChecked && interactive ? 'line-through' : ''}`}>{lines[0]}</p>;
+                            return <p className={`text-foreground ${isChecked && interactive ? 'line-through' : ''}`}>{lines[0]}</p>;
                           }
 
                           return (
                             <div className="space-y-2">
                               {lines.map((line, idx) => (
                                 <div key={idx} className="flex items-start gap-2">
-                                  <span className="text-gray-500 mt-1 flex-shrink-0">•</span>
-                                  <p className={`text-gray-800 flex-1 ${isChecked && interactive ? 'line-through' : ''}`}>{line}</p>
+                                  <span className="text-muted-foreground mt-1 flex-shrink-0">•</span>
+                                  <p className={`text-foreground flex-1 ${isChecked && interactive ? 'line-through' : ''}`}>{line}</p>
                                 </div>
                               ))}
                             </div>
@@ -376,7 +376,7 @@ export function StepsListCollapsible({
                                 </button>
                               )
                             ) : (
-                              <p className={`text-sm text-gray-500 ${isChecked && interactive ? 'line-through' : ''}`}>
+                              <p className={`text-sm text-muted-foreground ${isChecked && interactive ? 'line-through' : ''}`}>
                                 Tempo: {step.duration} min
                               </p>
                             )}

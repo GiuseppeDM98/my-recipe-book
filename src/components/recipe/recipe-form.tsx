@@ -470,7 +470,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         <label htmlFor="recipe-description" className="block text-sm font-medium mb-2">Descrizione</label>
         <textarea
           id="recipe-description"
-          className="w-full border rounded-md p-2"
+          className="w-full border border-input rounded-md p-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
@@ -535,7 +535,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
 
         <div className="space-y-4">
           {ingredientSections.map((section) => (
-            <div key={section.id} className="border rounded-lg p-4 bg-gray-50">
+            <div key={section.id} className="border rounded-lg p-4 bg-muted/30">
               {/* Header Sezione */}
               <div className="flex items-center gap-2 mb-3">
                 <>
@@ -562,7 +562,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
               <div className="space-y-2 ml-6">
                 {section.ingredients.map((ing) => (
                   <div key={ing.id} className="flex gap-2 items-center bg-background p-2 rounded border">
-                    <span className="text-gray-400">•</span>
+                    <span className="text-muted-foreground">•</span>
                     <Input
                       placeholder="Nome ingrediente"
                       value={ing.name}
@@ -620,10 +620,10 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
           </div>
         </div>
         {autoDetectDurationSummary && (
-          <p className="mb-3 text-sm text-gray-600">{autoDetectDurationSummary}</p>
+          <p className="mb-3 text-sm text-muted-foreground">{autoDetectDurationSummary}</p>
         )}
         {autoAdaptSummary && (
-          <p className="mb-3 text-sm text-gray-600">{autoAdaptSummary}</p>
+          <p className="mb-3 text-sm text-muted-foreground">{autoAdaptSummary}</p>
         )}
         <div className="space-y-3">
           {steps.map((step, idx) => {
@@ -659,7 +659,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                       className="font-medium"
                     />
                     <textarea
-                      className="w-full border rounded-md p-2"
+                      className="w-full border border-input rounded-md p-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       value={step.description}
                       onChange={(e) => updateStep(step.id, 'description', e.target.value)}
                       rows={3}
@@ -668,7 +668,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                     {/* Duration input — optional. When set, activates the countdown timer
                         in cooking mode so the user can start it directly from the step. */}
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600 whitespace-nowrap" htmlFor={`duration-${step.id}`}>
+                      <label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor={`duration-${step.id}`}>
                         Durata (min)
                       </label>
                       <Input
@@ -684,11 +684,11 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                         placeholder="es. 10"
                         className="w-24 text-sm"
                       />
-                      <span className="text-xs text-gray-400">Opzionale — attiva il timer in cottura</span>
+                      <span className="text-xs text-muted-foreground">Opzionale — attiva il timer in cottura</span>
                     </div>
-                    <div className="rounded-md border bg-gray-50 p-3 space-y-3">
+                    <div className="rounded-md border bg-muted/30 p-3 space-y-3">
                       <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <label className="text-xs font-medium text-gray-700 md:w-40">
+                        <label className="text-xs font-medium text-foreground md:w-40">
                           Quantità dinamiche
                         </label>
                         <select
@@ -724,13 +724,13 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                       </div>
 
                       {linkedIngredients.length > 0 && (
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           Collegamenti attivi: {linkedIngredients.map(getIngredientLabel).join(' · ')}
                         </div>
                       )}
 
-                      <div className="text-xs text-gray-600">
-                        Anteprima step: <span className="text-gray-800">{previewDescription || 'Nessun testo'}</span>
+                      <div className="text-xs text-muted-foreground">
+                        Anteprima step: <span className="text-foreground">{previewDescription || 'Nessun testo'}</span>
                       </div>
                     </div>
                   </div>
@@ -769,7 +769,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                   </Button>
                 </div>
                 {step.section && (
-                  <div className="ml-10 text-xs text-gray-500 italic">
+                  <div className="ml-10 text-xs text-muted-foreground italic">
                     Questo step sarà raggruppato nella sezione "{step.section}"
                   </div>
                 )}

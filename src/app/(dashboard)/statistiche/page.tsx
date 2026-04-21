@@ -39,14 +39,14 @@ export default function StatistichePage() {
   return (
     <div className="max-w-4xl space-y-10">
       <div>
-        <h1 className="text-3xl font-bold">Statistiche</h1>
+        <h1 className="font-display text-4xl font-semibold italic">Statistiche</h1>
         <p className="text-muted-foreground mt-1">Le tue abitudini in cucina</p>
       </div>
 
       {historyEntries.length === 0 ? (
-        <div className="py-16 text-center border-2 border-dashed rounded-lg">
-          <p className="text-4xl mb-4">👨‍🍳</p>
-          <h2 className="text-xl font-semibold mb-2">Nessuna statistica ancora</h2>
+        <div className="py-16 text-center rounded-xl bg-muted/30 border border-dashed border-border">
+          <p className="text-5xl mb-4">📊</p>
+          <h2 className="font-display text-2xl font-semibold italic mb-2">Nessuna statistica ancora</h2>
           <p className="text-muted-foreground">
             Le statistiche compariranno dopo aver terminato almeno una cottura.
           </p>
@@ -85,7 +85,7 @@ export default function StatistichePage() {
           {/* Liste dettagliate */}
           <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-8">
             <div>
-              <h2 className="text-xl font-semibold mb-4">Piatti più preparati</h2>
+              <h2 className="font-display text-xl font-semibold mb-4">Piatti più preparati</h2>
               <div className="space-y-2">
                 {recipeStats.slice(0, 10).map((stat, index) => (
                   <div
@@ -111,7 +111,7 @@ export default function StatistichePage() {
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold mb-4">Ultime cotture</h2>
+              <h2 className="font-display text-xl font-semibold mb-4">Ultime cotture</h2>
               <div className="space-y-2">
                 {historyEntries.slice(0, 8).map((entry) => (
                   <div key={entry.id} className="rounded-lg border px-4 py-3">

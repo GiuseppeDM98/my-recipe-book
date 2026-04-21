@@ -22,7 +22,7 @@ export function ShoppingProgressBar({ checked, total }: ShoppingProgressBarProps
           {percent}%
         </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
         <div
           className={cn(
             'h-full rounded-full transition-all duration-300',

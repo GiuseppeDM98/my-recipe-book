@@ -61,7 +61,7 @@ The interface uses a warm cream palette, Bodoni Moda editorial headings, and ter
 - **Smart Categorization**: Organize recipes with customizable categories and subcategories, each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)
 - **Multiple Seasons**: Assign multiple seasons to recipes (e.g., Pasta e Fagioli for both autumn and winter)
-- **Advanced Filtering**: Filter recipes by category, subcategory, and season simultaneously with live count updates
+- **Advanced Filtering**: Filter recipes by category, subcategory, and season via a collapsible panel; active filters appear as removable chips with live count updates
 
 <img width="1884" height="777" alt="image" src="https://github.com/user-attachments/assets/fa9cc1bd-f032-408a-9233-a1dd9e700dd8" />
 
@@ -85,7 +85,7 @@ The interface uses a warm cream palette, Bodoni Moda editorial headings, and ter
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
 - **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
-- **Manual Finish Flow**: When all ingredients and steps are completed, the app invites you to finish the cooking session explicitly
+- **Persistent Finish CTA**: A "Finish cooking" button in a sticky footer is always visible; it activates automatically when all ingredients and steps are checked
 - **Per-Step Countdown Timers**: Steps with a duration show an "▶ Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
 - **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
 

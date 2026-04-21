@@ -75,7 +75,7 @@ export function SeasonSelector({
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isSelected
                   ? 'bg-primary text-primary-foreground shadow-md scale-105'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-muted text-foreground hover:bg-muted/80'
               }`}
             >
               <span className="mr-2 text-lg">{SEASON_ICONS[season]}</span>
@@ -87,7 +87,7 @@ export function SeasonSelector({
 
       {/* Selection counter (only shown if at least one season selected) */}
       {selectedSeasons.length > 0 && (
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           {selectedSeasons.length} stagione/i {selectedSeasons.length === 1 ? 'selezionata' : 'selezionate'}
         </p>
       )}

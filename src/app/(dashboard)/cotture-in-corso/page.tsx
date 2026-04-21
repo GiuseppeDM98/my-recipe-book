@@ -109,25 +109,22 @@ export default function CottureInCorsoPage() {
 
   return (
     <div className="container mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <ChefHat className="w-8 h-8 text-primary" />
-        <h1 className="text-3xl font-bold">Cotture in Corso</h1>
+      <div className="flex items-center gap-3 mb-8">
+        <h1 className="font-display text-4xl font-semibold italic">In cucina</h1>
       </div>
 
       {/* === EMPTY STATE === */}
       {sessions.length === 0 ? (
-        <Card className="p-12 text-center">
-          <ChefHat className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h2 className="text-xl font-semibold mb-2 text-gray-600">
-            Nessuna cottura in corso
-          </h2>
-          <p className="text-gray-500 mb-6">
-            Inizia una nuova cottura dalla pagina di una ricetta
+        <div className="py-16 text-center rounded-xl bg-muted/30 border border-dashed border-border">
+          <p className="text-5xl mb-4">🍳</p>
+          <h2 className="font-display text-2xl font-semibold italic mb-2">Nessuna cottura attiva</h2>
+          <p className="text-muted-foreground mb-6">
+            Apri una ricetta e avvia la modalità cottura per iniziare.
           </p>
           <Button asChild>
             <Link href="/ricette">Vai alle ricette</Link>
           </Button>
-        </Card>
+        </div>
       ) : (
         /* === SESSION CARDS === */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -138,7 +135,7 @@ export default function CottureInCorsoPage() {
             if (!recipe) {
               return (
                 <Card key={session.id} className="p-6">
-                  <p className="text-gray-500">Ricetta non trovata</p>
+                  <p className="text-muted-foreground">Ricetta non trovata</p>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -156,7 +153,7 @@ export default function CottureInCorsoPage() {
               <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="mb-4">
                   <h3 className="text-xl font-semibold mb-2">{recipe.title}</h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     Iniziata il{' '}
                     {session.startedAt?.toDate?.().toLocaleDateString('it-IT', {
                       day: 'numeric',
@@ -169,10 +166,10 @@ export default function CottureInCorsoPage() {
                 {/* Progress Bar */}
                 <div className="mb-4">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-medium text-gray-700">Progresso</span>
+                    <span className="text-sm font-medium text-foreground">Progresso</span>
                     <span className="text-sm font-semibold text-primary">{progress}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div className="w-full bg-muted rounded-full h-2.5">
                     <div
                       className="bg-primary h-2.5 rounded-full transition-all"
                       style={{ width: `${progress}%` }}
@@ -183,13 +180,13 @@ export default function CottureInCorsoPage() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                   <div>
-                    <p className="text-gray-600">Ingredienti</p>
+                    <p className="text-muted-foreground">Ingredienti</p>
                     <p className="font-semibold">
                       {session.checkedIngredients.length} / {recipe.ingredients.length}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Step</p>
+                    <p className="text-muted-foreground">Step</p>
                     <p className="font-semibold">
                       {session.checkedSteps.length} / {recipe.steps.length}
                     </p>

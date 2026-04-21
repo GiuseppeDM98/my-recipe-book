@@ -113,7 +113,7 @@ export function EmojiPicker({ value, onSelect, className }: EmojiPickerProps) {
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                 activeCategory === key
                   ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-gray-100'
+                  : 'hover:bg-muted'
               }`}
             >
               <span className="mr-1">{category.icon}</span>
@@ -129,7 +129,7 @@ export function EmojiPicker({ value, onSelect, className }: EmojiPickerProps) {
               key={index}
               type="button"
               onClick={() => handleEmojiSelect(emoji)}
-              className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-gray-100 rounded-md transition-colors"
+              className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-muted rounded-md transition-colors"
               title={emoji}
             >
               {emoji}

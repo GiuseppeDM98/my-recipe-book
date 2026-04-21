@@ -35,7 +35,7 @@ export function ShoppingItemRow({ item, checked, onToggle, onRemove }: ShoppingI
           'mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 transition-colors flex items-center justify-center',
           checked
             ? 'bg-primary border-primary text-white'
-            : 'border-gray-300 hover:border-primary'
+            : 'border-input hover:border-primary'
         )}
       >
         {checked && (

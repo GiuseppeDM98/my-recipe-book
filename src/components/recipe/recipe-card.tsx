@@ -36,7 +36,7 @@ export function RecipeCard({ recipe, categories = [], subcategories = [] }: Reci
             {seasonsToShow.map(season => (
               <div
                 key={season}
-                className="text-xl bg-white/80 rounded-full p-1"
+                className="text-xl bg-background/80 rounded-full p-1"
                 title={SEASON_LABELS[season]}
               >
                 {SEASON_ICONS[season]}
@@ -66,7 +66,7 @@ export function RecipeCard({ recipe, categories = [], subcategories = [] }: Reci
                 </span>
               )}
               {subcategory && (
-                <span className="inline-flex items-center px-2 py-1 rounded-md text-sm bg-gray-100 text-gray-700">
+                <span className="inline-flex items-center px-2 py-1 rounded-md text-sm bg-muted text-muted-foreground">
                   {subcategory.name}
                 </span>
               )}
@@ -74,7 +74,7 @@ export function RecipeCard({ recipe, categories = [], subcategories = [] }: Reci
           )}
 
           {/* Time and Servings */}
-          <div className="flex justify-between text-sm text-gray-500">
+          <div className="flex justify-between text-sm text-muted-foreground">
             <span>{recipe.totalTime ? `${recipe.totalTime} min` : ''}</span>
             <span>{recipe.servings ? `${recipe.servings} porzioni` : ''}</span>
           </div>

@@ -115,7 +115,7 @@ export function RecipeExtractorUpload({ onFileSelected, isLoading, disabled }: R
         className={`relative border-2 border-dashed rounded-lg p-8 transition-colors ${
           dragActive
             ? 'border-primary bg-primary/5'
-            : 'border-gray-300 hover:border-gray-400'
+            : 'border-input hover:border-input'
         } ${isLoading || disabled ? 'opacity-50 pointer-events-none' : ''}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -133,14 +133,14 @@ export function RecipeExtractorUpload({ onFileSelected, isLoading, disabled }: R
 
         {!selectedFile ? (
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <div className="p-4 bg-gray-100 rounded-full">
-              <Upload className="w-12 h-12 text-gray-400" />
+            <div className="p-4 bg-muted rounded-full">
+              <Upload className="w-12 h-12 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-lg font-medium text-gray-700">
+              <p className="text-lg font-medium text-foreground">
                 Trascina qui il tuo PDF con le ricette
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 oppure clicca per selezionare un file
               </p>
             </div>
@@ -152,7 +152,7 @@ export function RecipeExtractorUpload({ onFileSelected, isLoading, disabled }: R
             >
               Seleziona PDF
             </Button>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Dimensione massima: 4.4MB
             </p>
           </div>
@@ -163,8 +163,8 @@ export function RecipeExtractorUpload({ onFileSelected, isLoading, disabled }: R
                 <FileText className="w-8 h-8 text-red-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">{selectedFile.name}</p>
-                <p className="text-sm text-gray-500">
+                <p className="font-medium text-foreground">{selectedFile.name}</p>
+                <p className="text-sm text-muted-foreground">
                   {(selectedFile.size / 1024).toFixed(1)} KB
                 </p>
               </div>

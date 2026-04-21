@@ -46,7 +46,7 @@ export default function ListaSpesaPage() {
         <div className="flex items-center gap-3">
           <ShoppingCart className="w-8 h-8 text-primary flex-shrink-0" />
           <div>
-            <h1 className="text-3xl font-bold">Lista della spesa</h1>
+            <h1 className="font-display text-4xl font-semibold italic">Lista della spesa</h1>
             <p className="text-muted-foreground">
               Ingredienti aggregati dal piano pasti settimanale.
             </p>
@@ -67,14 +67,15 @@ export default function ListaSpesaPage() {
       </div>
 
       {/* Week navigation */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={goToPrevWeek} aria-label="Settimana precedente">
+      <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+        <Button variant="ghost" size="icon" onClick={goToPrevWeek} aria-label="Settimana precedente">
           <ChevronLeft className="w-4 h-4" />
         </Button>
-        <span className="flex-1 text-center font-medium text-sm">
-          {formatWeekLabel(weekStartDate)}
-        </span>
-        <Button variant="outline" size="icon" onClick={goToNextWeek} aria-label="Settimana successiva">
+        <div className="flex-1 text-center">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Settimana del</p>
+          <p className="font-medium text-sm">{formatWeekLabel(weekStartDate)}</p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={goToNextWeek} aria-label="Settimana successiva">
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>

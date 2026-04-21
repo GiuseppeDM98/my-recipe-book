@@ -55,7 +55,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           className={cn(
             'lg:hidden max-lg:portrait:hidden',
             'max-lg:landscape:fixed max-lg:landscape:inset-0',
-            'max-lg:landscape:z-40 max-lg:landscape:bg-black/50'
+            'max-lg:landscape:z-40 max-lg:landscape:bg-foreground/60'
           )}
           onClick={onClose}
         />

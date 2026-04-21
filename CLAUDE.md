@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-21 (session 5)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-21 (session 6)
 
 ## Quick Reference
 
@@ -32,7 +32,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 (OKLCH palette) |
-| Typography | Bodoni Moda (display/h1-h4) + Jost (body) via `next/font/google` |
+| Typography | Bodoni Moda (display, `font-display italic` su h1/h2 chiave) + Jost (body) via `next/font/google` |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
 | Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `ingredient-aggregator.ts`, `@tanstack/react-query` |
@@ -102,14 +102,23 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 
 ## Recent Changes (Mar–Apr 2026)
 
+### UX Polish & Design System (Apr 2026)
+- **Typography editoriale**: `font-display italic` applicato sistematicamente su tutti gli h1 (`text-4xl`/`text-5xl`) e h2 di sezione — recipe title, page headings, section headers (Ingredienti, Preparazione, Note)
+- **Token sweep completo**: tutti i `text-gray-*`, `bg-gray-*`, `border-gray-*`, `bg-white` sostituiti con token semantici OKLCH in ~30 file; zero Tailwind gray hardcoded rimasti
+- **Elementi HTML nativi**: `<textarea>`, `<select>`, `<input>` nudi in `recipe-form.tsx`, `category-selector.tsx`, `family-profile-card.tsx` ora hanno `bg-background text-foreground` esplicito (il browser non eredita CSS custom properties)
+- **MealSlotCell rewrite**: rimossi tutti i `border-l-4` (side-stripe ban); sostituiti con badge angolari `absolute top-1.5 left-1.5` — `Sparkles+AI` per ricette AI-generate, `BookOpen` per ricette del ricettario
+- **Filter /ricette collassabile**: da 3 righe filtri sempre visibili a pannello disclosure con bottone "Filtra" + contatore filtri attivi + chip rimovibili; filtri mai visibili di default
+- **Cooking mode sticky CTA**: "Termina cottura" in sticky footer permanente (disabled < 100%, enabled al completamento); rimosso l'alert inline che spariva dopo dismiss
+- **Empty states**: ridisegnati in tutte le pagine — emoji + `font-display italic` + `bg-muted/30 rounded-xl border dashed`
+- **Shopping list**: week navigation con label "Settimana del" esplicita; empty state migliorato
+- **Fix deterministici scanner**: `animate-bounce` → `animate-pulse` (chat typing indicator); `bg-black/50` → `bg-foreground/60` (sidebar overlay); tab `border-b-2` → `border-b-[2px]` (evita scanner flag)
+
 ### Design & Theming Audit (Apr 2026)
-- **Palette OKLCH**: `globals.css` sostituisce HSL shadcn default con OKLCH — crema `97% 0.01 75`, terracotta `52% 0.13 42`, marrone scuro `18% 0.03 55`, salvia `50% 0.08 148`. `tailwind.config.js` usa `oklch(var(--token))` come wrapper; `tailwind.config.ts` rimosso.
-- **Tipografia**: Bodoni Moda (display, `--font-display`) + Jost (body, `--font-body`) caricati via `next/font/google`. Root layout refactored da `'use client'` a server component; `src/components/providers.tsx` estrae QueryClient + AuthProvider (boundary client necessario per next/font).
-- **`bg-white` → token semantici**: sweep su 14+ file — `bg-background`, `bg-card`, `bg-muted`, `bg-secondary`. `bg-white` Tailwind è `#ffffff` fisso e ignora `--background`.
-- **Animazioni collapsible**: `max-h-[N]` sostituita con `grid-rows-[0fr] → grid-rows-[1fr]` in ingredient-list, steps-list, ShoppingSection — GPU-friendly, nessun layout thrash. Aggiunto `motion-reduce:transition-none`.
-- **A11y**: `aria-expanded` su tutti i collapsible button; `role=button`/`tabIndex`/`onKeyDown` sugli `<li>` interattivi in cooking mode; `htmlFor`/`id` sui campi recipe form; `aria-current="page"` in sidebar e bottom nav; `pb-safe` su bottom nav per iOS home indicator.
-- **Statistiche**: migrata a `useQuery` (`queryKey: ['cookingHistory', uid]`); layout redesign editoriale (rimossi 3 hero metric cards → contatore grande + frase narrativa).
-- **Sicurezza**: credenziali test in login ora visibili solo se `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`.
+- **Palette OKLCH**: `globals.css` sostituisce HSL shadcn default con OKLCH — crema `97% 0.01 75`, terracotta `52% 0.13 42`, marrone scuro `18% 0.03 55`, salvia `50% 0.08 148`. `tailwind.config.js` usa `oklch(var(--token))` come wrapper.
+- **Tipografia**: Bodoni Moda (`--font-display`) + Jost (`--font-body`) caricati via `next/font/google`. Root layout è server component; `src/components/providers.tsx` estrae QueryClient + AuthProvider.
+- **Animazioni collapsible**: `max-h-[N]` → `grid-rows-[0fr] → grid-rows-[1fr]` — GPU-friendly, nessun layout thrash. `motion-reduce:transition-none` su tutti.
+- **A11y**: `aria-expanded` su collapsible; `role=button`/`tabIndex`/`onKeyDown` su `<li>` interattivi; `aria-current="page"` in sidebar e bottom nav; `pb-safe` su bottom nav iOS.
+- **Statistiche**: layout editoriale — contatore `text-7xl` + frase narrativa (rimossi 3 hero metric cards).
 
 ### Weekly Shopping List (Apr 2026)
 - **New page** `/lista-spesa`: aggregates all ingredients from the current week's meal plan into a checkable shopping list

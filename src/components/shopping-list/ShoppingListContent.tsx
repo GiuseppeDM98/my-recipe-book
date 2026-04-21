@@ -39,12 +39,10 @@ export function ShoppingListContent({
 
   if (!hasPlan) {
     return (
-      <Card className="p-12 text-center">
-        <CalendarDays className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-        <h2 className="text-xl font-semibold mb-2 text-gray-700">
-          Nessun piano per questa settimana
-        </h2>
-        <p className="text-gray-500 mb-6">
+      <div className="py-16 text-center rounded-xl bg-muted/30 border border-dashed border-border">
+        <p className="text-5xl mb-4">🛒</p>
+        <h2 className="font-display text-2xl font-semibold italic mb-2">Nessun piano per questa settimana</h2>
+        <p className="text-muted-foreground mb-6">
           Crea un piano pasti per generare automaticamente la lista della spesa.
         </p>
         <Button asChild>
@@ -53,15 +51,15 @@ export function ShoppingListContent({
             Vai al pianificatore
           </Link>
         </Button>
-      </Card>
+      </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <Card className="p-12 text-center">
-        <p className="text-gray-500">Il piano non contiene ricette con ingredienti.</p>
-      </Card>
+      <div className="py-12 text-center rounded-xl bg-muted/30 border border-dashed border-border">
+        <p className="text-muted-foreground">Il piano non contiene ricette con ingredienti.</p>
+      </div>
     );
   }
 

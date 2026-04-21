@@ -39,7 +39,7 @@ export function ShoppingSection({
           'font-semibold text-sm transition-colors',
           allChecked
             ? 'text-green-600 bg-green-50 border border-green-200'
-            : 'text-gray-700 hover:bg-gray-100'
+            : 'text-foreground hover:bg-muted'
         )}
       >
         {expanded ? (
