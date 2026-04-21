@@ -116,7 +116,7 @@ export function AuthForm({ mode, showGoogleButton = true }: AuthFormProps) {
               <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">oppure</span>
+              <span className="bg-background px-2 text-muted-foreground">oppure</span>
             </div>
           </div>
 

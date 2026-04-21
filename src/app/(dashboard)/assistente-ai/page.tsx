@@ -456,7 +456,7 @@ export default function RecipeExtractorPage() {
       )}
 
       {/* Input Card with Tab Switcher */}
-      <div className="bg-white rounded-lg border">
+      <div className="bg-background rounded-lg border">
         {/* Tab switcher */}
         <div className="flex border-b">
           <button

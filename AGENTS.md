@@ -28,13 +28,15 @@
 | Planner stagione soft | Il selettore stagione non vincola le ricette esistenti se non filtrate | Filtrare server-side per stagione prima di inviare a Claude (fallback se < 5 ricette) |
 | Planner ingredienti mancanti | Vincoli dietetici ignorati su ricette esistenti | Includere `ingredientNames` nel summary, non solo il conteggio |
 | Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
-| Collapsible always-render counter | IIFE "reserve numbers" rimane dopo aver tolto il conditional render → doppio conteggio | Rimuovere il blocco IIFE reserve quando il contenuto diventa sempre renderizzato |
 | isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
 | React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
 | React Query DevTools | L'icona non appare pur avendo QueryClientProvider | Serve il package separato `@tanstack/react-query-devtools` |
 | React Query + useEffect init | Cache revalidation ri-esegue `useEffect([recipe])` | Usare un ref `sessionInitialized` per guard one-time init |
 | Step duration max | Browser validation error su step con molte ore | Usare `max={9999}` non `max={999}` — 24h = 1440 min |
 | Timer multipli | Singolo `setInterval` + singolo stato non supporta parallelo | Usare `Map<stepId, setInterval>` in un ref + `Record<stepId, secondsLeft>` nello stato |
+| `bg-white` hardcoded | `bg-white` è sempre `#ffffff` — ignora il token `--background` | Usare `bg-background`, `bg-card`, `bg-muted`, `bg-secondary` |
+| `next/font` in `'use client'` | Errore runtime — `next/font/google` funziona solo in Server Components | Root layout deve essere server component; estrarre QueryClient+Auth in `src/components/providers.tsx` |
+| Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
 
 ---
 
@@ -53,7 +55,7 @@ className="portrait:flex landscape:hidden"                 // ❌ applica a desk
 
 **Sticky button sopra la bottom nav:**
 ```tsx
-<div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-white border-t py-4 z-10">
+<div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10">
 ```
 
 ---
@@ -95,6 +97,7 @@ useQuery({ queryKey: ['recipes', user?.uid ?? ''], queryFn: ..., enabled: !!user
 | `['categories', uid]` | Categorie |
 | `['subcategories', uid, categoryIds[]]` | Subcategorie |
 | `['cookingSessions', uid]` | Sessioni attive |
+| `['cookingHistory', uid]` | Storico cotture (statistiche) |
 | `['familyProfile', uid]` | Profilo famiglia (staleTime 5min) |
 | `['shoppingList', uid, weekStartDate]` | Lista della spesa (derivata da MealPlan) |
 
@@ -129,7 +132,15 @@ const [secondsMap, setSecondsMap] = useState<Record<string, number>>({});
 useEffect(() => () => { intervalsRef.current.forEach(clearInterval); }, []);
 ```
 
-**Section Auto-Close**: inizializzare `prevCheckedRef` con il valore corrente, non con `[]`, altrimenti le sezioni già complete al mount si chiudono al caricamento. Usare `max-h` + `opacity` CSS (div sempre renderizzato) per animare il collapse — non `{isExpanded && <div>}`.
+**Section Auto-Close**: inizializzare `prevCheckedRef` con il valore corrente, non con `[]`, altrimenti le sezioni già complete al mount si chiudono al caricamento. Animare il collapse con `grid-template-rows` (non `max-height`) — il div deve essere sempre nel DOM affinché l'animazione e il global step counter restino corretti:
+```tsx
+<div className={cn(
+  'grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none',
+  isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+)}>
+  <div className="overflow-hidden">{/* content always rendered */}</div>
+</div>
+```
 
 ---
 
@@ -157,7 +168,15 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 
 ---
 
-## 6. UI Components
+## 6. UI Components & Theming
+
+**Color tokens — mai usare `bg-white`**: `bg-white` è hardcoded `#ffffff` in Tailwind e ignora il token `--background`. Usare sempre:
+- `bg-background` per sfondi pagina/layout
+- `bg-card` per card e pannelli
+- `bg-muted` per stato disabilitato o hover passivo
+- `bg-secondary` per sfondi secondari (sezioni, filtri)
+
+**Palette OKLCH**: i token CSS contengono solo i parametri (`--background: 97% 0.01 75`), il wrapper `oklch()` è nel `tailwind.config.js`. Questo è lo stesso pattern del vecchio `hsl()`. Tutti i browser moderni supportano `oklch()`.
 
 **Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 

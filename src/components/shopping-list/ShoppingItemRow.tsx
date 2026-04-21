@@ -22,7 +22,7 @@ export function ShoppingItemRow({ item, checked, onToggle, onRemove }: ShoppingI
     <div
       className={cn(
         'flex items-start gap-3 px-4 py-3 rounded-lg border transition-colors',
-        checked ? 'opacity-50 bg-gray-50' : 'bg-white hover:bg-gray-50'
+        checked ? 'opacity-50 bg-muted' : 'bg-background hover:bg-secondary'
       )}
     >
       <button

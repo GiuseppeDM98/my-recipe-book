@@ -33,6 +33,7 @@ export function ShoppingSection({
       <button
         type="button"
         onClick={() => setExpanded(e => !e)}
+        aria-expanded={expanded}
         className={cn(
           'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left',
           'font-semibold text-sm transition-colors',
@@ -58,19 +59,26 @@ export function ShoppingSection({
         </span>
       </button>
 
-      {expanded && (
-        <div className="space-y-1 pl-2">
-          {items.map(item => (
-            <ShoppingItemRow
-              key={item.id}
-              item={item}
-              checked={checkedIds.has(item.id)}
-              onToggle={() => onToggle(item.id)}
-              onRemove={item.isCustom ? () => onRemove(item.id) : undefined}
-            />
-          ))}
+      {/* Grid animation — GPU-friendly, niente max-height thrash */}
+      <div className={cn(
+        'grid motion-reduce:transition-none',
+        'transition-[grid-template-rows] duration-200 ease-in-out',
+        expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+      )}>
+        <div className="overflow-hidden">
+          <div className="space-y-1 pl-2 pt-1">
+            {items.map(item => (
+              <ShoppingItemRow
+                key={item.id}
+                item={item}
+                checked={checkedIds.has(item.id)}
+                onToggle={() => onToggle(item.id)}
+                onRemove={item.isCustom ? () => onRemove(item.id) : undefined}
+              />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

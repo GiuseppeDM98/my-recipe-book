@@ -46,6 +46,13 @@
 
 ## 🔧 Improvements
 
+- Improved the overall visual design with a warm cream background and terracotta accents inspired by Italian cookbooks, replacing the default white interface
+- Improved typography throughout the app with Bodoni Moda editorial headings and Jost body text, giving the interface a more refined cookbook feel
+- Improved season badges on recipe detail pages to use the app's warm terracotta palette instead of blue
+- Improved the Statistics page layout — replaced three identical metric cards with a cleaner editorial summary showing your total count, most-cooked dish, and recent activity in a more readable format
+- Improved collapsible sections in cooking mode and the shopping list with smoother, more natural open/close animations
+- Improved bottom navigation on iPhone and iPad to respect the safe area at the bottom of the screen, preventing content from being hidden behind the home indicator
+- Improved cooking mode so interactive ingredient and step rows can now be navigated and checked via keyboard, in addition to touch
 - Improved cooking mode with a clear "Finish cooking" action after completing a recipe
 - Improved cooking mode so ingredient scaling is reflected more consistently across both ingredients and preparation steps
 - Improved recipe editing with an automatic step adaptation action to help upgrade older recipes to dynamic quantities
@@ -72,6 +79,7 @@
 
 ## 🔒 Security
 
+- Test account credentials are no longer shown on the login page by default — they must be explicitly enabled for development environments
 - Updated the app to a patched Next.js release to address current framework security advisories
 - Added server-side authentication checks to all AI-powered endpoints to block unauthenticated access
 - Tightened Firebase Storage access rules so authenticated users are limited to their own recipe file paths

@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-20 (session 4)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-21 (session 5)
 
 ## Quick Reference
 
@@ -31,7 +31,8 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
+| Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 (OKLCH palette) |
+| Typography | Bodoni Moda (display/h1-h4) + Jost (body) via `next/font/google` |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
 | Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `ingredient-aggregator.ts`, `@tanstack/react-query` |
@@ -47,6 +48,7 @@ src/
 │   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Lista spesa, Statistiche
 │   └── api/              # extract-recipes, format-recipe, suggest-category, chat-recipe, plan-meals
 ├── components/
+│   ├── providers.tsx     # QueryClient + AuthProvider (client boundary — necessario per next/font)
 │   ├── layout/           # Header, Sidebar, BottomNavigation, MoreSheet
 │   ├── meal-planner/     # Planner setup, grid, header, slot actions
 │   ├── shopping-list/    # ShoppingListContent, ShoppingSection, ShoppingItemRow, AddCustomItemSheet
@@ -99,6 +101,15 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 ---
 
 ## Recent Changes (Mar–Apr 2026)
+
+### Design & Theming Audit (Apr 2026)
+- **Palette OKLCH**: `globals.css` sostituisce HSL shadcn default con OKLCH — crema `97% 0.01 75`, terracotta `52% 0.13 42`, marrone scuro `18% 0.03 55`, salvia `50% 0.08 148`. `tailwind.config.js` usa `oklch(var(--token))` come wrapper; `tailwind.config.ts` rimosso.
+- **Tipografia**: Bodoni Moda (display, `--font-display`) + Jost (body, `--font-body`) caricati via `next/font/google`. Root layout refactored da `'use client'` a server component; `src/components/providers.tsx` estrae QueryClient + AuthProvider (boundary client necessario per next/font).
+- **`bg-white` → token semantici**: sweep su 14+ file — `bg-background`, `bg-card`, `bg-muted`, `bg-secondary`. `bg-white` Tailwind è `#ffffff` fisso e ignora `--background`.
+- **Animazioni collapsible**: `max-h-[N]` sostituita con `grid-rows-[0fr] → grid-rows-[1fr]` in ingredient-list, steps-list, ShoppingSection — GPU-friendly, nessun layout thrash. Aggiunto `motion-reduce:transition-none`.
+- **A11y**: `aria-expanded` su tutti i collapsible button; `role=button`/`tabIndex`/`onKeyDown` sugli `<li>` interattivi in cooking mode; `htmlFor`/`id` sui campi recipe form; `aria-current="page"` in sidebar e bottom nav; `pb-safe` su bottom nav per iOS home indicator.
+- **Statistiche**: migrata a `useQuery` (`queryKey: ['cookingHistory', uid]`); layout redesign editoriale (rimossi 3 hero metric cards → contatore grande + frase narrativa).
+- **Sicurezza**: credenziali test in login ora visibili solo se `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`.
 
 ### Weekly Shopping List (Apr 2026)
 - **New page** `/lista-spesa`: aggregates all ingredients from the current week's meal plan into a checkable shopping list
@@ -175,6 +186,7 @@ Always use `max-lg:portrait:` instead of bare `portrait:`.
 | `FIREBASE_ADMIN_PROJECT_ID` | Server only | Admin fallback |
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Server only | Admin fallback |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Server only | Admin fallback |
+| `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS` | Client | Mostra credenziali test in login (solo `.env.local` in dev) |
 
 Notes:
 - All protected AI routes require Firebase Admin credentials at runtime for token verification.
@@ -233,3 +245,26 @@ Composite indexes currently maintained in repo:
 | `POST /api/plan-meals` | Weekly meal-plan generation |
 
 All endpoints above require an authenticated Firebase session.
+
+---
+
+## Design Context
+
+### Users
+Famiglie italiane che cucinano insieme. L'app viene usata in cucina durante la preparazione dei pasti — spesso con le mani occupate, luce naturale, e ritmo quotidiano. Non è un'app di scoperta o social: è uno strumento personale e privato, usato da persone che la conoscono bene.
+
+### Brand Personality
+**Curato, elegante, gastronomico.** Come un cookbook italiano di qualità — raffinato ma non freddo, ispirazionale ma non pretenzioso. In 3 parole di design: **preciso, caldo, editoriale.**
+
+### Aesthetic Direction
+- **Light mode.** Sfondi caldi come carta panna/pergamena (oklch ~97% con hue caldo), mai bianco puro. Accenti terrosi: terracotta, verde salvia.
+- **Tipografia**: Bodoni Moda (display) + Jost (body) — editoriale italiano, leggibile in cucina.
+- **Palette OKLCH**: background crema oklch(97% 0.01 75), testo marrone scuro oklch(18% 0.03 55), accento terracotta oklch(52% 0.13 42), verde salvia oklch(50% 0.08 148).
+- **Anti-riferimenti**: niente Instagram/food social, niente AI/SaaS dashboard, niente delivery app, niente corporate.
+
+### Design Principles
+1. **Cookbook over app** — ogni schermata dovrebbe sembrare una pagina di un libro di cucina curato.
+2. **Contenuto al centro** — testo, ingredienti, passaggi sono la sostanza; l'interfaccia li serve.
+3. **Calore senza rumore** — colori naturali e tipografia elegante; niente decorazioni fini a se stesse.
+4. **Leggibilità in cucina** — testo grande, contrasto alto, zone di tocco generose.
+5. **Privatezza come orgoglio** — niente social, niente condivisione forzata.

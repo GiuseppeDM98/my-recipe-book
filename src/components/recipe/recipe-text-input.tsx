@@ -59,7 +59,7 @@ export function RecipeTextInput({ onTextSubmit, isLoading, disabled }: RecipeTex
         className={`w-full rounded-lg border px-4 py-3 text-sm leading-relaxed resize-y
           placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${isLoading || disabled ? 'bg-gray-50' : 'bg-white border-gray-300'}`}
+          ${isLoading || disabled ? 'bg-muted' : 'bg-background border-input'}`}
       />
 
       {/* Footer: character count + submit button */}

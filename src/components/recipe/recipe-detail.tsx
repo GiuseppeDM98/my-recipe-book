@@ -34,29 +34,29 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
           {seasonsToShow.map(season => (
             <div
               key={season}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 border border-primary-200 rounded-lg"
             >
               <span className="text-2xl">{SEASON_ICONS[season]}</span>
-              <span className="font-medium text-blue-900">{SEASON_LABELS[season]}</span>
+              <span className="font-medium text-primary-700">{SEASON_LABELS[season]}</span>
             </div>
           ))}
         </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 text-center">
-        <div className="p-4 bg-gray-100 rounded-lg">
+        <div className="p-4 bg-secondary rounded-lg">
           <div className="text-sm text-gray-500">Porzioni</div>
           <div className="text-xl font-semibold">{recipe.servings || 'N/A'}</div>
         </div>
-        <div className="p-4 bg-gray-100 rounded-lg">
+        <div className="p-4 bg-secondary rounded-lg">
           <div className="text-sm text-gray-500">Preparazione</div>
           <div className="text-xl font-semibold">{recipe.prepTime ? `${recipe.prepTime} min` : 'N/A'}</div>
         </div>
-        <div className="p-4 bg-gray-100 rounded-lg">
+        <div className="p-4 bg-secondary rounded-lg">
           <div className="text-sm text-gray-500">Cottura</div>
           <div className="text-xl font-semibold">{recipe.cookTime ? `${recipe.cookTime} min` : 'N/A'}</div>
         </div>
-        <div className="p-4 bg-gray-100 rounded-lg">
+        <div className="p-4 bg-secondary rounded-lg">
           <div className="text-sm text-gray-500">Totale</div>
           <div className="text-xl font-semibold">{recipe.totalTime ? `${recipe.totalTime} min` : 'N/A'}</div>
         </div>

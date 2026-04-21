@@ -456,8 +456,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label className="block text-sm font-medium mb-2">Titolo</label>
+        <label htmlFor="recipe-title" className="block text-sm font-medium mb-2">Titolo</label>
         <Input
+          id="recipe-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
@@ -466,8 +467,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Descrizione</label>
+        <label htmlFor="recipe-description" className="block text-sm font-medium mb-2">Descrizione</label>
         <textarea
+          id="recipe-description"
           className="w-full border rounded-md p-2"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -491,8 +493,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Porzioni</label>
+          <label htmlFor="recipe-servings" className="block text-sm font-medium mb-2">Porzioni</label>
           <Input
+            id="recipe-servings"
             type="number"
             value={servings}
             onChange={(e) => setServings(Number(e.target.value))}
@@ -500,8 +503,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Prep (min)</label>
+          <label htmlFor="recipe-prep-time" className="block text-sm font-medium mb-2">Prep (min)</label>
           <Input
+            id="recipe-prep-time"
             type="number"
             value={prepTime}
             onChange={(e) => setPrepTime(Number(e.target.value))}
@@ -509,8 +513,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Cottura (min)</label>
+          <label htmlFor="recipe-cook-time" className="block text-sm font-medium mb-2">Cottura (min)</label>
           <Input
+            id="recipe-cook-time"
             type="number"
             value={cookTime}
             onChange={(e) => setCookTime(Number(e.target.value))}
@@ -539,7 +544,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                     value={section.name || ''}
                     onChange={(e) => updateSectionName(section.id, e.target.value)}
                     placeholder="Nome sezione (es. Per la pasta)"
-                    className="flex-1 font-semibold bg-white"
+                    className="flex-1 font-semibold bg-background"
                   />
                   <Button
                     type="button"
@@ -556,7 +561,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
               {/* Lista Ingredienti della sezione */}
               <div className="space-y-2 ml-6">
                 {section.ingredients.map((ing) => (
-                  <div key={ing.id} className="flex gap-2 items-center bg-white p-2 rounded border">
+                  <div key={ing.id} className="flex gap-2 items-center bg-background p-2 rounded border">
                     <span className="text-gray-400">•</span>
                     <Input
                       placeholder="Nome ingrediente"
@@ -694,7 +699,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                               [step.id]: e.target.value,
                             }))
                           }
-                          className="flex-1 rounded-md border bg-white px-3 py-2 text-sm"
+                          className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
                           disabled={allIngredients.length === 0}
                         >
                           {allIngredients.length === 0 ? (
@@ -776,7 +781,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
 
       {/* Sticky so the save action is always reachable without scrolling back to the bottom.
           bottom-20 on portrait mobile clears the fixed BottomNavigation (h-20 / 5rem). */}
-      <div className="sticky bottom-0 max-lg:portrait:bottom-20 z-10 flex gap-4 bg-white border-t py-4">
+      <div className="sticky bottom-0 max-lg:portrait:bottom-20 z-10 flex gap-4 bg-background border-t py-4">
         <Button type="submit" disabled={loading}>
           {loading ? 'Salvataggio...' : mode === 'create' ? 'Crea Ricetta' : 'Salva Modifiche'}
         </Button>

@@ -20,14 +20,19 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
   ];
 
   return (
-    <nav className={cn(
-      // Only visible on mobile portrait
-      'lg:hidden max-lg:landscape:hidden',
-      'max-lg:portrait:flex max-lg:portrait:fixed',
-      'max-lg:portrait:bottom-0 max-lg:portrait:left-0 max-lg:portrait:right-0',
-      'max-lg:portrait:z-50 max-lg:portrait:border-t',
-      'max-lg:portrait:bg-white max-lg:portrait:shadow-lg'
-    )}>
+    <nav
+      aria-label="Navigazione principale"
+      className={cn(
+        // Only visible on mobile portrait
+        'lg:hidden max-lg:landscape:hidden',
+        'max-lg:portrait:flex max-lg:portrait:fixed',
+        'max-lg:portrait:bottom-0 max-lg:portrait:left-0 max-lg:portrait:right-0',
+        'max-lg:portrait:z-50 max-lg:portrait:border-t',
+        'max-lg:portrait:bg-background max-lg:portrait:shadow-lg',
+        // Safe area inset per iPhone con home indicator
+        'max-lg:portrait:pb-safe'
+      )}
+    >
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = tab.href && pathname === tab.href;
@@ -40,7 +45,12 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
 
         if (tab.href) {
           return (
-            <Link key={tab.href} href={tab.href} className={className}>
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={className}
+              aria-current={isActive ? 'page' : undefined}
+            >
               <Icon className="h-5 w-5" />
               <span>{tab.label}</span>
             </Link>
