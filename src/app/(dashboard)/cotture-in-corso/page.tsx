@@ -8,7 +8,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Link from 'next/link';
-import { Trash2, ChefHat } from 'lucide-react';
+import { Trash2, ChefHat, ShoppingBasket, ListChecks } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
@@ -152,7 +152,7 @@ export default function CottureInCorsoPage() {
             return (
               <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="mb-4">
-                  <h3 className="text-xl font-semibold mb-2">{recipe.title}</h3>
+                  <h3 className="font-display text-xl font-semibold italic mb-2">{recipe.title}</h3>
                   <p className="text-sm text-muted-foreground">
                     Iniziata il{' '}
                     {session.startedAt?.toDate?.().toLocaleDateString('it-IT', {
@@ -179,17 +179,23 @@ export default function CottureInCorsoPage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Ingredienti</p>
-                    <p className="font-semibold">
-                      {session.checkedIngredients.length} / {recipe.ingredients.length}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <ShoppingBasket className="w-4 h-4 text-primary/60 flex-shrink-0" />
+                    <div>
+                      <p className="text-muted-foreground">Ingredienti</p>
+                      <p className="font-semibold">
+                        {session.checkedIngredients.length} / {recipe.ingredients.length}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Step</p>
-                    <p className="font-semibold">
-                      {session.checkedSteps.length} / {recipe.steps.length}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <ListChecks className="w-4 h-4 text-accent flex-shrink-0" />
+                    <div>
+                      <p className="text-muted-foreground">Step</p>
+                      <p className="font-semibold">
+                        {session.checkedSteps.length} / {recipe.steps.length}
+                      </p>
+                    </div>
                   </div>
                 </div>
 

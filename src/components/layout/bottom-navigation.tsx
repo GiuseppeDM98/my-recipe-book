@@ -43,6 +43,11 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
           isActive ? 'text-primary' : 'text-muted-foreground'
         );
 
+        const iconWrapperClass = cn(
+          'flex items-center justify-center rounded-xl w-10 h-7 transition-colors',
+          isActive ? 'bg-primary/10' : ''
+        );
+
         if (tab.href) {
           return (
             <Link
@@ -51,7 +56,9 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
               className={className}
               aria-current={isActive ? 'page' : undefined}
             >
-              <Icon className="h-5 w-5" />
+              <div className={iconWrapperClass}>
+                <Icon className="h-5 w-5" />
+              </div>
               <span>{tab.label}</span>
             </Link>
           );
@@ -59,7 +66,9 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
 
         return (
           <button key={tab.label} onClick={tab.onClick} className={className}>
-            <Icon className="h-5 w-5" />
+            <div className={iconWrapperClass}>
+              <Icon className="h-5 w-5" />
+            </div>
             <span>{tab.label}</span>
           </button>
         );

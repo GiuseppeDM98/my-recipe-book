@@ -56,7 +56,7 @@ export default function StatistichePage() {
           {/* Sommario editoriale — senza card identiche */}
           <div className="border-b pb-8 space-y-4">
             <div>
-              <span className="text-7xl font-bold tabular-nums">{historyEntries.length}</span>
+              <span className="text-7xl font-bold tabular-nums text-primary">{historyEntries.length}</span>
               <p className="text-muted-foreground mt-1 text-lg">
                 {historyEntries.length === 1 ? 'cottura completata' : 'cotture completate'}
               </p>
@@ -87,26 +87,31 @@ export default function StatistichePage() {
             <div>
               <h2 className="font-display text-xl font-semibold italic mb-4">Piatti più preparati</h2>
               <div className="space-y-2">
-                {recipeStats.slice(0, 10).map((stat, index) => (
-                  <div
-                    key={stat.recipeId}
-                    className="flex items-center justify-between rounded-lg border px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">#{index + 1}</p>
-                      <p className="font-semibold truncate">{stat.recipeTitle}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Ultima volta: {formatDate(stat as unknown as CookingHistoryEntry)}
-                      </p>
+                {recipeStats.slice(0, 10).map((stat, index) => {
+                  const isTop = index === 0;
+                  const rankColors = ['text-primary', 'text-accent', 'text-muted-foreground'];
+                  const rankColor = rankColors[index] ?? 'text-muted-foreground';
+                  return (
+                    <div
+                      key={stat.recipeId}
+                      className={`flex items-center justify-between rounded-lg border px-4 py-3 ${isTop ? 'bg-primary/5 border-primary/20' : ''}`}
+                    >
+                      <div className="min-w-0">
+                        <p className={`text-xs font-bold ${rankColor}`}>#{index + 1}</p>
+                        <p className="font-semibold truncate">{stat.recipeTitle}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Ultima volta: {formatDate(stat as unknown as CookingHistoryEntry)}
+                        </p>
+                      </div>
+                      <div className="text-right ml-4 flex-shrink-0">
+                        <p className={`text-2xl font-bold ${isTop ? 'text-primary' : ''}`}>{stat.completionCount}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {stat.completionCount === 1 ? 'cottura' : 'cotture'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right ml-4 flex-shrink-0">
-                      <p className="text-2xl font-bold">{stat.completionCount}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {stat.completionCount === 1 ? 'cottura' : 'cotture'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -2,6 +2,7 @@
 
 import { Recipe, Category, Subcategory } from '@/types';
 import Link from 'next/link';
+import { Clock, Users } from 'lucide-react';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
 
 interface RecipeCardProps {
@@ -76,9 +77,19 @@ export function RecipeCard({ recipe, categories = [], subcategories = [] }: Reci
         {/* Footer meta — time + servings */}
         {(recipe.totalTime || recipe.servings) && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-auto pt-3 border-t border-border">
-            {recipe.totalTime && <span>{recipe.totalTime} min</span>}
+            {recipe.totalTime && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-primary/70" />
+                {recipe.totalTime} min
+              </span>
+            )}
             {recipe.totalTime && recipe.servings && <span>·</span>}
-            {recipe.servings && <span>{recipe.servings} porzioni</span>}
+            {recipe.servings && (
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3 text-primary/70" />
+                {recipe.servings} porz.
+              </span>
+            )}
           </div>
         )}
       </article>

@@ -36,10 +36,10 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
           {seasonsToShow.map(season => (
             <div
               key={season}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 border border-primary-200 rounded-lg"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg"
             >
               <span className="text-2xl">{SEASON_ICONS[season]}</span>
-              <span className="font-medium text-primary-700">{SEASON_LABELS[season]}</span>
+              <span className="font-medium text-primary">{SEASON_LABELS[season]}</span>
             </div>
           ))}
         </div>

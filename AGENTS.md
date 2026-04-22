@@ -38,6 +38,7 @@
 | Step duration max | Browser validation error su step con molte ore | Usare `max={9999}` non `max={999}` — 24h = 1440 min |
 | Timer multipli | Singolo `setInterval` + singolo stato non supporta parallelo | Usare `Map<stepId, setInterval>` in un ref + `Record<stepId, secondsLeft>` nello stato |
 | `bg-white` hardcoded | `bg-white` è sempre `#ffffff` — ignora il token `--background` | Usare `bg-background`, `bg-card`, `bg-muted`, `bg-secondary` |
+| OKLCH color scale inesistente | `bg-primary-100`, `border-primary-200`, `text-primary-700` non esistono con palette OKLCH custom — Tailwind genera scale solo per colori statici, non per CSS vars | Usare opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary` |
 | Elementi HTML nativi senza `bg` | `<textarea>`, `<select>`, `<input>` mostrano sfondo bianco anche con tema OKLCH | Aggiungere sempre `bg-background text-foreground` esplicitamente — il browser non eredita CSS custom properties dal tema |
 | Side-stripe design ban | `border-l-[2px+]` su card/list item è AI slop tell — vietato anche se semantico | Sostituire con badge `absolute top-1.5 left-1.5` (icona + colore) o background tint; mai side-stripe |
 | `animate-bounce` datato | Bounce easing su typing indicator o bottoni appare datato | Usare `animate-pulse` per indicatori di attività; easing `ease-out` per motion intenzionale |
@@ -209,6 +210,8 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 - `bg-secondary` per sfondi secondari (sezioni, filtri)
 
 **Elementi HTML nativi**: `<textarea>`, `<select>`, `<input>` NON ereditano `--background` automaticamente — il browser usa `white` di default. Aggiungere sempre `bg-background text-foreground placeholder:text-muted-foreground` esplicitamente. Il componente shadcn `Input` lo fa già; gli elementi nativi no.
+
+**OKLCH color scale**: `bg-primary-100`, `border-primary-200`, `text-primary-700` non funzionano — Tailwind genera scale numeriche solo per colori statici. Con CSS vars OKLCH usare sempre l'opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary`.
 
 **Side-stripe ban**: `border-l-2` o superiore con colore su card/list item è vietato da impeccable guidelines indipendentemente dall'intenzione semantica. Sostituire con badge angolare `absolute top-1.5 left-1.5` (icona + tint) che porta la stessa informazione senza il pattern visivo da AI slop.
 

@@ -100,7 +100,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div key={groupIndex}>
               {/* Optional section label */}
               {group.label && (
-                <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-accent">
                   {group.label}
                 </p>
               )}

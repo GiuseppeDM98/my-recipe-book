@@ -104,6 +104,16 @@ Pages inside the dashboard layout must **not** add their own outer padding — `
 
 ## Recent Changes (Apr 2026)
 
+### Colorize Pass (Apr 2026)
+- **Header brand**: "Il Mio Ricettario" → `text-primary` (terracotta); crea identità cromatica immediata
+- **Sidebar section label**: "Strumenti AI" → `text-accent` (salvia); differenzia la sezione AI
+- **Bottom nav active indicator**: pill `bg-primary/10 rounded-xl` attorno all'icona attiva — orientamento visivo senza side-stripe
+- **Recipe card footer icons**: `Clock` e `Users` con `text-primary/70` su tempo e porzioni — warmth senza rumore
+- **Season badges fix**: `bg-primary-100 border-primary-200 text-primary-700` erano classi inesistenti in OKLCH → sostituiti con `bg-primary/10 border-primary/20 text-primary`
+- **Statistiche rank coloring**: contatore `text-7xl` → `text-primary`; top #1 ha sfondo `bg-primary/5`; rank #1/`text-primary`, #2/`text-accent`, #3+/`text-muted-foreground`
+- **Cotture-in-corso cards**: titolo → `font-display italic`; icone colorate su stats (terracotta = ingredienti, salvia = step)
+- **Regola colori OKLCH**: usare sempre opacity modifier (`bg-primary/10`) — mai scale numeriche (`bg-primary-100`) che non esistono con CSS vars
+
 ### Responsive Sweep (Apr 2026)
 - **Cooking page padding fix**: rimosso wrapper `p-4 sm:p-6 lg:p-8` da setup mode e cooking mode — il layout gestisce già il padding per tutti i viewport
 - **Titoli ricetta**: `text-5xl` fisso → `text-3xl sm:text-4xl lg:text-5xl` in `recipe-detail.tsx` e cooking mode
@@ -173,11 +183,6 @@ Pages inside the dashboard layout must **not** add their own outer padding — `
 - **Floating timer overlay**: chip fissi top-right con MM:SS countdown e stop button
 - **Completion CTA**: `Termina cottura` in sticky footer — non più auto-close al 100%
 - **Cooking history**: `cooking_history` collection per statistiche; statistiche in `/statistiche`
-
-### Meal Planner & Family Profile (Mar–Apr 2026)
-- **Pianificatore** `/pianificatore`: flow 3-step (setup → generating → calendar); AI genera con ricette esistenti + nuove
-- **Shopping list** `/lista-spesa`: aggregata da MealPlan; localStorage per spunti/articoli custom; nessuna collection Firestore
-- **Family Profile** `/profilo-famiglia`: contesto famiglia in `users/{uid}.familyProfile`; usato in chat/testo/pianificatore, non in PDF
 
 ---
 

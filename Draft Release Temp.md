@@ -71,6 +71,13 @@
 - Improved season badges on recipe detail pages to use the app's warm terracotta palette instead of blue
 - Improved the Statistics page layout — replaced three identical metric cards with a cleaner editorial summary showing your total count, most-cooked dish, and recent activity in a more readable format
 - Improved collapsible sections in cooking mode and the shopping list with smoother, more natural open/close animations
+- Improved the app header — the "Il Mio Ricettario" brand name now displays in terracotta, making the identity visible at a glance
+- Improved the navigation sidebar — the "AI Tools" section label now uses the sage green accent colour to visually separate it from the main navigation links
+- Improved the bottom navigation bar on mobile — the active tab now shows a warm terracotta pill behind the icon, making your current location clearer
+- Improved recipe cards — cooking time and servings now display with small icons alongside the text, adding visual warmth without extra noise
+- Improved season badges on recipe detail pages — they now correctly display with a terracotta tint background and label (they were previously rendering with no colour due to a palette mismatch)
+- Improved the Statistics page — the total cooking count is now shown in terracotta, and the top-ranked recipe gets a subtle highlighted background to help it stand out
+- Improved active cooking session cards — recipe titles now use the editorial italic display font, and the ingredients and steps progress indicators now show distinct coloured icons
 - Improved bottom navigation on iPhone and iPad to respect the safe area at the bottom of the screen, preventing content from being hidden behind the home indicator
 - Improved cooking mode so interactive ingredient and step rows can now be navigated and checked via keyboard, in addition to touch
 - Improved cooking mode with a clear "Finish cooking" action after completing a recipe
