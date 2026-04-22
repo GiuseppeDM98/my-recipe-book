@@ -4,14 +4,19 @@ import { Recipe, Category, Subcategory } from '@/types';
 import Link from 'next/link';
 import { Clock, Users } from 'lucide-react';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
+import { cn } from '@/lib/utils/cn';
 
 interface RecipeCardProps {
   recipe: Recipe;
   categories?: Category[];
   subcategories?: Subcategory[];
+  /** Stagger index: delays the entrance animation by index × 50ms (max 350ms) */
+  index?: number;
 }
 
-export function RecipeCard({ recipe, categories = [], subcategories = [] }: RecipeCardProps) {
+export function RecipeCard({ recipe, categories = [], subcategories = [], index = 0 }: RecipeCardProps) {
+  // Cap stagger delay at 350ms so late cards don't feel laggy on large collections
+  const delay = `${Math.min(index * 50, 350)}ms`;
   const category = categories.find(cat => cat.id === recipe.categoryId);
   const subcategory = subcategories.find(sub => sub.id === recipe.subcategoryId);
 
@@ -27,8 +32,17 @@ export function RecipeCard({ recipe, categories = [], subcategories = [] }: Reci
   const seasonsToShow = recipe.seasons || (recipe.season ? [recipe.season] : []);
 
   return (
-    <Link href={`/ricette/${recipe.id}`} className="group block">
-      <article className="relative h-full rounded-xl border border-border bg-card p-5 transition-shadow duration-200 hover:shadow-md">
+    <Link
+      href={`/ricette/${recipe.id}`}
+      className="group block animate-fade-up motion-reduce:animate-none"
+      style={{ animationDelay: delay }}
+    >
+      <article className={cn(
+        'relative h-full rounded-xl border border-border bg-card p-5',
+        'transition-[shadow,transform] duration-200 ease-out motion-reduce:transition-none',
+        'hover:shadow-md hover:-translate-y-0.5',
+        'will-change-transform'
+      )}>
         {/* Season badges — top-right corner */}
         {seasonsToShow.length > 0 && (
           <div className="absolute top-4 right-4 flex gap-1">

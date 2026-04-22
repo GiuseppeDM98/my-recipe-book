@@ -8,6 +8,8 @@
 
 | Gotcha | Problema | Soluzione |
 |--------|----------|-----------|
+| Custom `@keyframes` in `@layer` | `@keyframes` definiti dentro `@layer utilities` vengono ignorati da Tailwind Animate | Definire `@keyframes` a root level in `globals.css`, PRIMA dei blocchi `@layer`; le classi utility che li usano vanno dentro `@layer utilities` |
+| Stagger con Tailwind | `animation-delay-[--delay]` e `[animation-delay:var(--delay)]` non funzionano come classi arbitrarie su tutti i build | Usare `style={{ animationDelay: '...' }}` inline; cap delay a 350ms su collection grandi |
 | Orientation classes | `portrait:` applica anche a desktop | Usare `max-lg:portrait:` |
 | Page self-padding | Pagina interna aggiunge `p-4 lg:p-8` su layout che già fornisce `portrait:p-4` / `lg:px-10` | Pagine dentro dashboard layout non devono aggiungere padding esterno; usare `max-w-*` solo per centrare contenuto |
 | Flex tab bar overflow | Tab con `px-5` fisso in `flex` container traboccano su ≤375px (3 tab ≈ 420px > 343px disponibili) | `px-3 sm:px-5` + `flex-shrink-0` + `overflow-x-auto` sul container |

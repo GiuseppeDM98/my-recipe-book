@@ -39,13 +39,15 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
 
         const className = cn(
           'flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2',
-          'text-xs font-medium transition-colors',
+          'text-xs font-medium transition-colors duration-150',
+          'active:scale-95 transition-transform motion-reduce:transition-none',
           isActive ? 'text-primary' : 'text-muted-foreground'
         );
 
         const iconWrapperClass = cn(
-          'flex items-center justify-center rounded-xl w-10 h-7 transition-colors',
-          isActive ? 'bg-primary/10' : ''
+          'flex items-center justify-center rounded-xl w-10 h-7',
+          'transition-all duration-200 ease-out motion-reduce:transition-none',
+          isActive ? 'bg-primary/10 scale-110' : 'scale-100'
         );
 
         if (tab.href) {

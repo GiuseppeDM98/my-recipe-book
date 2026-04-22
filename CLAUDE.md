@@ -104,6 +104,16 @@ Pages inside the dashboard layout must **not** add their own outer padding — `
 
 ## Recent Changes (Apr 2026)
 
+### Animation Pass (Apr 2026)
+- **globals.css keyframes**: 4 custom `@keyframes` a root level (`fadeUp`, `fadeIn`, `slideInRight`, `scaleIn`) + utility classes in `@layer utilities` (`animate-fade-up`, `animate-fade-in`, `animate-slide-in-right`, `animate-scale-in`)
+- **Recipe card lift**: `hover:-translate-y-0.5 transition-[shadow,transform]` + `will-change-transform`; entrance stagger via `index` prop (`animationDelay = Math.min(i * 50, 350)ms`)
+- **Bottom nav tap feedback**: icona attiva `scale-110`, `active:scale-95` su ogni tab per feedback tocco
+- **Sidebar link nudge**: `hover:translate-x-0.5`; backdrop landscape con `animate-fade-in`
+- **Cooking mode progress bar**: `<div role="progressbar">` con `transition-[width] duration-500` nel footer sticky; timer chip con `animate-slide-in-right`; setup screen con `animate-fade-up`
+- **Planner slot hover**: slot vuoto `hover:scale-[1.02] active:scale-[0.98]`; slot occupato `hover:shadow-sm`; rigenerazione `animate-pulse` (non spin isolato)
+- **Mobile day cards stagger**: `animate-fade-up` con `animationDelay = i * 40ms` su ogni giorno
+- **Regola accessibilità**: tutti i `transition-*` hanno `motion-reduce:transition-none`; tutti gli `animate-*` hanno `motion-reduce:animate-none`
+
 ### Colorize Pass (Apr 2026)
 - **Header brand**: "Il Mio Ricettario" → `text-primary` (terracotta); crea identità cromatica immediata
 - **Sidebar section label**: "Strumenti AI" → `text-accent` (salvia); differenzia la sezione AI

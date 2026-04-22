@@ -80,7 +80,7 @@ The interface uses a warm cream palette, Bodoni Moda editorial headings, and ter
 
 - **Screen Wake Lock**: Uses nosleep.js to prevent your device from going to sleep while cooking
 - **Interactive Checkboxes**: Check off ingredients and steps as you complete them
-- **Progress Tracking**: Visual progress bar shows completion percentage
+- **Progress Tracking**: Animated terracotta progress bar in the sticky footer grows as you check off ingredients and steps
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
 - **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
@@ -1713,7 +1713,6 @@ Looking for where to start? Try these:
 - **Add Unit Tests**: Cover utility functions in `src/lib/utils/`
 - **Improve Error Messages**: Make error toasts more user-friendly
 - **Add i18n Support**: Implement English localization
-- **Mobile UI Enhancements**: Improve animations and transitions
 - **Documentation**: Fix typos, improve examples, add missing sections
 - **Accessibility**: Extend WCAG AA coverage (contrast ratios, screen reader testing)
 - **Performance**: Optimize re-renders, add loading states

@@ -310,7 +310,7 @@ export default function CookingModePage() {
   // Pre-cooking configuration: user selects servings before starting.
   if (isSetupMode) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto animate-fade-up motion-reduce:animate-none">
           <div className="flex items-center mb-6">
             <Button
               variant="outline"
@@ -401,7 +401,7 @@ export default function CookingModePage() {
             return (
               <div
                 key={stepId}
-                className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg"
+                className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg animate-slide-in-right motion-reduce:animate-none"
               >
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs opacity-75 truncate">{label}</span>
@@ -510,7 +510,18 @@ export default function CookingModePage() {
       </div>
 
       {/* Sticky footer CTA — visible sempre, abilitata al 100% completamento */}
-      <div className="sticky bottom-0 max-lg:portrait:bottom-20 mt-8 bg-background border-t py-4 z-10">
+      <div className="sticky bottom-0 max-lg:portrait:bottom-20 mt-8 bg-background border-t pt-2 pb-4 z-10">
+        {/* Animated progress bar */}
+        <div className="h-1 bg-muted rounded-full mb-3 overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+            role="progressbar"
+            aria-valuenow={Math.round(progress * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
+        </div>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             {isComplete
@@ -521,7 +532,7 @@ export default function CookingModePage() {
             onClick={handleFinishCooking}
             size="lg"
             disabled={!isComplete}
-            className="min-w-[180px]"
+            className="min-w-[180px] transition-all duration-200 motion-reduce:transition-none"
           >
             Termina cottura
           </Button>

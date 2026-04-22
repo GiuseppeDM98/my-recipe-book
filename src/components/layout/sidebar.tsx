@@ -64,7 +64,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           className={cn(
             'lg:hidden max-lg:portrait:hidden',
             'max-lg:landscape:fixed max-lg:landscape:inset-0',
-            'max-lg:landscape:z-40 max-lg:landscape:bg-foreground/60'
+            'max-lg:landscape:z-40 max-lg:landscape:bg-foreground/60',
+            'animate-fade-in motion-reduce:animate-none'
           )}
           onClick={onClose}
         />
@@ -121,10 +122,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     onClick={onClose}
                     aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium',
+                      'transition-all duration-150 ease-out motion-reduce:transition-none',
                       isActive
                         ? 'bg-primary/10 text-primary font-semibold'
-                        : 'text-foreground/70 hover:text-foreground hover:bg-muted/60'
+                        : 'text-foreground/70 hover:text-foreground hover:bg-muted/60 hover:translate-x-0.5'
                     )}
                   >
                     <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-primary' : 'text-foreground/50')} />

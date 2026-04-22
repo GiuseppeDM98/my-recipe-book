@@ -50,6 +50,16 @@
 
 ## 🔧 Improvements
 
+- Improved recipe cards with a subtle lift on hover, making them feel more responsive and inviting to tap
+- Improved the recipe list with a staggered entrance animation — cards reveal in sequence as the page loads, giving the collection a more editorial feel
+- Improved the bottom navigation bar with a scale-up effect on the active tab icon and a brief press-down feedback when tapping any tab
+- Improved sidebar navigation links with a gentle nudge-right on hover
+- Improved cooking mode with an animated progress bar in the footer — the terracotta fill grows smoothly as you check off ingredients and steps, giving a continuous visual sense of progress
+- Improved cooking mode timer chips with a slide-in animation when a new timer starts
+- Improved the meal planner setup screen and cooking mode setup card with a fade-up entrance animation
+- Improved meal planner slots with hover feedback — empty slots scale up slightly to invite interaction, occupied slots gain a subtle shadow on hover
+- Improved meal planner slot regeneration state with a pulsing background instead of just a spinner, making it clearer that the whole slot is updating
+- Improved mobile meal planner with a staggered entrance for the seven day cards, so the week reveals naturally from top to bottom
 - Improved recipe and cooking mode page titles to scale down gracefully on mobile instead of filling the screen at a fixed large size
 - Improved the shopping list page layout so the content sits at a comfortable reading width on large screens, matching the style of the statistics and family profile pages
 - Improved the meal planner weekly calendar on small landscape phones — day columns now maintain a minimum readable width and the grid scrolls horizontally when needed, instead of squeezing all seven days into illegible narrow cells

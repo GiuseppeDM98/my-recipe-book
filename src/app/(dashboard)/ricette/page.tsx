@@ -362,12 +362,13 @@ export default function RecipesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRecipes.map((recipe) => (
+          {filteredRecipes.map((recipe, i) => (
             <RecipeCard
               key={recipe.id}
               recipe={recipe}
               categories={categories}
               subcategories={subcategories}
+              index={i}
             />
           ))}
         </div>

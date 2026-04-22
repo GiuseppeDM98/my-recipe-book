@@ -56,7 +56,8 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
           'w-full min-h-[64px] rounded-lg border-2 border-dashed border-border',
           'flex items-center justify-center',
           'text-muted-foreground hover:border-primary hover:text-primary',
-          'transition-colors duration-150'
+          'transition-all duration-150 ease-out motion-reduce:transition-none',
+          'hover:scale-[1.02] active:scale-[0.98]'
         )}
         aria-label="Aggiungi ricetta"
       >
@@ -71,7 +72,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
       return (
         <div className={cn(
           'w-full min-h-[64px] rounded-lg border border-border bg-muted/40',
-          'p-2 flex items-center justify-center'
+          'p-2 flex items-center justify-center animate-pulse motion-reduce:animate-none'
         )}>
           <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
         </div>
@@ -81,7 +82,9 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
       <div
         className={cn(
           'w-full min-h-[64px] rounded-lg border border-border bg-muted/30',
-          'p-2 flex flex-col gap-1 group relative'
+          'p-2 flex flex-col gap-1 group relative',
+          'transition-shadow duration-150 ease-out motion-reduce:transition-none',
+          'hover:shadow-sm'
         )}
       >
         {/* AI badge — top-left corner, identifies origin without side-stripe */}
@@ -124,7 +127,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
     return (
       <div className={cn(
         'w-full min-h-[64px] rounded-lg border border-border bg-muted/40',
-        'p-2 flex items-center justify-center'
+        'p-2 flex items-center justify-center animate-pulse motion-reduce:animate-none'
       )}>
         <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
       </div>
@@ -134,7 +137,9 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
     <div
       className={cn(
         'w-full min-h-[64px] rounded-lg border border-border bg-card',
-        'p-2 flex flex-col gap-1 group relative'
+        'p-2 flex flex-col gap-1 group relative',
+        'transition-shadow duration-150 ease-out motion-reduce:transition-none',
+        'hover:shadow-sm'
       )}
     >
       {/* Cookbook badge — top-left corner, identifies source */}

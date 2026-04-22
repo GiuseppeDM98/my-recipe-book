@@ -140,13 +140,15 @@ export function WeeklyCalendarGrid({
           Each card = one day with meal rows inside
           ───────────────────────────────────────── */}
       <div className="block lg:hidden max-lg:portrait:block max-lg:landscape:hidden space-y-3">
-        {activeDays.map(dayIndex => (
+        {activeDays.map((dayIndex, i) => (
           <div
             key={dayIndex}
             className={cn(
               'rounded-xl border bg-card p-3',
+              'animate-fade-up motion-reduce:animate-none',
               isToday(dayIndex) ? 'border-primary/50 bg-primary/5' : 'border-border'
             )}
+            style={{ animationDelay: `${i * 40}ms` }}
           >
             {/* Day header */}
             <div className="flex items-center gap-2 mb-3">
