@@ -27,8 +27,8 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
         'lg:hidden max-lg:landscape:hidden',
         'max-lg:portrait:flex max-lg:portrait:fixed',
         'max-lg:portrait:bottom-0 max-lg:portrait:left-0 max-lg:portrait:right-0',
-        'max-lg:portrait:z-50 max-lg:portrait:border-t',
-        'max-lg:portrait:bg-background max-lg:portrait:shadow-lg',
+        'max-lg:portrait:z-50 max-lg:portrait:border-t max-lg:portrait:border-border/70',
+        'max-lg:portrait:bg-background/92 max-lg:portrait:backdrop-blur-sm max-lg:portrait:shadow-[0_-12px_34px_-24px_oklch(var(--foreground)/0.4)]',
         // Safe area inset per iPhone con home indicator
         'max-lg:portrait:pb-safe'
       )}
@@ -38,16 +38,18 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
         const isActive = tab.href && pathname === tab.href;
 
         const className = cn(
-          'flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2',
-          'text-xs font-medium transition-colors duration-150',
+          'flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2.5',
+          'text-xs font-medium transition-colors duration-200',
           'active:scale-95 transition-transform motion-reduce:transition-none',
           isActive ? 'text-primary' : 'text-muted-foreground'
         );
 
         const iconWrapperClass = cn(
-          'flex items-center justify-center rounded-xl w-10 h-7',
+          'flex h-9 w-11 items-center justify-center rounded-full border',
           'transition-all duration-200 ease-out motion-reduce:transition-none',
-          isActive ? 'bg-primary/10 scale-110' : 'scale-100'
+          isActive
+            ? 'border-primary/20 bg-primary/10 text-primary scale-110 shadow-[0_16px_28px_-22px_oklch(var(--primary)/0.95)]'
+            : 'border-transparent bg-transparent scale-100'
         );
 
         if (tab.href) {

@@ -137,17 +137,20 @@ export default function RecipesPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* === PAGE HEADER === */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="font-display text-4xl font-semibold italic">Le mie ricette</h1>
+      <div className="flex items-end justify-between gap-4">
+        <div className="cinematic-heading">
+          <p className="editorial-kicker text-[0.7rem] font-semibold uppercase text-muted-foreground">Archivio personale</p>
+          <h1 className="font-display text-4xl font-semibold italic">Le mie ricette</h1>
+        </div>
         <Button asChild>
           <Link href="/ricette/new">Crea Ricetta</Link>
         </Button>
       </div>
 
       {/* === SEARCH BAR === */}
-      <div className="mb-4">
+      <div className="shell-panel rounded-[1.75rem] px-4 py-4 sm:px-5">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -170,20 +173,20 @@ export default function RecipesPage() {
           )}
         </div>
         {searchQuery && (
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="mt-2 text-sm text-muted-foreground">
             {filteredRecipes.length} {filteredRecipes.length === 1 ? 'ricetta trovata' : 'ricette trovate'} per &quot;{searchQuery}&quot;
           </p>
         )}
       </div>
 
       {/* === FILTER TOGGLE === */}
-      <div className="mb-6">
+      <div>
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={() => setFiltersOpen(o => !o)}
             aria-expanded={filtersOpen}
             className={cn(
-              'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
               filtersOpen || activeFilterCount > 0
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-foreground hover:bg-muted/80'
@@ -241,10 +244,10 @@ export default function RecipesPage() {
           filtersOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         )}>
           <div className="overflow-hidden">
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+            <div className="shell-panel rounded-[1.6rem] p-4 space-y-4">
               {/* Season buttons */}
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Stagione</p>
+                <p className="editorial-kicker mb-2 text-xs font-semibold uppercase text-muted-foreground">Stagione</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setSelectedSeason('all')}
@@ -283,7 +286,7 @@ export default function RecipesPage() {
               {/* Category + Subcategory dropdowns */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
-                  <label htmlFor="category-filter" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <label htmlFor="category-filter" className="editorial-kicker mb-2 block text-xs font-semibold uppercase text-muted-foreground">
                     Categoria
                   </label>
                   <select
@@ -305,7 +308,7 @@ export default function RecipesPage() {
                 </div>
 
                 <div className="flex-1">
-                  <label htmlFor="subcategory-filter" className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <label htmlFor="subcategory-filter" className="editorial-kicker mb-2 block text-xs font-semibold uppercase text-muted-foreground">
                     Sottocategoria
                   </label>
                   <select

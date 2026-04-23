@@ -17,13 +17,13 @@ export function EditorialLoader({ label, hint, className, compact = false }: Edi
   return (
     <div
       className={cn(
-        'rounded-[1.25rem] border border-border/70 bg-card/90 px-6 py-6 text-center shadow-[0_18px_45px_-32px_oklch(var(--foreground)/0.38)]',
+        'shell-panel rounded-[1.5rem] px-6 py-6 text-center shadow-[0_24px_55px_-34px_oklch(var(--foreground)/0.32)]',
         'animate-fade-up motion-reduce:animate-none',
         compact ? 'max-w-sm' : 'max-w-md',
         className
       )}
     >
-      <div className="mx-auto flex w-fit items-center gap-3 rounded-full border border-primary/20 bg-primary/8 px-4 py-2 text-primary">
+      <div className="relative z-10 mx-auto flex w-fit items-center gap-3 rounded-full border border-primary/18 bg-background/78 px-4 py-2 text-primary shadow-[0_12px_30px_-24px_oklch(var(--primary)/0.75)]">
         <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-primary/14">
           <span className="absolute inset-0 rounded-full border border-primary/15 animate-gentle-pulse motion-reduce:animate-none" />
           <ChefHat className="relative h-5 w-5" />
@@ -41,8 +41,9 @@ export function EditorialLoader({ label, hint, className, compact = false }: Edi
         </div>
       </div>
 
-      <p className="mt-4 font-display text-2xl font-semibold italic text-foreground">{label}</p>
-      {hint ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{hint}</p> : null}
+      <p className="editorial-kicker relative z-10 mt-5 text-[0.66rem] font-semibold uppercase text-muted-foreground">In preparazione</p>
+      <p className="relative z-10 mt-2 font-display text-2xl font-semibold italic text-foreground">{label}</p>
+      {hint ? <p className="relative z-10 mt-2 text-sm leading-6 text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

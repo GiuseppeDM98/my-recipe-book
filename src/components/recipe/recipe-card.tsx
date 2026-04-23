@@ -34,13 +34,13 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
   return (
     <Link
       href={`/ricette/${recipe.id}`}
-      className="group block animate-fade-up motion-reduce:animate-none"
+      className="group block animate-fade-up motion-reduce:animate-none scroll-reveal"
       style={{ animationDelay: delay }}
     >
       <article className={cn(
-        'relative h-full rounded-xl border border-border bg-card p-5',
-        'transition-[shadow,transform] duration-200 ease-out motion-reduce:transition-none',
-        'hover:shadow-md hover:-translate-y-0.5',
+        'shell-panel relative h-full rounded-[1.5rem] p-5',
+        'transition-[shadow,transform,border-color] duration-300 ease-out motion-reduce:transition-none',
+        'hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_28px_54px_-34px_oklch(var(--foreground)/0.38)]',
         'will-change-transform'
       )}>
         {/* Season badges — top-right corner */}
@@ -60,9 +60,9 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
 
         {/* Category badge */}
         {category && (
-          <div className="mb-3">
+          <div className="relative z-10 mb-3">
             <span
-              className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide"
+              className="editorial-kicker inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase"
               style={{ color: category.color }}
             >
               {category.icon && <span>{category.icon}</span>}
@@ -77,20 +77,20 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
         )}
 
         {/* Title — editorial display font */}
-        <h2 className="font-display text-xl font-semibold italic leading-snug mb-2 pr-8 group-hover:text-primary transition-colors">
+        <h2 className="relative z-10 mb-2 pr-8 font-display text-xl font-semibold italic leading-snug transition-colors group-hover:text-primary">
           {recipe.title}
         </h2>
 
         {/* Description */}
         {recipe.description && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-4">
+          <p className="relative z-10 mb-4 text-sm leading-relaxed text-muted-foreground line-clamp-2">
             {recipe.description}
           </p>
         )}
 
         {/* Footer meta — time + servings */}
         {(recipe.totalTime || recipe.servings) && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-auto pt-3 border-t border-border">
+          <div className="relative z-10 mt-auto flex items-center gap-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
             {recipe.totalTime && (
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-primary/70" />

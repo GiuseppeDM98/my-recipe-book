@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-23 (session 8)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-23 (session 9)
 
 ## Quick Reference
 
@@ -103,6 +103,16 @@ Pages inside the dashboard layout must **not** add their own outer padding — `
 ---
 
 ## Recent Changes (Apr 2026)
+
+### Editorial Cinema Pass (Apr 2026)
+- **Cinematic shell system**: `globals.css` now defines reusable `shell-stage`, `shell-panel`, `cinematic-heading`, ambient background gradients, and reduced-motion-safe atmospheric layers so the app feels like one coherent editorial object instead of isolated screens
+- **Dashboard shell refinement**: header, sidebar, bottom navigation, and the More sheet now share the same framed cookbook surface language with calmer depth, softer highlights, and a more immersive page shell
+- **Recipe and AI surfaces**: recipe list, recipe cards, recipe detail, and AI Assistant now use the same cinematic editorial rhythm — stronger hierarchy, calmer panels, and more intentional page intros
+- **Progressive enhancement**: the shell reacts to scroll through CSS variables updated by the dashboard layout, while `scroll-reveal` remains optional through `@supports (animation-timeline: scroll())`
+
+### Recipe Editor Mobile Polish (Apr 2026)
+- **Step editor layout**: the recipe edit form now keeps step descriptions full-width on mobile by moving action controls below the content instead of squeezing the textarea beside them
+- **Lighter step chrome**: step numbers are now integrated as small chips inside the card rather than dominant offset badges, so long editing sessions feel cleaner on phones
 
 ### Delight Pass (Apr 2026)
 - **Shared delight primitives**: added `EditorialLoader`, `EditorialEmptyState`, and `StatusBanner` in `src/components/ui/` to unify loading, empty, success, warning, and error moments across the app

@@ -14,10 +14,10 @@ interface StatusBannerProps {
 }
 
 const toneClasses: Record<StatusBannerTone, string> = {
-  info: 'border-primary/20 bg-primary/6 text-foreground',
-  success: 'border-accent/25 bg-accent/10 text-foreground',
-  warning: 'border-[oklch(70%_0.09_78)]/35 bg-[oklch(95%_0.03_78)] text-foreground',
-  danger: 'border-destructive/20 bg-destructive/8 text-foreground',
+  info: 'border-primary/20 bg-[linear-gradient(135deg,_oklch(var(--primary)/0.07),_oklch(var(--background)/0.98))] text-foreground',
+  success: 'border-accent/25 bg-[linear-gradient(135deg,_oklch(var(--accent)/0.12),_oklch(var(--background)/0.98))] text-foreground',
+  warning: 'border-[oklch(70%_0.09_78)]/35 bg-[linear-gradient(135deg,_oklch(95%_0.03_78),_oklch(var(--background)/0.98))] text-foreground',
+  danger: 'border-destructive/20 bg-[linear-gradient(135deg,_oklch(var(--destructive)/0.08),_oklch(var(--background)/0.98))] text-foreground',
 };
 
 const iconClasses: Record<StatusBannerTone, string> = {
@@ -42,12 +42,12 @@ export function StatusBanner({
   return (
     <div
       className={cn(
-        'rounded-[1.25rem] border px-4 py-4 shadow-[0_16px_35px_-30px_oklch(var(--foreground)/0.28)]',
+        'shell-panel rounded-[1.35rem] px-4 py-4 shadow-[0_18px_35px_-28px_oklch(var(--foreground)/0.2)]',
         toneClasses[tone],
         className
       )}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="relative z-10 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <span className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full', iconClasses[tone])}>
             {icon}

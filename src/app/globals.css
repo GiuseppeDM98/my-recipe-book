@@ -36,6 +36,29 @@
   50% { transform: translateY(-4px); opacity: 1; }
 }
 
+@keyframes ambientDrift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate3d(0, -1.5%, 0) scale(1.04);
+    opacity: 0.92;
+  }
+}
+
+@property --shell-wash {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.38;
+}
+
+@property --shell-focus {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
 @layer base {
   :root {
     /* Palette OKLCH — da CLAUDE.md: crema, terracotta, marrone, salvia */
@@ -68,12 +91,24 @@
     --ring: 52% 0.13 42;                /* terracotta ring */
 
     --radius: 0.5rem;
+    --shell-wash: 0.38;
+    --shell-focus: 0;
   }
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body, sans-serif);
+    background-image:
+      radial-gradient(circle at 12% 14%, oklch(var(--primary) / 0.12), transparent 22rem),
+      radial-gradient(circle at 82% 12%, oklch(var(--accent) / 0.12), transparent 18rem),
+      linear-gradient(180deg, oklch(99% 0.012 78) 0%, oklch(var(--background)) 24%, oklch(96% 0.012 72) 100%);
+    background-attachment: fixed;
   }
 
   /* Bodoni Moda per tutti i titoli — identità editoriale gastronomica */
@@ -108,8 +143,122 @@
     animation: softBob 1.2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
   }
 
+  .shell-stage {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid oklch(var(--border) / 0.85);
+    background:
+      linear-gradient(180deg, oklch(98.7% 0.012 76 / 0.94) 0%, oklch(var(--background) / 0.96) 14%, oklch(95.7% 0.014 71 / 0.98) 100%);
+    box-shadow:
+      0 30px 80px -52px oklch(var(--foreground) / 0.28),
+      inset 0 1px 0 oklch(100% 0 0 / 0.7);
+  }
+
+  .shell-stage::before,
+  .shell-stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .shell-stage::before {
+    background:
+      radial-gradient(circle at 14% 16%, oklch(var(--primary) / calc(0.06 + var(--shell-focus) * 0.09)), transparent 18rem),
+      radial-gradient(circle at 86% 10%, oklch(var(--accent) / calc(0.05 + var(--shell-focus) * 0.08)), transparent 20rem),
+      linear-gradient(180deg, transparent 0%, oklch(var(--foreground) / 0.02) 100%);
+    opacity: var(--shell-wash);
+    transform-origin: center top;
+    animation: ambientDrift 18s cubic-bezier(0.37, 0, 0.2, 1) infinite;
+  }
+
+  .shell-stage::after {
+    background-image:
+      linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), oklch(var(--border) / 0.25) calc(100% - 1px), transparent 100%),
+      linear-gradient(180deg, oklch(var(--foreground) / 0.04) 0, transparent 140px);
+    opacity: 0.7;
+  }
+
+  .shell-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid oklch(var(--border) / 0.7);
+    background:
+      linear-gradient(180deg, oklch(99% 0.008 76 / 0.92) 0%, oklch(var(--card) / 0.96) 100%);
+    box-shadow:
+      0 20px 55px -42px oklch(var(--foreground) / 0.3),
+      inset 0 1px 0 oklch(100% 0 0 / 0.6);
+  }
+
+  .shell-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, oklch(var(--primary) / 0.08), transparent 26%),
+      linear-gradient(315deg, oklch(var(--accent) / 0.06), transparent 22%);
+    opacity: 0.75;
+  }
+
+  .cinematic-heading {
+    position: relative;
+  }
+
+  .cinematic-heading::after {
+    content: '';
+    display: block;
+    width: min(8rem, 28vw);
+    height: 1px;
+    margin-top: 0.9rem;
+    background: linear-gradient(90deg, oklch(var(--primary) / 0.55), oklch(var(--accent) / 0.22), transparent);
+  }
+
+  .editorial-kicker {
+    letter-spacing: 0.24em;
+  }
+
+  .cinematic-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(var(--primary) / 0.28) transparent;
+  }
+
+  .cinematic-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .cinematic-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .cinematic-scrollbar::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+    background-color: oklch(var(--primary) / 0.26);
+  }
+
   /* Stagger helpers — set via style={{ '--delay': '...' }} */
   .animation-delay-[--delay] {
     animation-delay: var(--delay, 0ms);
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  .scroll-reveal {
+    animation: fadeUp 1ms linear both;
+    animation-timeline: view(block 85% 8%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .shell-stage::before {
+    animation: none;
   }
 }

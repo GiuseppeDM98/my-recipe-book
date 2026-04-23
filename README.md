@@ -48,7 +48,7 @@ Designed for home cooks who want to digitize their recipe collections without co
 
 The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself.
 
-Loading states, empty states, and inline feedback follow the same warm editorial language so the app stays coherent even during waiting, first-use, or error moments.
+Loading states, empty states, and inline feedback follow the same warm editorial language so the app stays coherent even during waiting, first-use, or error moments. The main dashboard shell and high-traffic pages now also share a more cinematic editorial framing, so moving between recipes, AI tools, and detail pages feels like browsing one curated object rather than separate app screens.
 
 ---
 
@@ -59,6 +59,7 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 - **Complete CRUD Operations**: Create, read, update, and delete recipes with full metadata support
 - **Sectioned Organization**: Organize ingredients and steps into sections (e.g., "For the dough", "For the filling")
 - **Manual Step Reordering**: Move preparation steps up or down while editing a recipe
+- **Mobile-Friendly Step Editor**: Step numbers and controls stay compact while editing, so descriptions keep their full readable width on phones
 - **Rich Metadata**: Track servings, prep time, cook time, difficulty level, and seasonal availability
 - **Smart Categorization**: Organize recipes with customizable categories and subcategories, each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)

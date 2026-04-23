@@ -50,6 +50,8 @@
 | Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
 | `container mx-auto` non configurato | `container` di Tailwind si espande senza limiti se non configurato in `tailwind.config.js` | Usare `max-w-*` espliciti (`max-w-4xl`, `max-w-5xl`) invece di `container` |
 | `max-w-*` senza `mx-auto` | Contenuto rimane allineato a sinistra su desktop wide anche con `max-w` | Aggiungere sempre `mx-auto` insieme a `max-w-*` su pagine con contenuto centrato |
+| Step editor actions inline on mobile | Toolbar `su/giu/elimina` nella stessa riga del contenuto riduce la larghezza utile della textarea e fa sembrare lo step "schiacciato" | Su mobile mettere i controlli in una riga separata sotto il contenuto; da `sm` in su possono stare in alto a destra |
+| Build sandbox `spawn EPERM` | `npx next build --webpack` può fallire nel sandbox anche se il codice è corretto | Se compare `spawn EPERM`, rilanciare la build fuori sandbox; non trattarlo come errore applicativo |
 
 ---
 
@@ -238,6 +240,10 @@ Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
 - Pagine a contenuto testuale stretto (statistiche, profilo, lista spesa): `max-w-Xrem mx-auto` per leggibilità
 - Pagine miste/centrate (pianificatore): `max-w-[1200px] mx-auto`; i sotto-pannelli di form usano `max-w-lg mx-auto`
 
+**Editorial cinema shell**: i wrapper condivisi `shell-stage` e `shell-panel` vivono in `globals.css` e portano pseudo-elementi, gradienti e shadow già incorporati. Usarli su shell e pannelli chiave, non impilarli in profondità senza motivo; il parent che ospita lo stage deve restare `relative`/`isolation:isolate` e il motion deve sempre avere fallback `motion-reduce`.
+
+**Step editor mobile**: il badge numero step deve restare leggero e integrato nella card. Evitare badge assoluti che escono dal bordo o toolbar rigide nello stesso asse della textarea: su telefoni riducono troppo la larghezza e fanno sembrare gli step spostati a destra.
+
 ---
 
 ## 7. API Routes
@@ -264,6 +270,7 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 
 - Docker Compose: sempre `--env-file .env.local` (non legge `.env.local` automaticamente)
 - Build affidabile in sandbox: `npx next build --webpack` (evita problemi Turbopack)
+- Se `npx next build --webpack` fallisce con `spawn EPERM` nel sandbox, rilanciare fuori sandbox prima di indagare il codice
 - Dopo `npm audit fix`: allineare `package.json` se il lockfile aggiorna una dipendenza diretta già validata
 - Per mostrare il pannello credenziali di test nel login in locale: `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true` e riavvio del dev server
 

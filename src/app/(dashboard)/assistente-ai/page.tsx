@@ -435,7 +435,8 @@ export default function RecipeExtractorPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <div className="mb-2">
+        <div className="cinematic-heading mb-2">
+          <p className="editorial-kicker text-[0.7rem] font-semibold uppercase text-muted-foreground">Assistente editoriale</p>
           <h1 className="font-display text-4xl font-semibold italic">Assistente AI</h1>
         </div>
         <p className="text-muted-foreground">
@@ -454,14 +455,14 @@ export default function RecipeExtractorPage() {
       )}
 
       {/* Input Card with Tab Switcher */}
-      <div className="bg-background rounded-lg border">
+      <div className="shell-panel rounded-[1.9rem]">
         {/* Tab switcher — overflow-x-auto prevents tabs from overflowing on narrow screens */}
-        <div className="flex border-b overflow-x-auto">
+        <div className="cinematic-scrollbar flex overflow-x-auto border-b border-border/70 px-2 pt-2">
           <button
             onClick={() => handleModeSwitch('pdf')}
-            className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
+            className={`flex items-center gap-2 rounded-t-[1.1rem] px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'pdf'
-                ? 'border-primary text-primary'
+                ? 'border-primary bg-background/70 text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
@@ -470,9 +471,9 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('text')}
-            className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
+            className={`flex items-center gap-2 rounded-t-[1.1rem] px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'text'
-                ? 'border-primary text-primary'
+                ? 'border-primary bg-background/70 text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
@@ -481,9 +482,9 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('chat')}
-            className={`flex items-center gap-2 px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
+            className={`flex items-center gap-2 rounded-t-[1.1rem] px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'chat'
-                ? 'border-primary text-primary'
+                ? 'border-primary bg-background/70 text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
@@ -607,8 +608,8 @@ export default function RecipeExtractorPage() {
 
       {/* Help Section — not shown in chat mode (RecipeChatInput has its own welcome state) */}
       {extractedRecipes.length === 0 && !isExtracting && !error && inputMode !== 'chat' && (
-        <div className="rounded-[1.5rem] border border-border bg-muted/25 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Come funziona</p>
+        <div className="shell-panel rounded-[1.6rem] p-6">
+          <p className="editorial-kicker text-xs font-semibold uppercase text-muted-foreground">Come funziona</p>
           {inputMode === 'pdf' ? (
             <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
               <li>1. Carica un PDF con una o piu' ricette.</li>

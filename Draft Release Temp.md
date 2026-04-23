@@ -32,6 +32,8 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed the recipe step editor on mobile so step descriptions now use the full available width instead of being squeezed by the move/delete controls
+- Fixed the recipe step editor feeling visually pushed to the right during editing, with a calmer in-card step marker and less intrusive controls
 - Fixed cooking mode pages displaying with excessive padding on all screen sizes — content was pushed in from both the layout and the page itself
 - Fixed recipe page action buttons (Edit, Delete, Start Cooking) overflowing off-screen on narrow mobile phones
 - Fixed the AI Assistant tabs (Upload PDF, Free Text, Chat AI) overflowing horizontally on phones narrower than about 400px
@@ -50,6 +52,9 @@
 
 ## 🔧 Improvements
 
+- Improved the overall app atmosphere with a more cinematic editorial shell, including warmer framed surfaces, softer depth, and a more immersive cookbook feel across the dashboard
+- Improved the main navigation across desktop and mobile with more refined header, sidebar, bottom navigation, and “More” sheet styling
+- Improved the Recipes page, recipe cards, recipe detail view, and AI Assistant with a more cohesive editorial presentation and stronger visual continuity
 - Improved the login and registration experience with a warmer cookbook-style layout, clearer messaging, and cleaner inline error feedback
 - Improved loading moments across the app with more polished, contextual waiting states on key pages such as Recipes, Meal Planner, Shopping List, Statistics, and the AI Assistant
 - Improved empty states across key pages so first-time and no-result screens now feel more intentional and easier to understand

@@ -646,12 +646,54 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
             );
 
             return (
-              <div key={step.id} className="border rounded-lg p-3 space-y-3">
-                <div className="flex items-start gap-2">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
-                    {idx + 1}
-                  </span>
-                  <div className="flex-1 space-y-2">
+              <div key={step.id} className="rounded-[1rem] border border-border bg-background p-3 sm:p-4 space-y-3">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-semibold text-primary">
+                        {idx + 1}
+                      </span>
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        Step
+                      </span>
+                    </div>
+                    <div className="hidden shrink-0 items-center gap-1 rounded-full border border-border bg-muted/25 p-1 sm:flex">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveStep(idx, idx - 1)}
+                        disabled={idx === 0}
+                        className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                        title="Sposta in alto"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveStep(idx, idx + 1)}
+                        disabled={idx === steps.length - 1}
+                        className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                        title="Sposta in basso"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeStep(step.id)}
+                        className="h-8 w-8 rounded-full p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        title="Elimina step"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
                     <Input
                       value={step.section || ''}
                       onChange={(e) => updateStep(step.id, 'section', e.target.value)}
@@ -734,42 +776,44 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+
+                  <div className="flex items-center justify-end gap-1 rounded-full border border-border bg-muted/25 p-1 sm:hidden">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => moveStep(idx, idx - 1)}
                       disabled={idx === 0}
-                      className="flex-shrink-0"
+                      className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
                       title="Sposta in alto"
                     >
-                      <ArrowUp className="w-4 h-4" />
+                      <ArrowUp className="h-4 w-4" />
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => moveStep(idx, idx + 1)}
                       disabled={idx === steps.length - 1}
-                      className="flex-shrink-0"
+                      className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
                       title="Sposta in basso"
                     >
-                      <ArrowDown className="w-4 h-4" />
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeStep(step.id)}
+                      className="h-8 w-8 rounded-full p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Elimina step"
+                    >
+                      ✕
                     </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeStep(step.id)}
-                    className="flex-shrink-0"
-                  >
-                    ✕
-                  </Button>
                 </div>
                 {step.section && (
-                  <div className="ml-10 text-xs text-muted-foreground italic">
+                  <div className="text-xs text-muted-foreground italic">
                     Questo step sarà raggruppato nella sezione "{step.section}"
                   </div>
                 )}
