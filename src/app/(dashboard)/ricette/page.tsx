@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRecipes } from '@/lib/hooks/useRecipes';
 import { RecipeCard } from '@/components/recipe/recipe-card';
-import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/context/auth-context';
@@ -16,7 +15,7 @@ import Link from 'next/link';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
-import { EditorialLoader } from '@/components/ui/editorial-loader';
+import { Skeleton } from '@/components/ui/skeleton';
 
 /**
  * Recipe List Page - Cascading Filter Architecture
@@ -51,12 +50,10 @@ export default function RecipesPage() {
     enabled: !!user && categories.length > 0,
     queryKey: ['subcategories', user?.uid ?? '', categoryIds],
     queryFn: async () => {
-      const all: Subcategory[] = [];
-      for (const category of categories) {
-        const subs = await getCategorySubcategories(category.id, user!.uid);
-        all.push(...subs);
-      }
-      return all;
+      const subcategoryGroups = await Promise.all(
+        categories.map((category) => getCategorySubcategories(category.id, user!.uid))
+      );
+      return subcategoryGroups.flat();
     },
   });
 
@@ -97,6 +94,49 @@ export default function RecipesPage() {
     return subcategories.filter(sub => sub.categoryId === selectedCategoryId);
   }, [subcategories, selectedCategoryId]);
 
+  const recipeCountBySeason = useMemo(() => {
+    return ALL_SEASONS.reduce<Record<Season, number>>((counts, season) => {
+      counts[season] = recipes.reduce((total, recipe) => {
+        if (recipe.seasons?.includes(season)) return total + 1;
+        if (!recipe.seasons && recipe.season === season) return total + 1;
+        return total;
+      }, 0);
+      return counts;
+    }, {
+      primavera: 0,
+      estate: 0,
+      autunno: 0,
+      inverno: 0,
+      tutte_stagioni: 0,
+    });
+  }, [recipes]);
+
+  const recipeCountByCategoryId = useMemo(() => {
+    return recipes.reduce<Record<string, number>>((counts, recipe) => {
+      if (!recipe.categoryId) return counts;
+      counts[recipe.categoryId] = (counts[recipe.categoryId] ?? 0) + 1;
+      return counts;
+    }, {});
+  }, [recipes]);
+
+  const recipeCountBySubcategoryId = useMemo(() => {
+    return recipes.reduce<Record<string, number>>((counts, recipe) => {
+      if (!recipe.subcategoryId) return counts;
+      counts[recipe.subcategoryId] = (counts[recipe.subcategoryId] ?? 0) + 1;
+      return counts;
+    }, {});
+  }, [recipes]);
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId),
+    [categories, selectedCategoryId]
+  );
+
+  const selectedSubcategory = useMemo(
+    () => subcategories.find((subcategory) => subcategory.id === selectedSubcategoryId),
+    [subcategories, selectedSubcategoryId]
+  );
+
   // Reset subcategory when category changes and current sub no longer belongs to it
   useEffect(() => {
     if (selectedCategoryId === 'all') {
@@ -123,11 +163,40 @@ export default function RecipesPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <EditorialLoader
-          label="Sto aprendo le tue ricette"
-          hint="Recupero il ricettario e preparo filtri e ricerca."
-        />
+      <div className="space-y-6">
+        <div className="flex items-end justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-11 w-56" />
+          </div>
+          <Skeleton className="h-10 w-32 rounded-lg" />
+        </div>
+        <div className="rounded-[1.75rem] border border-border bg-card px-4 py-4 sm:px-5 space-y-3">
+          <Skeleton className="h-10 w-full rounded-xl" />
+          <Skeleton className="h-3 w-44" />
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-24 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-32 rounded-full" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="rounded-[1.6rem] border border-border bg-card p-5 space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-8 w-4/5" />
+              </div>
+              <Skeleton className="h-16 w-full" />
+              <div className="flex gap-3">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -213,8 +282,8 @@ export default function RecipesPage() {
           )}
           {selectedCategoryId !== 'all' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary text-sm font-medium">
-              {categories.find(c => c.id === selectedCategoryId)?.icon}{' '}
-              {categories.find(c => c.id === selectedCategoryId)?.name}
+              {selectedCategory?.icon}{' '}
+              {selectedCategory?.name}
               <button onClick={() => setSelectedCategoryId('all')} aria-label="Rimuovi filtro categoria">
                 <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
               </button>
@@ -222,7 +291,7 @@ export default function RecipesPage() {
           )}
           {selectedSubcategoryId !== 'all' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary text-sm font-medium">
-              {subcategories.find(s => s.id === selectedSubcategoryId)?.name}
+              {selectedSubcategory?.name}
               <button onClick={() => setSelectedSubcategoryId('all')} aria-label="Rimuovi filtro sottocategoria">
                 <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
               </button>
@@ -261,9 +330,6 @@ export default function RecipesPage() {
                     Tutte ({recipes.length})
                   </button>
                   {ALL_SEASONS.map((season) => {
-                    const count = recipes.filter(r =>
-                      r.seasons?.includes(season) || r.season === season
-                    ).length;
                     return (
                       <button
                         key={season}
@@ -276,7 +342,7 @@ export default function RecipesPage() {
                         )}
                       >
                         <span className="mr-1.5">{SEASON_ICONS[season]}</span>
-                        {SEASON_LABELS[season]} ({count})
+                        {SEASON_LABELS[season]} ({recipeCountBySeason[season]})
                       </button>
                     );
                   })}
@@ -297,10 +363,9 @@ export default function RecipesPage() {
                   >
                     <option value="all">Tutte le categorie ({recipes.length})</option>
                     {categories.map((cat) => {
-                      const count = recipes.filter(r => r.categoryId === cat.id).length;
                       return (
                         <option key={cat.id} value={cat.id}>
-                          {cat.icon} {cat.name} ({count})
+                          {cat.icon} {cat.name} ({recipeCountByCategoryId[cat.id] ?? 0})
                         </option>
                       );
                     })}
@@ -321,13 +386,12 @@ export default function RecipesPage() {
                     <option value="all">
                       {selectedCategoryId === 'all'
                         ? 'Seleziona prima una categoria'
-                        : `Tutte le sottocategorie (${recipes.filter(r => r.categoryId === selectedCategoryId).length})`}
+                        : `Tutte le sottocategorie (${recipeCountByCategoryId[selectedCategoryId] ?? 0})`}
                     </option>
                     {availableSubcategories.map((sub) => {
-                      const count = recipes.filter(r => r.subcategoryId === sub.id).length;
                       return (
                         <option key={sub.id} value={sub.id}>
-                          {sub.name} ({count})
+                          {sub.name} ({recipeCountBySubcategoryId[sub.id] ?? 0})
                         </option>
                       );
                     })}

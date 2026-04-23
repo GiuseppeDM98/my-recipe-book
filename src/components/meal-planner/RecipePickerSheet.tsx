@@ -23,7 +23,6 @@ interface RecipePickerSheetProps {
   recipes: Recipe[];
   categories: Category[];
   currentSlot: MealSlot | undefined;
-  planSeason: Season;
   onSelect: (dayIndex: number, mealType: MealType, recipeId: string, title: string) => void;
   onClear: (dayIndex: number, mealType: MealType) => void;
 }
@@ -62,7 +61,6 @@ export function RecipePickerSheet({
   recipes,
   categories,
   currentSlot,
-  planSeason,
   onSelect,
   onClear,
 }: RecipePickerSheetProps) {

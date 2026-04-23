@@ -19,8 +19,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [user, loading, router]);
 
   if (loading) {
-    // You can return a loading spinner here
-    return <div>Loading...</div>;
+    return null;
   }
 
   if (!user) {

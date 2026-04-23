@@ -7,13 +7,22 @@ interface EditorialLoaderProps {
   hint?: string;
   className?: string;
   compact?: boolean;
+  tone?: 'default' | 'anticipation';
 }
 
 /**
  * Warm loading block used across pages where the user is waiting on AI/auth/data.
  * The copy does most of the emotional work; motion stays brief and optional.
  */
-export function EditorialLoader({ label, hint, className, compact = false }: EditorialLoaderProps) {
+export function EditorialLoader({
+  label,
+  hint,
+  className,
+  compact = false,
+  tone = 'default',
+}: EditorialLoaderProps) {
+  const isAnticipation = tone === 'anticipation';
+
   return (
     <div
       className={cn(
@@ -23,19 +32,24 @@ export function EditorialLoader({ label, hint, className, compact = false }: Edi
         className
       )}
     >
-      <div className="relative z-10 mx-auto flex w-fit items-center gap-3 rounded-full border border-primary/18 bg-background/78 px-4 py-2 text-primary shadow-[0_12px_30px_-24px_oklch(var(--primary)/0.75)]">
+      <div
+        className={cn(
+          'relative z-10 mx-auto flex w-fit items-center gap-3 rounded-full border border-primary/18 bg-background/78 px-4 py-2 text-primary shadow-[0_12px_30px_-24px_oklch(var(--primary)/0.75)]',
+          isAnticipation && 'before:absolute before:inset-[-0.55rem] before:rounded-full before:border before:border-primary/12 before:content-[\'\'] before:animate-loader-halo motion-reduce:before:animate-none'
+        )}
+      >
         <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-primary/14">
           <span className="absolute inset-0 rounded-full border border-primary/15 animate-gentle-pulse motion-reduce:animate-none" />
-          <ChefHat className="relative h-5 w-5" />
+          <ChefHat className={cn('relative h-5 w-5', isAnticipation && 'animate-loader-anticipation motion-reduce:animate-none')} />
         </span>
         <div className="flex items-center gap-1.5" aria-hidden="true">
-          <span className="h-2 w-2 rounded-full bg-primary/60 animate-soft-bob motion-reduce:animate-none" />
+          <span className={cn('h-2 w-2 rounded-full bg-primary/60 animate-soft-bob motion-reduce:animate-none', isAnticipation && '[animation-duration:1.6s]')} />
           <span
-            className="h-2 w-2 rounded-full bg-primary/45 animate-soft-bob motion-reduce:animate-none"
+            className={cn('h-2 w-2 rounded-full bg-primary/45 animate-soft-bob motion-reduce:animate-none', isAnticipation && '[animation-duration:1.6s]')}
             style={{ animationDelay: '120ms' }}
           />
           <span
-            className="h-2 w-2 rounded-full bg-primary/30 animate-soft-bob motion-reduce:animate-none"
+            className={cn('h-2 w-2 rounded-full bg-primary/30 animate-soft-bob motion-reduce:animate-none', isAnticipation && '[animation-duration:1.6s]')}
             style={{ animationDelay: '240ms' }}
           />
         </div>

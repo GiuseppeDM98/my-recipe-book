@@ -163,8 +163,10 @@ Plan your meals for the week — AI-assisted or fully manual.
 - **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
 - **Per-meal control**: Set how many new AI-generated recipes to include for each meal type (breakfast, lunch, dinner)
 - **Category hints**: Tell the AI which category to prefer for each meal type
-- **Edit after generation**: Click any slot to swap the recipe at any time
-- **Save AI recipes**: Newly generated recipes (shown in purple) can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
+- **Edit after generation**: Click any slot to swap the recipe manually at any time
+- **Regenerate with guidance**: Use the refresh action on a slot to ask the AI for a new suggestion, optionally with a specific note such as "no asparagus" or "keep it simpler"
+- **Day-by-day correction**: Remove individual days from an already generated week without rebuilding the whole plan
+- **Save AI recipes**: Newly generated recipes can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
 - **Quick navigation**: Green cells link directly to the full recipe page
 - **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks

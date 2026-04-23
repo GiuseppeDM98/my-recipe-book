@@ -88,8 +88,8 @@ export function WeeklyCalendarGrid({
       <div className="hidden lg:block max-lg:portrait:hidden max-lg:landscape:block overflow-x-auto">
         {/* Day headers */}
         <div
-          className="grid gap-2 mb-2 min-w-0"
-          style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, minmax(72px, 1fr))` }}
+          className="grid gap-2 mb-2 min-w-max"
+          style={{ gridTemplateColumns: `88px repeat(${activeDays.length}, minmax(150px, 1fr))` }}
         >
           {/* Empty corner */}
           <div />
@@ -106,7 +106,7 @@ export function WeeklyCalendarGrid({
           <div
             key={mealType}
             className="grid gap-2 mb-2"
-            style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, minmax(72px, 1fr))` }}
+            style={{ gridTemplateColumns: `88px repeat(${activeDays.length}, minmax(150px, 1fr))` }}
           >
             {/* Meal type label */}
             <div className="flex items-center">
@@ -125,7 +125,7 @@ export function WeeklyCalendarGrid({
                   slot={slot}
                   isNew={isNewRecipeSlot(slot)}
                   onClick={() => onSlotClick(dayIndex, mealType)}
-                  onSaveNewRecipe={slot ? () => onSaveNewRecipe(slot) : undefined}
+                  onSaveNewRecipe={slot?.newRecipe ? () => onSaveNewRecipe(slot) : undefined}
                   onRegenerate={slot ? () => onRegenerateSlot(dayIndex, mealType) : undefined}
                   isRegenerating={regeneratingSlots.has(slotKey)}
                 />
@@ -173,7 +173,7 @@ export function WeeklyCalendarGrid({
                         slot={slot}
                         isNew={isNewRecipeSlot(slot)}
                         onClick={() => onSlotClick(dayIndex, mealType)}
-                        onSaveNewRecipe={slot ? () => onSaveNewRecipe(slot) : undefined}
+                        onSaveNewRecipe={slot?.newRecipe ? () => onSaveNewRecipe(slot) : undefined}
                         onRegenerate={slot ? () => onRegenerateSlot(dayIndex, mealType) : undefined}
                         isRegenerating={regeneratingSlots.has(slotKey)}
                       />

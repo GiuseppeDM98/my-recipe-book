@@ -14,7 +14,7 @@
 | Page self-padding | Pagina interna aggiunge `p-4 lg:p-8` su layout che già fornisce `portrait:p-4` / `lg:px-10` | Pagine dentro dashboard layout non devono aggiungere padding esterno; usare `max-w-*` solo per centrare contenuto |
 | Flex tab bar overflow | Tab con `px-5` fisso in `flex` container traboccano su ≤375px (3 tab ≈ 420px > 343px disponibili) | `px-3 sm:px-5` + `flex-shrink-0` + `overflow-x-auto` sul container |
 | CSS grid su landscape stretto | `repeat(N, 1fr)` con N=7 su iPhone SE landscape (~568px) = ~65px per colonna — celle illeggibili | `repeat(N, minmax(72px, 1fr))` + `overflow-x-auto` sul wrapper |
-| Firebase optional | `undefined` causa errori silenziosi | Usare `null` |
+| Firebase optional | `undefined` causa errori silenziosi in scrittura | Per campi opzionali persistiti usare `null` oppure omettere proprio la chiave; mai passare `undefined` a Firestore |
 | Firestore composite index | query `where + orderBy` fallisce o rompe in runtime | Aggiungere indice in `firebase/firestore.indexes.json` e deployare |
 | Firestore deploy drift | Rules/indexes aggiornati nel repo ma non in Firebase | Eseguire `firebase deploy --only firestore` |
 | Cooking sessions | Duplicate se create in `useEffect` | Usare setup screen pattern |
@@ -32,6 +32,8 @@
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
 | Planner stagione soft | Il selettore stagione non vincola le ricette esistenti se non filtrate | Filtrare server-side per stagione prima di inviare a Claude (fallback se < 5 ricette) |
 | Planner ingredienti mancanti | Vincoli dietetici ignorati su ricette esistenti | Includere `ingredientNames` nel summary, non solo il conteggio |
+| Planner `type="new"` senza ricetta | Claude può restituire uno slot nuovo nel blocco `[PIANO]` ma omettere la ricetta completa in `[RICETTE_NUOVE]`, rompendo rigenerazione e save flow | In `/api/plan-meals` validare sempre parità tra nuovi slot dichiarati e ricette parseate; se mancano ricette complete, fallire esplicitamente e non salvare slot incoerenti |
+| Planner save CTA fantasma | Una cella può sembrare salvabile anche quando `newRecipe` è già `null` | Mostrare `Salva nel ricettario` solo se `slot.newRecipe` esiste davvero; badge/label AI da soli non bastano |
 | Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
 | isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
 | React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
@@ -101,7 +103,10 @@ style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
 
 ## 2. Firebase Patterns
 
-**`null` vs `undefined`**: Firebase rifiuta `undefined` in scrittura — usare sempre `null` per campi opzionali.
+**`null` vs `undefined`**: Firebase rifiuta `undefined` in scrittura. Per campi opzionali persistiti:
+- usare `null` quando il modello dati lo prevede esplicitamente
+- oppure omettere la chiave con spread condizionale (`...(value ? { field: value } : {})`)
+- mai passare `undefined` a `addDoc()` / `updateDoc()`
 
 **Composite Index**: query `where(...) + orderBy(...)` richiedono indice in `firebase/firestore.indexes.json`. Se l'errore è catturato in un `catch` generico, lato UI sembra solo "nessun dato". Dopo ogni modifica: `firebase deploy --only firestore`.
 
@@ -289,6 +294,11 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 **`MealTypeConfig`**: unifica preferenza + esclusione per portata. Server-side hard filter usa l'**intersezione** delle `excludedCategoryIds` di tutte le portate attive. UI: una categoria non può essere sia preferita che esclusa — `setMealPreferred` la rimuove automaticamente da `excludedCategoryIds`.
 
 **Slot Regeneration**: chiave `"dayIndex-mealType"`. Riutilizza `/api/plan-meals` con `activeMealTypes: [mealType], activeDays: [dayIndex], newRecipeCount: 1`.
+
+**Slot Regeneration — prompt contract**: se Claude usa `type="new"` nel blocco `[PIANO]`, deve sempre fornire la ricetta completa corrispondente in `[RICETTE_NUOVE]`, nello stesso ordine. Per rigenerazione single-slot:
+- prompt più esplicito: una sola riga nel `[PIANO]`, una sola ricetta completa se `type="new"`
+- server-side validation: `expectedNewSlots === parsedNewRecipes.length`
+- client-side safety: non sostituire mai uno slot esistente con un risultato `type="new"` privo di `newRecipe`
 
 **Shopping List — Derived View**: lista derivata dal `MealPlan`, nessuna collection Firestore separata.
 - Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato)

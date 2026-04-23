@@ -32,6 +32,10 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed the meal planner sidebar drawer on tablets and mobile landscape so it no longer appears transparent over the page content
+- Fixed meal planner AI recipe cards showing a misleading “Save to cookbook” action when the generated recipe payload was no longer complete
+- Fixed saving AI-generated planner recipes to the cookbook by normalizing optional recipe fields before persistence
+- Fixed planner slot regeneration replacing a valid slot with an inconsistent AI result when the response was only partially structured
 - Fixed the recipe step editor on mobile so step descriptions now use the full available width instead of being squeezed by the move/delete controls
 - Fixed the recipe step editor feeling visually pushed to the right during editing, with a calmer in-card step marker and less intrusive controls
 - Fixed cooking mode pages displaying with excessive padding on all screen sizes — content was pushed in from both the layout and the page itself
@@ -52,6 +56,14 @@
 
 ## 🔧 Improvements
 
+- Improved the meal planner regeneration flow with a dedicated dialog for optional notes to the AI
+- Improved planner regeneration results by giving the AI the current recipe context, so targeted changes are more likely to stay close to the original dish
+- Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
+- Improved planner loading behavior by removing distracting global loading flashes on protected pages
+- Improved the planner generation state with a more polished editorial animation while the AI prepares the week
+- Improved desktop readability in the meal planner so long recipe names are easier to read in the weekly grid
+- Improved the AI Assistant startup path by loading cookbook data only when the chat tab actually needs it
+- Improved recipe page filter performance and planner-related loading responsiveness across the app
 - Improved the overall app atmosphere with a more cinematic editorial shell, including warmer framed surfaces, softer depth, and a more immersive cookbook feel across the dashboard
 - Improved the main navigation across desktop and mobile with more refined header, sidebar, bottom navigation, and “More” sheet styling
 - Improved the Recipes page, recipe cards, recipe detail view, and AI Assistant with a more cohesive editorial presentation and stronger visual continuity

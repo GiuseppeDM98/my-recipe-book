@@ -6,6 +6,7 @@ import {
   createMealPlan,
   updateMealPlanSlots,
   getMealPlanByWeek,
+  updateMealPlan,
 } from '@/lib/firebase/meal-plans';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { createRecipe } from '@/lib/firebase/firestore';
@@ -54,8 +55,10 @@ interface UseMealPlannerReturn {
     dayIndex: number,
     mealType: MealType,
     existingRecipes: Recipe[],
-    categories: { id: string; name: string }[]
+    categories: { id: string; name: string }[],
+    notes?: string
   ) => Promise<void>;
+  removeDay: (dayIndex: number) => Promise<void>;
   regeneratingSlots: Set<string>;
   resetToSetup: () => void;
   loadPlan: (plan: MealPlan) => void;
@@ -287,7 +290,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
     dayIndex: number,
     mealType: MealType,
     existingRecipes: Recipe[],
-    categories: { id: string; name: string }[]
+    categories: { id: string; name: string }[],
+    notes?: string
   ) => {
     if (!user || !currentPlan) return;
 
@@ -304,6 +308,33 @@ export function useMealPlanner(): UseMealPlannerReturn {
         ingredientNames: r.ingredients.map(i => i.name),
       }));
 
+      const currentSlot = currentPlan.slots.find(
+        (slot) => slot.dayIndex === dayIndex && slot.mealType === mealType
+      );
+      const currentExistingRecipe = currentSlot?.existingRecipeId
+        ? existingRecipes.find((recipe) => recipe.id === currentSlot.existingRecipeId)
+        : null;
+      const currentRecipeTitle = currentSlot?.recipeTitle ?? currentExistingRecipe?.title ?? null;
+      const currentRecipeIngredients = currentSlot?.newRecipe
+        ? currentSlot.newRecipe.ingredients.map((ingredient) => ingredient.name)
+        : currentExistingRecipe?.ingredients.map((ingredient) => ingredient.name) ?? [];
+      const currentRecipeSeasonContext = currentSlot?.newRecipe
+        ? currentPlan.season
+        : currentExistingRecipe?.seasons?.join(', ')
+          ?? currentExistingRecipe?.season
+          ?? currentPlan.season;
+
+      const regenerationContext = currentRecipeTitle
+        ? [
+            `STAI RIGENERANDO QUESTO SLOT: "${currentRecipeTitle}".`,
+            currentRecipeIngredients.length > 0
+              ? `Ingredienti principali della ricetta attuale: ${currentRecipeIngredients.join(', ')}.`
+              : null,
+            `Contesto stagionale della ricetta attuale: ${currentRecipeSeasonContext}.`,
+            'Se la richiesta dell\'utente modifica un dettaglio della ricetta attuale, prova prima a creare una variante coerente dello stesso piatto invece di sostituirlo con un piatto totalmente diverso.',
+          ].filter(Boolean).join('\n')
+        : null;
+
       const slotConfig: MealPlanSetupConfig = {
         season: currentPlan.season,
         activeMealTypes: [mealType],
@@ -312,6 +343,10 @@ export function useMealPlanner(): UseMealPlannerReturn {
         newRecipeCount: 1,
         newRecipePerMeal: { [mealType]: 1 },
         weekStartDate: currentPlan.weekStartDate,
+        userNotes: [
+          regenerationContext,
+          notes?.trim() ? `RICHIESTA UTENTE PER QUESTO SLOT:\n${notes.trim()}` : null,
+        ].filter(Boolean).join('\n\n') || null,
       };
 
       const response = await fetch('/api/plan-meals', {
@@ -329,6 +364,10 @@ export function useMealPlanner(): UseMealPlannerReturn {
       }
 
       const newSlotData = data.slots[0] as MealSlot;
+      if (!newSlotData.existingRecipeId && !newSlotData.newRecipe) {
+        throw new Error('L\'AI ha proposto una ricetta non abbastanza strutturata da poter essere salvata. Prova a rigenerare lo slot.');
+      }
+
       const updatedSlots = [
         ...currentPlan.slots.filter(s => !(s.dayIndex === dayIndex && s.mealType === mealType)),
         newSlotData,
@@ -345,6 +384,35 @@ export function useMealPlanner(): UseMealPlannerReturn {
       });
     }
   }, [user, currentPlan]);
+
+  /**
+   * Remove one active day from an already-created plan.
+   *
+   * We persist both activeDays and slots together so the calendar shape
+   * always matches the stored slot payload.
+   */
+  const removeDay = useCallback(async (dayIndex: number) => {
+    if (!currentPlan) return;
+
+    const currentActiveDays = currentPlan.activeDays ?? [0, 1, 2, 3, 4, 5, 6];
+    const nextActiveDays = currentActiveDays.filter((day) => day !== dayIndex);
+
+    if (nextActiveDays.length === 0) {
+      throw new Error('Il piano deve mantenere almeno un giorno attivo');
+    }
+
+    const nextSlots = currentPlan.slots.filter((slot) => slot.dayIndex !== dayIndex);
+    setCurrentPlan({
+      ...currentPlan,
+      activeDays: nextActiveDays,
+      slots: nextSlots,
+    });
+
+    await updateMealPlan(currentPlan.id, {
+      activeDays: nextActiveDays,
+      slots: nextSlots,
+    });
+  }, [currentPlan]);
 
   /**
    * Save an AI-generated new recipe to the cookbook, then convert the slot
@@ -368,7 +436,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
     }
 
     // Resolve or create the category
-    let categoryId: string | undefined;
+    let categoryId: string | null = null;
     if (categoryName) {
       categoryId = await createCategoryIfNotExists(user.uid, categoryName);
     }
@@ -376,15 +444,14 @@ export function useMealPlanner(): UseMealPlannerReturn {
     const recipe = slot.newRecipe;
     const newRecipeData: Omit<Recipe, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
       title: recipe.title,
-      description: recipe.description,
-      categoryId: categoryId ?? undefined,
-      seasons: seasons.length > 0 ? seasons : undefined,
+      description: '',
       ingredients: recipe.ingredients,
       steps: recipe.steps,
-      servings: recipe.servings,
-      prepTime: recipe.prepTime,
-      cookTime: recipe.cookTime,
-      notes: recipe.notes,
+      servings: recipe.servings ?? 0,
+      prepTime: recipe.prepTime ?? 0,
+      cookTime: recipe.cookTime ?? 0,
+      totalTime: (recipe.prepTime ?? 0) + (recipe.cookTime ?? 0),
+      notes: recipe.notes ?? '',
       tags: [],
       techniqueIds: [],
       images: [],
@@ -393,6 +460,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
         name: 'Generata con Pianificatore AI',
       },
       aiSuggested: true,
+      ...(categoryId ? { categoryId } : {}),
+      ...(seasons.length > 0 ? { seasons } : {}),
     };
 
     const newRecipeId = await createRecipe(user.uid, newRecipeData);
@@ -437,6 +506,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
     clearSlot,
     saveNewRecipeToCookbook,
     regenerateSlot,
+    removeDay,
     regeneratingSlots,
     resetToSetup,
     loadPlan,

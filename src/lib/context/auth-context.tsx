@@ -16,7 +16,6 @@ import { auth, db } from '@/lib/firebase/config';
 import { User } from '@/types';
 import { initializeDefaultCategories } from '../firebase/categories';
 import { ensureUserProfileDocument } from '../firebase/user-profile';
-import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Authentication Context Provider
@@ -171,21 +170,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     signOut,
   };
-
-  // Show full-screen loading overlay during initial auth check
-  // Prevents flash of unauthenticated content (FOUC) and blocks access
-  // to protected routes until auth state is known
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background px-4">
-        <EditorialLoader
-          label="Sto aprendo il tuo ricettario"
-          hint="Recupero accesso, profilo e contesto iniziale prima di mostrarti la cucina."
-          compact
-        />
-      </div>
-    );
-  }
 
   return (
     <AuthContext.Provider value={value}>

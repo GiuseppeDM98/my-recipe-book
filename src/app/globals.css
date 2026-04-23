@@ -47,6 +47,29 @@
   }
 }
 
+@keyframes loaderAnticipation {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  35% {
+    transform: translateY(-1px) rotate(-4deg) scale(1.02);
+  }
+  68% {
+    transform: translateY(-2px) rotate(3deg) scale(1.04);
+  }
+}
+
+@keyframes loaderHalo {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.52;
+    transform: scale(1.06);
+  }
+}
+
 @property --shell-wash {
   syntax: '<number>';
   inherits: true;
@@ -141,6 +164,15 @@
 
   .animate-soft-bob {
     animation: softBob 1.2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  }
+
+  .animate-loader-anticipation {
+    animation: loaderAnticipation 3.2s cubic-bezier(0.37, 0, 0.2, 1) infinite;
+    transform-origin: 50% 70%;
+  }
+
+  .animate-loader-halo {
+    animation: loaderHalo 2.8s cubic-bezier(0.37, 0, 0.2, 1) infinite;
   }
 
   .shell-stage {

@@ -4,14 +4,12 @@ import { useAuth } from '@/lib/context/auth-context';
 import { getUserCookingSessions, deleteCookingSession } from '@/lib/firebase/cooking-sessions';
 import { getRecipe } from '@/lib/firebase/firestore';
 import { CookingSession, Recipe } from '@/types';
-import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import { Trash2, ChefHat, ShoppingBasket, ListChecks } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
-import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Active Cooking Sessions Dashboard
@@ -101,17 +99,6 @@ export default function CottureInCorsoPage() {
     return Math.round((completedItems / totalItems) * 100);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <EditorialLoader
-          label="Sto recuperando le cotture attive"
-          hint="Riprendo sessioni, progressi e ricette collegate."
-        />
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="mb-8">
@@ -119,7 +106,7 @@ export default function CottureInCorsoPage() {
       </div>
 
       {/* === EMPTY STATE === */}
-      {sessions.length === 0 ? (
+      {!isLoading && sessions.length === 0 ? (
         <EditorialEmptyState
           icon={<ChefHat className="h-5 w-5" />}
           eyebrow="Fuochi spenti"
@@ -131,7 +118,7 @@ export default function CottureInCorsoPage() {
             </Button>
           }
         />
-      ) : (
+      ) : !isLoading ? (
         /* === SESSION CARDS === */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sessions.map((session) => {
@@ -222,7 +209,7 @@ export default function CottureInCorsoPage() {
             );
           })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

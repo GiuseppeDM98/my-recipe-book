@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { RecipeExtractorUpload } from '@/components/recipe/recipe-extractor-upload';
-import { RecipeTextInput } from '@/components/recipe/recipe-text-input';
-import { RecipeChatInput } from '@/components/recipe/recipe-chat-input';
 import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
 import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
@@ -24,6 +23,32 @@ import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import Link from 'next/link';
 import { StatusBanner } from '@/components/ui/status-banner';
 import { EditorialLoader } from '@/components/ui/editorial-loader';
+
+const RecipeTextInput = dynamic(
+  () => import('@/components/recipe/recipe-text-input').then((mod) => mod.RecipeTextInput),
+  {
+    loading: () => (
+      <EditorialLoader
+        label="Sto preparando l'editor"
+        hint="Carico solo il necessario per questo flusso."
+        compact
+      />
+    ),
+  }
+);
+
+const RecipeChatInput = dynamic(
+  () => import('@/components/recipe/recipe-chat-input').then((mod) => mod.RecipeChatInput),
+  {
+    loading: () => (
+      <EditorialLoader
+        label="Sto preparando la chat AI"
+        hint="Recupero l'interfaccia conversazionale solo quando la apri."
+        compact
+      />
+    ),
+  }
+);
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
@@ -66,7 +91,8 @@ export default function RecipeExtractorPage() {
   const [currentSourceType, setCurrentSourceType] = useState<'pdf' | 'manual' | 'chat'>('pdf');
 
   // User's existing recipes — passed to chat mode so AI avoids duplicate suggestions
-  const { recipes: existingRecipes } = useRecipes();
+  const isChatMode = inputMode === 'chat';
+  const { recipes: existingRecipes } = useRecipes({ enabled: isChatMode });
 
   // Test account is blocked from AI extraction because:
   // - Prevents API cost abuse on publicly accessible demo account
@@ -79,6 +105,15 @@ export default function RecipeExtractorPage() {
     familyProfile,
     hasValidProfile,
   } = useFamilyProfile();
+  const existingRecipeSummaries = useMemo(
+    () =>
+      existingRecipes.map((recipe) => ({
+        title: recipe.title,
+        ingredients: recipe.ingredients,
+        seasons: recipe.seasons ?? [],
+      })),
+    [existingRecipes]
+  );
 
   // Load user categories on mount
   useEffect(() => {
@@ -354,9 +389,6 @@ export default function RecipeExtractorPage() {
         totalTime: (recipe.prepTime || 0) + (recipe.cookTime || 0),
         ingredients: recipe.ingredients,
         steps: recipe.steps,
-        categoryId: categoryId,
-        subcategoryId: '',
-        seasons: seasons.length > 0 ? seasons : undefined,
         aiSuggested: recipe.aiSuggestion ? true : false,
         difficulty: 'media' as const,
         tags: [],
@@ -368,6 +400,8 @@ export default function RecipeExtractorPage() {
           : { type: 'manual' as const, name: 'Formattata con AI da testo' },
         notes: recipe.notes || '',
         images: [],
+        ...(categoryId ? { categoryId } : {}),
+        ...(seasons.length > 0 ? { seasons } : {}),
       };
 
       await createRecipe(user.uid, recipeData);
@@ -534,11 +568,7 @@ export default function RecipeExtractorPage() {
               disabled={isTestAccount}
               useFamilyContext={useFamilyContext}
               familyProfile={familyProfile}
-              existingRecipes={existingRecipes.map((r) => ({
-                title: r.title,
-                ingredients: r.ingredients,
-                seasons: r.seasons ?? [],
-              }))}
+              existingRecipes={existingRecipeSummaries}
             />
           )}
 

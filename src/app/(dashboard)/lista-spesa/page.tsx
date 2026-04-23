@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { getCurrentWeekMonday, addWeeksToDateString } from '@/lib/constants/seasons';
 import { useShoppingList } from '@/lib/hooks/useShoppingList';
 import { ShoppingListContent } from '@/components/shopping-list/ShoppingListContent';
-import { EditorialLoader } from '@/components/ui/editorial-loader';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function formatWeekLabel(weekStartDate: string): string {
   const start = new Date(weekStartDate + 'T00:00:00');
@@ -82,12 +82,27 @@ export default function ListaSpesaPage() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <EditorialLoader
-            label="Sto componendo la lista"
-            hint="Sommo ingredienti, porzioni e articoli personalizzati della settimana."
-            compact
-          />
+        <div className="space-y-4 py-2">
+          <div className="rounded-[1.5rem] border border-border bg-card p-4 space-y-3">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-2 w-2/3 rounded-full" />
+          </div>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="rounded-[1.4rem] border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-5 w-12 rounded-full" />
+              </div>
+              {Array.from({ length: 3 }).map((__, rowIndex) => (
+                <div key={rowIndex} className="flex items-center gap-3">
+                  <Skeleton className="h-5 w-5 rounded-md" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       ) : (
         <ShoppingListContent

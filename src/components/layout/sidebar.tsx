@@ -89,7 +89,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         // ========================================
         'max-lg:landscape:fixed max-lg:landscape:inset-y-0 max-lg:landscape:left-0',
         'max-lg:landscape:z-50 max-lg:landscape:w-64',
-        'max-lg:landscape:bg-background/96 max-lg:landscape:border-r max-lg:landscape:shadow-[0_26px_60px_-34px_oklch(var(--foreground)/0.35)]',
+        'max-lg:landscape:border-r max-lg:landscape:border-border/85',
+        'max-lg:landscape:bg-[linear-gradient(180deg,_oklch(99%_0.01_76)_0%,_oklch(var(--background))_100%)]',
+        'max-lg:landscape:shadow-[0_26px_60px_-34px_oklch(var(--foreground)/0.35)]',
         'max-lg:landscape:transition-transform max-lg:landscape:duration-300',
 
         isOpen
@@ -97,7 +99,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           : 'max-lg:landscape:-translate-x-full'
       )}>
         <nav
-          className="flex h-full flex-col gap-0 px-3 py-4 lg:border-r lg:border-border/55 lg:bg-[linear-gradient(180deg,_oklch(var(--background)/0.7),_transparent_18%,_oklch(var(--background)/0.42)_100%)]"
+          className="flex h-full flex-col gap-0 px-3 py-4 lg:border-r lg:border-border/55 lg:bg-[linear-gradient(180deg,_oklch(var(--background)/0.7),_transparent_18%,_oklch(var(--background)/0.42)_100%)] max-lg:landscape:bg-[linear-gradient(180deg,_oklch(99%_0.01_76)_0%,_oklch(var(--background))_100%)]"
           aria-label="Navigazione principale"
         >
           {navGroups.map((group, groupIndex) => (

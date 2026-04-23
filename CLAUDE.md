@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-23 (session 9)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-23
 
 ## Quick Reference
 
@@ -31,186 +31,97 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 (OKLCH palette) |
-| Typography | Bodoni Moda (display, `font-display italic` su h1/h2 chiave) + Jost (body) via `next/font/google` |
+| Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
+| Typography | Bodoni Moda + Jost via `next/font/google` |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
-| Key Utils | `nosleep.js`, `ingredient-scaler.ts`, `ingredient-aggregator.ts`, `@tanstack/react-query` |
+| State | `@tanstack/react-query` |
 
 ---
 
 ## Project Structure
 
-```
+```text
 src/
 ├── app/
-│   ├── (auth)/           # Login, Register
-│   ├── (dashboard)/      # Ricette, Categorie, Cotture, Assistente AI, Pianificatore, Lista spesa, Statistiche
-│   └── api/              # extract-recipes, format-recipe, suggest-category, chat-recipe, plan-meals
+│   ├── (auth)/
+│   ├── (dashboard)/
+│   └── api/
 ├── components/
-│   ├── providers.tsx     # QueryClient + AuthProvider (client boundary — necessario per next/font)
-│   ├── layout/           # Header, Sidebar, BottomNavigation, MoreSheet
-│   ├── meal-planner/     # Planner setup, grid, header, slot actions
-│   ├── shopping-list/    # ShoppingListContent, ShoppingSection, ShoppingItemRow, AddCustomItemSheet
-│   ├── recipe/           # RecipeForm, RecipeDetail, cooking-related lists
-│   └── ui/               # Shared primitives and pickers
+│   ├── layout/
+│   ├── meal-planner/
+│   ├── recipe/
+│   ├── shopping-list/
+│   └── ui/
 ├── lib/
-│   ├── firebase/         # firestore, categories, cooking-sessions, cooking-history, meal-plans
-│   ├── hooks/            # useAuth, useRecipes, useMealPlanner, useCountdownTimer, useShoppingList
-│   └── utils/            # parser (extractStepDuration exported), scaler, aggregator, search helpers
-└── types/                # Recipe, MealPlan, MealTypeConfig, CookingSession, CookingHistoryEntry, ...
+│   ├── firebase/
+│   ├── hooks/
+│   └── utils/
+└── types/
 ```
 
 ---
 
 ## Critical Patterns
 
-### Navigation Breakpoint
+### Navigation
 - Desktop: `>= 1440px`
 - Mobile portrait: bottom navigation
-- Mobile landscape: hamburger + sliding sidebar
+- Mobile landscape: hamburger + drawer sidebar
+- Always use `max-lg:portrait:` instead of bare `portrait:`
+- Dashboard pages must not add their own outer padding; `layout.tsx` owns page padding
 
-Always use `max-lg:portrait:` instead of bare `portrait:`.
-
-Pages inside the dashboard layout must **not** add their own outer padding — `<main>` in `layout.tsx` already handles all viewport-specific padding. Use `max-w-* mx-auto` only for content centering.
-
-### Firebase Data
-- optional persisted fields: use `null`, never `undefined`
-- all user-owned queries must filter by `userId`
-- `where + orderBy` queries require explicit composite indexes in `firebase/firestore.indexes.json`
-
-### Cooking Analytics
-- `cooking_sessions` is ephemeral active state only
-- `cooking_history` is append-only analytics/history data
-- statistics read from `cooking_history`, not from active sessions
-
-### Recipe Text Storage
-- recipe text stored in Firebase should remain plain text
-- `stripMarkdown()` in `recipe-parser.ts` removes markdown artifacts at parse time
+### Firebase
+- Never persist `undefined`
+- Use `null` where the model expects empties, or omit the key entirely
+- All user-owned queries must filter by `userId`
+- `where + orderBy` requires composite indexes in `firebase/firestore.indexes.json`
 
 ### React Query
-- global `staleTime: 2min`, `retry: false`; familyProfile uses `5min`
-- all queries require `enabled: !!user` — never run without authenticated user
-- no `onSnapshot` real-time listeners — deliberately avoided for Firestore cost control
-- shared cache key `['recipe', id, uid]` across detail / edit / cooking pages
-- shopping list uses `['shoppingList', uid, weekStartDate]` — derived from MealPlan, no dedicated Firestore collection
+- Global `staleTime: 2min`, `retry: false`
+- `familyProfile` uses `5min`
+- Every auth-bound query must use `enabled: !!user`
+- No `onSnapshot` listeners; avoid realtime Firestore cost
 
-### Step Duration
-- `Step.duration?: number | null` — minutes; null means no timer
-- `extractStepDuration()` exported from `recipe-parser.ts`, shared by parser and auto-detect form action
-- AI token `[DUR:N]` consistently used across all four AI route prompts (same pattern as `[ING:n]`/`[QTY:n]`)
+### Cooking data
+- `cooking_sessions` is active ephemeral state
+- `cooking_history` is append-only analytics/history
+- Statistics read only from `cooking_history`
+
+### Recipe text and timers
+- Recipe text persisted in Firebase should remain plain text
+- `extractStepDuration()` is shared between parser and form-side auto-detect
+- AI prompts use `[ING:n]`, `[QTY:n]`, and `[DUR:N]` consistently
 
 ---
 
-## Recent Changes (Apr 2026)
+## Recent Changes (Last 2-3 Months)
 
-### Editorial Cinema Pass (Apr 2026)
-- **Cinematic shell system**: `globals.css` now defines reusable `shell-stage`, `shell-panel`, `cinematic-heading`, ambient background gradients, and reduced-motion-safe atmospheric layers so the app feels like one coherent editorial object instead of isolated screens
-- **Dashboard shell refinement**: header, sidebar, bottom navigation, and the More sheet now share the same framed cookbook surface language with calmer depth, softer highlights, and a more immersive page shell
-- **Recipe and AI surfaces**: recipe list, recipe cards, recipe detail, and AI Assistant now use the same cinematic editorial rhythm — stronger hierarchy, calmer panels, and more intentional page intros
-- **Progressive enhancement**: the shell reacts to scroll through CSS variables updated by the dashboard layout, while `scroll-reveal` remains optional through `@supports (animation-timeline: scroll())`
+### Editorial UI system
+- Introduced a cinematic editorial shell through `shell-stage`, `shell-panel`, warmer OKLCH surfaces, and shared typography across dashboard pages
+- Unified loading, empty, inline status, and toast feedback through shared UI primitives instead of page-by-page placeholders
+- Removed the global auth bootstrap loader; protected routes now rely on page-local states to avoid route-to-route flash
 
-### Recipe Editor Mobile Polish (Apr 2026)
-- **Step editor layout**: the recipe edit form now keeps step descriptions full-width on mobile by moving action controls below the content instead of squeezing the textarea beside them
-- **Lighter step chrome**: step numbers are now integrated as small chips inside the card rather than dominant offset badges, so long editing sessions feel cleaner on phones
+### Planner and shopping flows
+- Added the weekly shopping list at `/lista-spesa`, derived directly from the saved meal plan and local per-week checklist state
+- Expanded planner setup with dietary chips, free-text notes, specific-day planning, and per-meal category preferences/exclusions
+- Added single-slot regeneration with a dedicated note dialog and current-slot context so small changes behave like dish variations instead of full replacements
+- Added post-generation day removal in the planner so an active week can be corrected without rebuilding it
 
-### Delight Pass (Apr 2026)
-- **Shared delight primitives**: added `EditorialLoader`, `EditorialEmptyState`, and `StatusBanner` in `src/components/ui/` to unify loading, empty, success, warning, and error moments across the app
-- **Global hot-toast theming**: `react-hot-toast` is now styled in `src/components/providers.tsx` with warm card surfaces and semantic success/error icon colors, matching the OKLCH cookbook palette
-- **Auth polish**: login/register now use a warmer editorial shell with clearer messaging and inline error banners; test credentials remain behind `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`
-- **AI Assistant polish**: PDF/text loading now uses the shared editorial loader; warning/error/success states were rewritten to use shared status banners; the “How it works” area is calmer and more editorial
-- **Chat AI refinement**: empty state, message bubbles, starter prompts, typing indicator, and send loading state now feel more intentional and better aligned with the cookbook brand
-- **Dashboard state polish**: Ricette, Pianificatore, Lista spesa, Cotture in corso, and Statistiche now use shared loading and empty-state patterns instead of one-off placeholders
+### Planner reliability and save flow
+- Planner AI recipe cards are saveable only when a real `newRecipe` payload exists
+- Save-to-cookbook now normalizes optional recipe fields before writing to Firestore
+- `/api/plan-meals` now enforces stricter parity between `[PIANO]` and `[RICETTE_NUOVE]`, especially for single-slot regeneration, and fails explicitly on partial AI output
 
-### Animation Pass (Apr 2026)
-- **globals.css keyframes**: 4 custom `@keyframes` a root level (`fadeUp`, `fadeIn`, `slideInRight`, `scaleIn`) + utility classes in `@layer utilities` (`animate-fade-up`, `animate-fade-in`, `animate-slide-in-right`, `animate-scale-in`)
-- **Recipe card lift**: `hover:-translate-y-0.5 transition-[shadow,transform]` + `will-change-transform`; entrance stagger via `index` prop (`animationDelay = Math.min(i * 50, 350)ms`)
-- **Bottom nav tap feedback**: icona attiva `scale-110`, `active:scale-95` su ogni tab per feedback tocco
-- **Sidebar link nudge**: `hover:translate-x-0.5`; backdrop landscape con `animate-fade-in`
-- **Cooking mode progress bar**: `<div role="progressbar">` con `transition-[width] duration-500` nel footer sticky; timer chip con `animate-slide-in-right`; setup screen con `animate-fade-up`
-- **Planner slot hover**: slot vuoto `hover:scale-[1.02] active:scale-[0.98]`; slot occupato `hover:shadow-sm`; rigenerazione `animate-pulse` (non spin isolato)
-- **Mobile day cards stagger**: `animate-fade-up` con `animationDelay = i * 40ms` su ogni giorno
-- **Regola accessibilità**: tutti i `transition-*` hanno `motion-reduce:transition-none`; tutti gli `animate-*` hanno `motion-reduce:animate-none`
+### Recipe and cooking UX
+- Recipe filters on `/ricette` are now collapsible with active chips and precomputed counts for smoother interaction
+- The recipe step editor is cleaner on mobile, with controls moved below content and lighter step chrome
+- Cooking mode supports multiple simultaneous timers, sticky completion CTA, section completion feedback, and dynamic step quantity scaling
 
-### Colorize Pass (Apr 2026)
-- **Header brand**: "Il Mio Ricettario" → `text-primary` (terracotta); crea identità cromatica immediata
-- **Sidebar section label**: "Strumenti AI" → `text-accent` (salvia); differenzia la sezione AI
-- **Bottom nav active indicator**: pill `bg-primary/10 rounded-xl` attorno all'icona attiva — orientamento visivo senza side-stripe
-- **Recipe card footer icons**: `Clock` e `Users` con `text-primary/70` su tempo e porzioni — warmth senza rumore
-- **Season badges fix**: `bg-primary-100 border-primary-200 text-primary-700` erano classi inesistenti in OKLCH → sostituiti con `bg-primary/10 border-primary/20 text-primary`
-- **Statistiche rank coloring**: contatore `text-7xl` → `text-primary`; top #1 ha sfondo `bg-primary/5`; rank #1/`text-primary`, #2/`text-accent`, #3+/`text-muted-foreground`
-- **Cotture-in-corso cards**: titolo → `font-display italic`; icone colorate su stats (terracotta = ingredienti, salvia = step)
-- **Regola colori OKLCH**: usare sempre opacity modifier (`bg-primary/10`) — mai scale numeriche (`bg-primary-100`) che non esistono con CSS vars
-
-### Responsive Sweep (Apr 2026)
-- **Cooking page padding fix**: rimosso wrapper `p-4 sm:p-6 lg:p-8` da setup mode e cooking mode — il layout gestisce già il padding per tutti i viewport
-- **Titoli ricetta**: `text-5xl` fisso → `text-3xl sm:text-4xl lg:text-5xl` in `recipe-detail.tsx` e cooking mode
-- **AI Assistant tab bar**: `px-3 sm:px-5` + `overflow-x-auto` + `flex-shrink-0` — i 3 tab traboccavano su ≤375px
-- **Recipe detail action buttons**: `flex-wrap gap-2 sm:gap-4` — 3 bottoni senza wrap traboccavano su schermi stretti
-- **Lista spesa**: aggiunto `max-w-2xl mx-auto` (allineato alla convenzione pagine testo)
-- **WeeklyCalendarGrid**: `minmax(72px, 1fr)` + `overflow-x-auto` sul wrapper della desktop grid — su landscape stretto (iPhone SE ~568px) colonne a ~65px erano illeggibili
-
-### Layout System & Typography Polish (Apr 2026)
-- **h1 uniformati**: tutte le pagine usano `font-display text-4xl font-semibold italic` — erano inconsistenti (alcune `text-3xl font-bold`, alcune `text-2xl`)
-- **h2 editoriali**: Ingredienti, Preparazione, Note, Piatti più preparati, Ultime cotture — tutti in `italic`
-- **Header brand**: "Il Mio Ricettario" ora in `font-display italic text-2xl font-semibold`
-- **Recipe card rewrite**: titolo in display font italic, categoria come label uppercase tiny colorata, footer `border-t` per tempo/porzioni; rimosso il shell shadcn `<Card>` generico
-- **Recipe detail stats**: sostituiti 4 box identici `p-4 bg-secondary` con riga inline editoriale (`text-2xl font-bold` + label small)
-- **Sidebar raggruppata**: sezione "Strumenti AI" (Assistente, Pianificatore, Lista spesa); active state `bg-primary/10 text-primary`; link diretti senza Button component
-- **Padding desktop**: `lg:p-6` → `lg:px-10 lg:py-8`
-- **PlannerHeader centrato**: da `justify-between` a `flex-col items-center` — navigazione e azioni centrate
-- **Regola max-width**: pagine griglia (ricette, categorie) senza max-w; pagine testo (statistiche, profilo) con `max-w mx-auto`; `container mx-auto` rimosso ovunque (non configurato in tailwind.config.js)
-
-### UX Polish & Design System (Apr 2026)
-- **Typography editoriale**: `font-display italic` applicato sistematicamente su tutti gli h1 (`text-4xl`/`text-5xl`) e h2 di sezione — recipe title, page headings, section headers (Ingredienti, Preparazione, Note)
-- **Token sweep completo**: tutti i `text-gray-*`, `bg-gray-*`, `border-gray-*`, `bg-white` sostituiti con token semantici OKLCH in ~30 file; zero Tailwind gray hardcoded rimasti
-- **Elementi HTML nativi**: `<textarea>`, `<select>`, `<input>` nudi in `recipe-form.tsx`, `category-selector.tsx`, `family-profile-card.tsx` ora hanno `bg-background text-foreground` esplicito (il browser non eredita CSS custom properties)
-- **MealSlotCell rewrite**: rimossi tutti i `border-l-4` (side-stripe ban); sostituiti con badge angolari `absolute top-1.5 left-1.5` — `Sparkles+AI` per ricette AI-generate, `BookOpen` per ricette del ricettario
-- **Filter /ricette collassabile**: da 3 righe filtri sempre visibili a pannello disclosure con bottone "Filtra" + contatore filtri attivi + chip rimovibili; filtri mai visibili di default
-- **Cooking mode sticky CTA**: "Termina cottura" in sticky footer permanente (disabled < 100%, enabled al completamento); rimosso l'alert inline che spariva dopo dismiss
-- **Empty states**: ridisegnati in tutte le pagine — emoji + `font-display italic` + `bg-muted/30 rounded-xl border dashed`
-- **Shopping list**: week navigation con label "Settimana del" esplicita; empty state migliorato
-- **Fix deterministici scanner**: `animate-bounce` → `animate-pulse` (chat typing indicator); `bg-black/50` → `bg-foreground/60` (sidebar overlay); tab `border-b-2` → `border-b-[2px]` (evita scanner flag)
-
-### Design & Theming Audit (Apr 2026)
-- **Palette OKLCH**: `globals.css` sostituisce HSL shadcn default con OKLCH — crema `97% 0.01 75`, terracotta `52% 0.13 42`, marrone scuro `18% 0.03 55`, salvia `50% 0.08 148`. `tailwind.config.js` usa `oklch(var(--token))` come wrapper.
-- **Tipografia**: Bodoni Moda (`--font-display`) + Jost (`--font-body`) caricati via `next/font/google`. Root layout è server component; `src/components/providers.tsx` estrae QueryClient + AuthProvider.
-- **Animazioni collapsible**: `max-h-[N]` → `grid-rows-[0fr] → grid-rows-[1fr]` — GPU-friendly, nessun layout thrash. `motion-reduce:transition-none` su tutti.
-- **A11y**: `aria-expanded` su collapsible; `role=button`/`tabIndex`/`onKeyDown` su `<li>` interattivi; `aria-current="page"` in sidebar e bottom nav; `pb-safe` su bottom nav iOS.
-- **Statistiche**: layout editoriale — contatore `text-7xl` + frase narrativa (rimossi 3 hero metric cards).
-
-### Weekly Shopping List (Apr 2026)
-- **New page** `/lista-spesa`: aggregates all ingredients from the current week's meal plan into a checkable shopping list
-- **Week navigation**: prev/next arrows reuse `addWeeksToDateString` + `getCurrentWeekMonday` from `src/lib/constants/seasons.ts`
-- **Ingredient aggregation**: `buildContributions()` + `aggregateIngredients()` in `src/lib/utils/ingredient-aggregator.ts`; same-unit numeric sum, `" + "` concatenation fallback; no fuzzy name matching
-- **Both slot types included**: existing cookbook recipes (fetched via `getRecipesByIds()`) and AI-generated `newRecipe` slots (ingredients read inline from `ParsedRecipe`, no extra Firestore reads)
-- **localStorage persistence**: checked state and custom items keyed by `shopping_list:{uid}:{weekStartDate}`; no new Firestore collection
-- **Custom items**: users can add manual items via a bottom sheet; custom items show a delete button
-- **Progress bar**: checked/total count with percentage, turns green at 100%
-- **Collapsible sections**: one section per ingredient group; null section shown last as "Senza categoria"
-- **Navigation**: "Lista della spesa" added to sidebar (after Pianificatore) and MoreSheet
-- **New utility**: `getRecipesByIds(ids, userId)` in `firestore.ts` — batch fetch via `Promise.all`, deduplicates IDs, returns `Map<id, Recipe>`
-
-### Cooking Mode UX Polish (Apr 2026)
-- **Today highlight in planner**: `WeeklyCalendarGrid` now highlights the current day with a primary-color ring (desktop) or border/tint (mobile card); uses local year/month/date comparison, not timestamp
-- **Section completion visual**: `IngredientListCollapsible` and `StepsListCollapsible` turn green (`border-green-400 bg-green-50`) when all items in a section are checked; includes ✓ in the section header; both named sections and flat (null) sections supported; no effect in non-interactive mode
-- **Section auto-collapse with animation**: when a section becomes fully complete, it collapses automatically with a 300ms `max-h` + opacity transition; uses `prevCheckedRef` initialized at mount to avoid collapsing already-complete sections on page reload; user can manually re-open; once a section is complete the auto-close won't re-trigger
-
-### Meal Planner Improvements (Apr 2026)
-- **Dietary preference chips**: setup form now has toggles for common dietary restrictions (Senza carne, Senza pesce, Vegetariano, Vegano, Senza glutine, Ricco di legumi); injected into the AI prompt
-- **Free-text notes**: textarea "Note e preferenze" (max 500 chars) in setup; injected as `NOTE UTENTE` block in the prompt; not persisted in Firestore
-- **Single slot regeneration**: `↺` button on each occupied calendar slot; reuses `/api/plan-meals` with a single-day/meal config; `regeneratingSlots: Set<string>` keyed as `"dayIndex-mealType"`
-- **Specific days selection**: chip selector Lun–Dom in setup; grid renders only active days; `activeDays` persisted in `MealPlan`; backward compat for old plans via `?? [0..6]`
-- **Unified per-meal category settings**: replaced separate "preferred category" + "excluded categories" sections with per-meal cards (Preferisci dropdown + Escludi chips); new `MealTypeConfig` type; same category cannot be both preferred and excluded for the same meal type
-- **Season filter (hard)**: server-side filter now sends only seasonal-matching recipes to Claude (+ `tutte_stagioni` + untagged); fallback to full pool if < 5 seasonal recipes survive; prompt language changes from soft ("Preferisci") to hard ("GIÀ SOLO")
-- **Ingredient names in AI summaries**: recipe summaries sent to Claude now include `ingredientNames: string[]`; previously Claude could only infer dietary constraints from recipe titles
-
-### Cooking Mode & Timers (Apr 2026)
-- **React Query migration**: tutti i data hook migrati da `useState+useEffect` a `@tanstack/react-query`
-- **Per-step countdown timers**: cooking mode con `▶ Avvia timer` per ogni step con durata; timer multipli in parallelo
-- **Floating timer overlay**: chip fissi top-right con MM:SS countdown e stop button
-- **Completion CTA**: `Termina cottura` in sticky footer — non più auto-close al 100%
-- **Cooking history**: `cooking_history` collection per statistiche; statistiche in `/statistiche`
+### Responsive cleanup
+- Planner desktop columns are wider and recipe titles are more legible
+- The mobile-landscape/tablet sidebar drawer is now opaque and easier to read
+- AI Assistant tabs and several dashboard layouts were tightened to avoid small-screen overflow
 
 ---
 
@@ -224,12 +135,12 @@ Pages inside the dashboard layout must **not** add their own outer padding — `
 | `FIREBASE_ADMIN_PROJECT_ID` | Server only | Admin fallback |
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Server only | Admin fallback |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Server only | Admin fallback |
-| `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS` | Client | Mostra credenziali test in login (solo `.env.local` in dev) |
+| `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS` | Client | Show test credentials in login (dev only) |
 
 Notes:
-- All protected AI routes require Firebase Admin credentials at runtime for token verification.
-- On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64`.
-- For local development, the split `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` setup is usually easier to manage.
+- All protected AI routes require Firebase Admin credentials at runtime
+- On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64`
+- For local development, split admin credentials are often easier to manage
 
 ---
 
@@ -238,31 +149,27 @@ Notes:
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start dev server |
-| `npm run build` | Production build |
-| `npx next build --webpack` | Reliable build verification in sandboxed environments |
+| `npx next build --webpack` | Reliable build verification |
 | `npm audit` | Security audit |
-| `npm audit fix` | Apply safe lockfile/package fixes when available |
-| `docker compose --env-file .env.local build` | Build self-hosted image |
+| `npm audit fix` | Apply safe dependency fixes |
 | `docker compose --env-file .env.local up --build` | Build and run self-hosted app |
-| `docker compose --env-file .env.local logs -f app` | Follow app logs |
-| `docker compose --env-file .env.local down` | Stop self-hosted stack |
 | `firebase deploy --only firestore` | Deploy rules and indexes |
 
 ---
 
 ## Database Collections
 
-```
+```text
 users/{uid}             # User profiles + familyProfile
-recipes/{id}            # Recipes (user-owned)
+recipes/{id}            # Recipes
 categories/{id}         # Recipe categories
 subcategories/{id}      # Category children
-cooking_sessions/{id}   # Active cooking progress only
-cooking_history/{id}    # Completed cooking events for analytics/history
+cooking_sessions/{id}   # Active cooking progress
+cooking_history/{id}    # Completed cooking events
 meal_plans/{id}         # Weekly planner documents
 ```
 
-Composite indexes currently maintained in repo:
+Composite indexes maintained in repo:
 - `categories`: `(userId ASC, order ASC)`
 - `cooking_history`: `(userId ASC, completedAt DESC)`
 - `cooking_sessions`: `(userId ASC, lastUpdatedAt DESC)`
@@ -280,7 +187,7 @@ Composite indexes currently maintained in repo:
 | `POST /api/format-recipe` | Free text → structured recipe formatting |
 | `POST /api/suggest-category` | Category + season suggestion |
 | `POST /api/chat-recipe` | Multi-turn AI recipe generation |
-| `POST /api/plan-meals` | Weekly meal-plan generation |
+| `POST /api/plan-meals` | Weekly meal-plan generation and slot regeneration |
 
 All endpoints above require an authenticated Firebase session.
 
@@ -289,20 +196,20 @@ All endpoints above require an authenticated Firebase session.
 ## Design Context
 
 ### Users
-Famiglie italiane che cucinano insieme. L'app viene usata in cucina durante la preparazione dei pasti — spesso con le mani occupate, luce naturale, e ritmo quotidiano. Non è un'app di scoperta o social: è uno strumento personale e privato, usato da persone che la conoscono bene.
+Italian households cooking at home. The app is used during real meal prep, often one-handed and in a bright kitchen environment.
 
-### Brand Personality
-**Curato, elegante, gastronomico.** Come un cookbook italiano di qualità — raffinato ma non freddo, ispirazionale ma non pretenzioso. In 3 parole di design: **preciso, caldo, editoriale.**
+### Brand personality
+Curated, warm, editorial. It should feel like a private Italian cookbook, not a social food app or a generic SaaS dashboard.
 
-### Aesthetic Direction
-- **Light mode.** Sfondi caldi come carta panna/pergamena (oklch ~97% con hue caldo), mai bianco puro. Accenti terrosi: terracotta, verde salvia.
-- **Tipografia**: Bodoni Moda (display) + Jost (body) — editoriale italiano, leggibile in cucina.
-- **Palette OKLCH**: background crema oklch(97% 0.01 75), testo marrone scuro oklch(18% 0.03 55), accento terracotta oklch(52% 0.13 42), verde salvia oklch(50% 0.08 148).
-- **Anti-riferimenti**: niente Instagram/food social, niente AI/SaaS dashboard, niente delivery app, niente corporate.
+### Aesthetic direction
+- Light mode only
+- Warm cream backgrounds, terracotta primary, sage accent
+- Bodoni Moda for editorial emphasis, Jost for body readability
+- Strong text hierarchy, generous touch targets, calm surfaces
 
-### Design Principles
-1. **Cookbook over app** — ogni schermata dovrebbe sembrare una pagina di un libro di cucina curato.
-2. **Contenuto al centro** — testo, ingredienti, passaggi sono la sostanza; l'interfaccia li serve.
-3. **Calore senza rumore** — colori naturali e tipografia elegante; niente decorazioni fini a se stesse.
-4. **Leggibilità in cucina** — testo grande, contrasto alto, zone di tocco generose.
-5. **Privatezza come orgoglio** — niente social, niente condivisione forzata.
+### Core design principles
+1. Cookbook over app
+2. Content first
+3. Warmth without noise
+4. Readability in the kitchen
+5. Privacy as a feature

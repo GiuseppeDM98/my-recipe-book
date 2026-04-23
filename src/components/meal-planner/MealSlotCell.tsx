@@ -96,7 +96,8 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
         <div className="flex items-start justify-between gap-1 pl-8">
           <button
             onClick={onClick}
-            className="text-left text-xs font-medium text-foreground line-clamp-2 hover:underline leading-tight flex-1"
+            className="flex-1 text-left text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
+            title={slot.recipeTitle ?? undefined}
           >
             {slot.recipeTitle}
           </button>
@@ -110,14 +111,22 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1 mt-auto pl-8">
-          <button
-            onClick={e => { e.stopPropagation(); onSaveNewRecipe?.(); }}
-            className="text-xs text-primary hover:underline font-medium"
-          >
-            Salva nel ricettario
-          </button>
-        </div>
+        {onSaveNewRecipe ? (
+          <div className="flex items-center gap-1 mt-auto pl-8">
+            <button
+              onClick={e => { e.stopPropagation(); onSaveNewRecipe(); }}
+              className="text-xs text-primary hover:underline font-medium"
+            >
+              Salva nel ricettario
+            </button>
+          </div>
+        ) : (
+          <div className="mt-auto pl-8">
+            <span className="text-[11px] text-muted-foreground">
+              Rigenera per ottenere una versione salvabile
+            </span>
+          </div>
+        )}
       </div>
     );
   }
@@ -150,7 +159,8 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
       <div className="flex items-start justify-between gap-1 pl-8">
         <button
           onClick={onClick}
-          className="text-left text-xs font-medium text-foreground line-clamp-2 hover:underline leading-tight flex-1"
+          className="flex-1 text-left text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
+          title={slot.recipeTitle ?? undefined}
         >
           {slot.recipeTitle}
         </button>

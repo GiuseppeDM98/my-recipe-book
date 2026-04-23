@@ -8,7 +8,6 @@ import {
 } from '@/lib/firebase/cooking-history';
 import { CookingHistoryEntry } from '@/types';
 import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
-import { EditorialLoader } from '@/components/ui/editorial-loader';
 import { BarChart3 } from 'lucide-react';
 
 function formatDate(entry: { completedAt?: { toDate?: () => Date } } | null): string {
@@ -30,17 +29,6 @@ export default function StatistichePage() {
   const mostCooked = recipeStats[0] ?? null;
   const latest = historyEntries[0] ?? null;
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <EditorialLoader
-          label="Sto leggendo la tua storia in cucina"
-          hint="Raccolgo le cotture concluse per trasformarle in abitudini leggibili."
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-4xl mx-auto space-y-10">
       <div>
@@ -48,14 +36,14 @@ export default function StatistichePage() {
         <p className="text-muted-foreground mt-1">Le tue abitudini in cucina</p>
       </div>
 
-      {historyEntries.length === 0 ? (
+      {!isLoading && historyEntries.length === 0 ? (
         <EditorialEmptyState
           icon={<BarChart3 className="h-5 w-5" />}
           eyebrow="Prime tracce"
           title="Nessuna statistica ancora"
           description="Le statistiche iniziano a raccontarti qualcosa dopo la prima cottura completata con il pulsante finale."
         />
-      ) : (
+      ) : !isLoading ? (
         <>
           {/* Sommario editoriale — senza card identiche */}
           <div className="border-b pb-8 space-y-4">
@@ -137,7 +125,7 @@ export default function StatistichePage() {
             </div>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }
