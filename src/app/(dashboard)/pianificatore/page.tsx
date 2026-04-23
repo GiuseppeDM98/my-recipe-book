@@ -20,6 +20,8 @@ import toast from 'react-hot-toast';
 import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
 import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import Link from 'next/link';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
+import { StatusBanner } from '@/components/ui/status-banner';
 
 /**
  * Meal Planner Page
@@ -247,8 +249,11 @@ export default function PianificatorePage() {
 
   if (!user || categoriesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EditorialLoader
+          label="Sto preparando il pianificatore"
+          hint="Recupero categorie, ricette e l'ultima settimana disponibile."
+        />
       </div>
     );
   }
@@ -345,29 +350,31 @@ export default function PianificatorePage() {
             onUseFamilyContextChange={setUseFamilyContext}
             hasValidFamilyProfile={hasValidProfile}
           />
-          <div className="rounded-xl border border-dashed px-4 py-3 flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {hasValidProfile
-                ? 'Il profilo famiglia salvato può essere usato nella generazione AI di questo piano.'
-                : 'Per usare il contesto famiglia nel piano AI devi prima configurare un profilo famiglia.'}
-            </p>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/profilo-famiglia">Gestisci profilo</Link>
-            </Button>
-          </div>
+          <StatusBanner
+            icon={<CalendarDays className="h-4 w-4" />}
+            title={hasValidProfile ? 'Profilo famiglia pronto' : 'Profilo famiglia non ancora configurato'}
+            description={
+              hasValidProfile
+                ? 'Puoi usarlo per dare al piano AI un contesto piu\' aderente alle abitudini di casa.'
+                : 'Configuralo prima di usare il contesto famiglia nella generazione AI di questa settimana.'
+            }
+            tone={hasValidProfile ? 'success' : 'warning'}
+            action={
+              <Button asChild variant="outline" size="sm">
+                <Link href="/profilo-famiglia">Gestisci profilo</Link>
+              </Button>
+            }
+          />
         </div>
       )}
 
       {/* ── STEP: GENERATING ─────────────────────────── */}
       {step === 'generating' && (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
-          <Spinner />
-          <div>
-            <p className="text-lg font-semibold">L'AI sta pianificando la tua settimana...</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              Sto scegliendo le ricette migliori per te
-            </p>
-          </div>
+        <div className="flex min-h-[50vh] items-center justify-center px-4">
+          <EditorialLoader
+            label="L'AI sta pianificando la tua settimana"
+            hint="Bilancio stagione, portate e nuove idee, poi compongo una settimana che resti credibile in cucina."
+          />
         </div>
       )}
 

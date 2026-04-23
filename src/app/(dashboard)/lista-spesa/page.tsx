@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { getCurrentWeekMonday, addWeeksToDateString } from '@/lib/constants/seasons';
 import { useShoppingList } from '@/lib/hooks/useShoppingList';
 import { ShoppingListContent } from '@/components/shopping-list/ShoppingListContent';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 function formatWeekLabel(weekStartDate: string): string {
   const start = new Date(weekStartDate + 'T00:00:00');
@@ -82,8 +82,12 @@ export default function ListaSpesaPage() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-12">
-          <Spinner size="lg" />
+        <div className="flex items-center justify-center py-12">
+          <EditorialLoader
+            label="Sto componendo la lista"
+            hint="Sommo ingredienti, porzioni e articoli personalizzati della settimana."
+            compact
+          />
         </div>
       ) : (
         <ShoppingListContent

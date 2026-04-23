@@ -15,8 +15,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { User } from '@/types';
 import { initializeDefaultCategories } from '../firebase/categories';
-import { Spinner } from '@/components/ui/spinner';
 import { ensureUserProfileDocument } from '../firebase/user-profile';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Authentication Context Provider
@@ -177,11 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // to protected routes until auth state is known
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Spinner size="lg" />
-          <p className="text-sm text-muted-foreground">Caricamento...</p>
-        </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background px-4">
+        <EditorialLoader
+          label="Sto aprendo il tuo ricettario"
+          hint="Recupero accesso, profilo e contesto iniziale prima di mostrarti la cucina."
+          compact
+        />
       </div>
     );
   }

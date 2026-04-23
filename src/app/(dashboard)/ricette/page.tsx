@@ -15,6 +15,8 @@ import { SEASON_ICONS, SEASON_LABELS, ALL_SEASONS } from '@/lib/constants/season
 import Link from 'next/link';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Recipe List Page - Cascading Filter Architecture
@@ -121,8 +123,11 @@ export default function RecipesPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner size="lg" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EditorialLoader
+          label="Sto aprendo le tue ricette"
+          hint="Recupero il ricettario e preparo filtri e ricerca."
+        />
       </div>
     );
   }
@@ -333,33 +338,39 @@ export default function RecipesPage() {
 
       {/* === RECIPE GRID === */}
       {recipes.length === 0 ? (
-        <div className="text-center py-16 rounded-xl bg-muted/30 border border-dashed border-border">
-          <p className="text-4xl mb-4">📖</p>
-          <h3 className="font-display text-2xl font-semibold italic mb-2">Il ricettario è vuoto</h3>
-          <p className="text-muted-foreground mt-2 mb-6">Aggiungi la tua prima ricetta per iniziare la collezione.</p>
-          <Button asChild>
-            <Link href="/ricette/new">Crea la tua prima ricetta</Link>
-          </Button>
-        </div>
+        <EditorialEmptyState
+          icon={<Search className="h-5 w-5" />}
+          eyebrow="Primo piatto"
+          title="Il ricettario aspetta la prima ricetta"
+          description="Inizia con un piatto che fai spesso: da li' la raccolta prende ritmo e diventa davvero tua."
+          action={
+            <Button asChild>
+              <Link href="/ricette/new">Crea la tua prima ricetta</Link>
+            </Button>
+          }
+        />
       ) : filteredRecipes.length === 0 ? (
-        <div className="text-center py-16 rounded-xl bg-muted/30 border border-dashed border-border">
-          <p className="text-4xl mb-4">🔍</p>
-          <h3 className="font-display text-2xl font-semibold italic mb-2">Nessuna ricetta trovata</h3>
-          <p className="text-muted-foreground mt-2 mb-6">
-            {searchQuery
-              ? `Nessun risultato per "${searchQuery}". Prova con termini diversi.`
-              : 'Prova a selezionare filtri diversi o crea una nuova ricetta.'}
-          </p>
-          {searchQuery ? (
-            <Button onClick={() => setSearchQuery('')} variant="outline">
-              Cancella ricerca
-            </Button>
-          ) : activeFilterCount > 0 ? (
-            <Button onClick={clearFilters} variant="outline">
-              Cancella filtri
-            </Button>
-          ) : null}
-        </div>
+        <EditorialEmptyState
+          icon={<Search className="h-5 w-5" />}
+          eyebrow="Filtri"
+          title="Qui non c'e' ancora nulla"
+          description={
+            searchQuery
+              ? `Nessun risultato per "${searchQuery}". Prova un nome piu' ampio o libera la ricerca.`
+              : 'I filtri attuali stringono troppo la selezione. Allargali e lascia riemergere il ricettario.'
+          }
+          action={
+            searchQuery ? (
+              <Button onClick={() => setSearchQuery('')} variant="outline">
+                Cancella ricerca
+              </Button>
+            ) : activeFilterCount > 0 ? (
+              <Button onClick={clearFilters} variant="outline">
+                Cancella filtri
+              </Button>
+            ) : null
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRecipes.map((recipe, i) => (

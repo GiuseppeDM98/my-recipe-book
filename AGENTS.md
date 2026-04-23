@@ -44,6 +44,8 @@
 | Elementi HTML nativi senza `bg` | `<textarea>`, `<select>`, `<input>` mostrano sfondo bianco anche con tema OKLCH | Aggiungere sempre `bg-background text-foreground` esplicitamente — il browser non eredita CSS custom properties dal tema |
 | Side-stripe design ban | `border-l-[2px+]` su card/list item è AI slop tell — vietato anche se semantico | Sostituire con badge `absolute top-1.5 left-1.5` (icona + colore) o background tint; mai side-stripe |
 | `animate-bounce` datato | Bounce easing su typing indicator o bottoni appare datato | Usare `animate-pulse` per indicatori di attività; easing `ease-out` per motion intenzionale |
+| Delight state drift | Loading/empty/error box creati ad hoc pagina per pagina rompono coerenza visiva e portano classi colore hardcoded | Riutilizzare `EditorialLoader`, `EditorialEmptyState`, `StatusBanner`; se serve un toast `react-hot-toast`, stilizzarlo globalmente in `providers.tsx`, non localmente |
+| Credenziali test invisibili | Si pensa che il pannello login sia sparito, ma la UI è corretta | Le credenziali test nel login compaiono solo con `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`; dopo cambio env riavviare `npm run dev` |
 | `next/font` in `'use client'` | Errore runtime — `next/font/google` funziona solo in Server Components | Root layout deve essere server component; estrarre QueryClient+Auth in `src/components/providers.tsx` |
 | Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
 | `container mx-auto` non configurato | `container` di Tailwind si espande senza limiti se non configurato in `tailwind.config.js` | Usare `max-w-*` espliciti (`max-w-4xl`, `max-w-5xl`) invece di `container` |
@@ -219,6 +221,14 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 
 **Palette OKLCH**: i token CSS contengono solo i parametri (`--background: 97% 0.01 75`), il wrapper `oklch()` è nel `tailwind.config.js`. Questo è lo stesso pattern del vecchio `hsl()`. Tutti i browser moderni supportano `oklch()`.
 
+**Delight shared states**: per loading, empty state e feedback cross-app usare i wrapper condivisi:
+- `EditorialLoader` per attese importanti (auth bootstrap, dashboard load, AI generation)
+- `EditorialEmptyState` per primo uso / nessun risultato
+- `StatusBanner` per info/success/warning/error inline
+Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
+
+**Hot toast styling**: se una pagina usa `react-hot-toast`, il look va definito in `src/components/providers.tsx`; nelle pagine si cambia solo il contenuto del messaggio.
+
 **Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 
 **Category Colors**: usare palette preset, non `input[type=color]` — UX più stabile su mobile, evita colori fuori palette.
@@ -255,6 +265,7 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 - Docker Compose: sempre `--env-file .env.local` (non legge `.env.local` automaticamente)
 - Build affidabile in sandbox: `npx next build --webpack` (evita problemi Turbopack)
 - Dopo `npm audit fix`: allineare `package.json` se il lockfile aggiorna una dipendenza diretta già validata
+- Per mostrare il pannello credenziali di test nel login in locale: `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true` e riavvio del dev server
 
 ---
 

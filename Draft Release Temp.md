@@ -50,6 +50,13 @@
 
 ## 🔧 Improvements
 
+- Improved the login and registration experience with a warmer cookbook-style layout, clearer messaging, and cleaner inline error feedback
+- Improved loading moments across the app with more polished, contextual waiting states on key pages such as Recipes, Meal Planner, Shopping List, Statistics, and the AI Assistant
+- Improved empty states across key pages so first-time and no-result screens now feel more intentional and easier to understand
+- Improved AI Assistant feedback panels for warnings, errors, and ready-to-save results with a more consistent visual style
+- Improved the AI chat experience with a more refined welcome state, clearer message bubbles, and a smoother typing indicator
+- Improved in-app toast notifications with a more cohesive visual style that matches the app's warm editorial theme
+
 - Improved recipe cards with a subtle lift on hover, making them feel more responsive and inviting to tap
 - Improved the recipe list with a staggered entrance animation — cards reveal in sequence as the page loads, giving the collection a more editorial feel
 - Improved the bottom navigation bar with a scale-up effect on the active tab icon and a brief press-down feedback when tapping any tab

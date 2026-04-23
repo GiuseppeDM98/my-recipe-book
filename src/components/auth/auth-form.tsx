@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { GoogleIcon } from '@/components/ui/google-icon';
+import { StatusBanner } from '@/components/ui/status-banner';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 /**
  * AuthForm - Unified login/register form
@@ -69,7 +71,7 @@ export function AuthForm({ mode, showGoogleButton = true }: AuthFormProps) {
   };
 
   return (
-    <div className="w-full max-w-md space-y-6">
+    <div className="w-full max-w-md space-y-6 rounded-[1.75rem] border border-border/70 bg-card/90 p-6 shadow-[0_24px_65px_-40px_oklch(var(--foreground)/0.38)] backdrop-blur-sm sm:p-8">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Display name field only shown in register mode */}
         {/* WHY: Login doesn't need display name (already set during registration) */}
@@ -101,11 +103,22 @@ export function AuthForm({ mode, showGoogleButton = true }: AuthFormProps) {
         />
 
         {error && (
-          <p className="text-sm text-red-600">{error}</p>
+          <StatusBanner
+            icon={<AlertCircle className="h-4 w-4" />}
+            title="Accesso non riuscito"
+            description={error}
+            tone="danger"
+            className="px-3 py-3"
+          />
         )}
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Caricamento...' : mode === 'register' ? 'Registrati' : 'Accedi'}
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+              Un momento...
+            </>
+          ) : mode === 'register' ? 'Registrati' : 'Accedi'}
         </Button>
       </form>
 
@@ -128,7 +141,7 @@ export function AuthForm({ mode, showGoogleButton = true }: AuthFormProps) {
             disabled={loading}
           >
             <GoogleIcon />
-            Continua con Google
+            {loading ? 'Connessione in corso...' : 'Continua con Google'}
           </Button>
         </>
       )}

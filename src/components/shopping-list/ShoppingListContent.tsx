@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { PlusCircle, CalendarDays } from 'lucide-react';
+import { PlusCircle, CalendarDays, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ShoppingItem } from '@/types';
 import { ShoppingProgressBar } from './ShoppingProgressBar';
 import { ShoppingSection } from './ShoppingSection';
 import { AddCustomItemSheet } from './AddCustomItemSheet';
+import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
 
 interface ShoppingListContentProps {
   items: ShoppingItem[];
@@ -39,27 +39,31 @@ export function ShoppingListContent({
 
   if (!hasPlan) {
     return (
-      <div className="py-16 text-center rounded-xl bg-muted/30 border border-dashed border-border">
-        <p className="text-5xl mb-4">🛒</p>
-        <h2 className="font-display text-2xl font-semibold italic mb-2">Nessun piano per questa settimana</h2>
-        <p className="text-muted-foreground mb-6">
-          Crea un piano pasti per generare automaticamente la lista della spesa.
-        </p>
-        <Button asChild>
-          <Link href="/pianificatore">
-            <CalendarDays className="w-4 h-4 mr-2" />
-            Vai al pianificatore
-          </Link>
-        </Button>
-      </div>
+      <EditorialEmptyState
+        icon={<CalendarDays className="h-5 w-5" />}
+        eyebrow="Settimana vuota"
+        title="Nessun piano per questa settimana"
+        description="Prima definisci i pasti: la lista della spesa si compone da sola a partire da li'."
+        action={
+          <Button asChild>
+            <Link href="/pianificatore">
+              <CalendarDays className="mr-2 h-4 w-4" />
+              Vai al pianificatore
+            </Link>
+          </Button>
+        }
+      />
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="py-12 text-center rounded-xl bg-muted/30 border border-dashed border-border">
-        <p className="text-muted-foreground">Il piano non contiene ricette con ingredienti.</p>
-      </div>
+      <EditorialEmptyState
+        icon={<ShoppingCart className="h-5 w-5" />}
+        eyebrow="Nessun ingrediente"
+        title="Questa settimana resta leggera"
+        description="Il piano corrente non contiene ingredienti aggregabili. Puoi aggiungere articoli manuali oppure rivedere le ricette del piano."
+      />
     );
   }
 

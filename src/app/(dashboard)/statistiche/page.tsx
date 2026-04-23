@@ -7,7 +7,9 @@ import {
   getUserCookingHistory,
 } from '@/lib/firebase/cooking-history';
 import { CookingHistoryEntry } from '@/types';
-import { Spinner } from '@/components/ui/spinner';
+import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
+import { BarChart3 } from 'lucide-react';
 
 function formatDate(entry: { completedAt?: { toDate?: () => Date } } | null): string {
   const date = entry?.completedAt?.toDate?.();
@@ -30,8 +32,11 @@ export default function StatistichePage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner size="lg" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EditorialLoader
+          label="Sto leggendo la tua storia in cucina"
+          hint="Raccolgo le cotture concluse per trasformarle in abitudini leggibili."
+        />
       </div>
     );
   }
@@ -44,13 +49,12 @@ export default function StatistichePage() {
       </div>
 
       {historyEntries.length === 0 ? (
-        <div className="py-16 text-center rounded-xl bg-muted/30 border border-dashed border-border">
-          <p className="text-5xl mb-4">📊</p>
-          <h2 className="font-display text-2xl font-semibold italic mb-2">Nessuna statistica ancora</h2>
-          <p className="text-muted-foreground">
-            Le statistiche compariranno dopo aver terminato almeno una cottura.
-          </p>
-        </div>
+        <EditorialEmptyState
+          icon={<BarChart3 className="h-5 w-5" />}
+          eyebrow="Prime tracce"
+          title="Nessuna statistica ancora"
+          description="Le statistiche iniziano a raccontarti qualcosa dopo la prima cottura completata con il pulsante finale."
+        />
       ) : (
         <>
           {/* Sommario editoriale — senza card identiche */}

@@ -22,6 +22,8 @@ import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
 import { FamilyContextToggle } from '@/components/family/family-context-toggle';
 import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import Link from 'next/link';
+import { StatusBanner } from '@/components/ui/status-banner';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
@@ -443,15 +445,12 @@ export default function RecipeExtractorPage() {
 
       {/* Test Account Warning */}
       {isTestAccount && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-yellow-900">Funzionalità AI Disabilitata</h3>
-            <p className="text-sm text-yellow-700 mt-1">
-              L'estrazione, la formattazione e la Chat AI sono disabilitate per l'account di test per proteggere le risorse API.
-            </p>
-          </div>
-        </div>
+        <StatusBanner
+          icon={<AlertCircle className="h-4 w-4" />}
+          title="Funzionalita' AI disabilitata"
+          description="L'estrazione, la formattazione e la Chat AI restano disabilitate per l'account di test per proteggere le risorse API."
+          tone="warning"
+        />
       )}
 
       {/* Input Card with Tab Switcher */}
@@ -545,14 +544,12 @@ export default function RecipeExtractorPage() {
           {/* Loading indicator: shown for PDF/text modes only.
               Chat mode has its own inline typing indicator in RecipeChatInput. */}
           {isExtracting && inputMode !== 'chat' && (
-            <div className="mt-6 text-center">
-              <div className="inline-flex items-center gap-2 text-primary">
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-                <span className="font-medium">{loadingMessage}</span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                Questo processo può richiedere alcuni secondi
-              </p>
+            <div className="mt-6 flex justify-center">
+              <EditorialLoader
+                label={loadingMessage}
+                hint="Lettura, parsing e suggerimenti arrivano in sequenza. Ti mostro tutto appena pronto."
+                compact
+              />
             </div>
           )}
         </div>
@@ -560,37 +557,29 @@ export default function RecipeExtractorPage() {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-red-900">Errore</h3>
-            <p className="text-sm text-red-700 mt-1">{error}</p>
-          </div>
-        </div>
+        <StatusBanner
+          icon={<AlertCircle className="h-4 w-4" />}
+          title="Errore"
+          description={error}
+          tone="danger"
+        />
       )}
 
       {/* Success Message and Bulk Actions */}
       {extractedRecipes.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-green-900">
-                  {extractedRecipes.length} ricett{extractedRecipes.length === 1 ? 'a trovata' : 'e trovate'}
-                </h3>
-                <p className="text-sm text-green-700 mt-1">
-                  Controlla i dettagli e salvale nel tuo ricettario
-                </p>
-              </div>
-            </div>
-            {savedStates.size < extractedRecipes.length && (
+        <StatusBanner
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          title={`${extractedRecipes.length} ricett${extractedRecipes.length === 1 ? 'a pronta' : 'e pronte'}`}
+          description="Controlla i dettagli, conferma categorie e salvale nel tuo ricettario."
+          tone="success"
+          action={
+            savedStates.size < extractedRecipes.length ? (
               <Button onClick={handleSaveAll} size="sm">
                 Salva Tutte ({extractedRecipes.length - savedStates.size})
               </Button>
-            )}
-          </div>
-        </div>
+            ) : null
+          }
+        />
       )}
 
       {/* Extracted Recipes List */}
@@ -618,27 +607,26 @@ export default function RecipeExtractorPage() {
 
       {/* Help Section — not shown in chat mode (RecipeChatInput has its own welcome state) */}
       {extractedRecipes.length === 0 && !isExtracting && !error && inputMode !== 'chat' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-900 mb-3">Come funziona?</h3>
+        <div className="rounded-[1.5rem] border border-border bg-muted/25 p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">Come funziona</p>
           {inputMode === 'pdf' ? (
-            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-              <li>Carica un file PDF contenente una o più ricette</li>
-              <li>L'AI di Claude analizzerà il documento ed estrarrà automaticamente tutte le ricette</li>
-              <li>Controlla le ricette estratte e modificale se necessario</li>
-              <li>Salva le ricette nel tuo ricettario personale</li>
+            <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+              <li>1. Carica un PDF con una o piu' ricette.</li>
+              <li>2. Claude legge il documento e separa ingredienti, passaggi e tempi.</li>
+              <li>3. Ti propongo subito le ricette in anteprima con suggerimenti AI su categoria e stagione.</li>
+              <li>4. Salvi solo cio' che vuoi davvero tenere nel ricettario.</li>
             </ol>
           ) : (
-            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-              <li>Scrivi o incolla il testo di una ricetta, anche in formato grezzo o non strutturato</li>
-              <li>L'AI di Claude interpreterà il testo e lo formatterà in modo preciso e completo</li>
-              <li>Controlla la ricetta formattata e modifica i dettagli se necessario</li>
-              <li>Salvala nel tuo ricettario personale</li>
+            <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+              <li>1. Incolla anche un testo grezzo o incompleto.</li>
+              <li>2. Claude lo riorganizza in una scheda ricetta leggibile e coerente.</li>
+              <li>3. Rivedi il risultato, correggi se serve, poi salvalo.</li>
             </ol>
           )}
-          <p className="text-xs text-blue-600 mt-4">
+          <p className="mt-5 rounded-xl border border-primary/15 bg-background/70 px-4 py-3 text-xs leading-5 text-muted-foreground">
             {inputMode === 'pdf'
-              ? '💡 Suggerimento: I PDF con ricette ben strutturate daranno risultati migliori.'
-              : '💡 Suggerimento: Anche una ricetta scritta in modo informale ("pasta al pomodoro: 400g pasta, pomodori...") verrà formattata correttamente.'}
+              ? 'I PDF con titoli, ingredienti e procedimento separati aiutano l\'estrazione a restare piu\' precisa.'
+              : 'Anche un promemoria rapido funziona: quantita\', ingredienti e passaggi sparsi bastano per ricostruire la ricetta.'}
           </p>
         </div>
       )}

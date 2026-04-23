@@ -10,6 +10,8 @@ import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import { Trash2, ChefHat, ShoppingBasket, ListChecks } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Active Cooking Sessions Dashboard
@@ -101,8 +103,11 @@ export default function CottureInCorsoPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-full">
-        <Spinner size="lg" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EditorialLoader
+          label="Sto recuperando le cotture attive"
+          hint="Riprendo sessioni, progressi e ricette collegate."
+        />
       </div>
     );
   }
@@ -115,16 +120,17 @@ export default function CottureInCorsoPage() {
 
       {/* === EMPTY STATE === */}
       {sessions.length === 0 ? (
-        <div className="py-16 text-center rounded-xl bg-muted/30 border border-dashed border-border">
-          <p className="text-5xl mb-4">🍳</p>
-          <h2 className="font-display text-2xl font-semibold italic mb-2">Nessuna cottura attiva</h2>
-          <p className="text-muted-foreground mb-6">
-            Apri una ricetta e avvia la modalità cottura per iniziare.
-          </p>
-          <Button asChild>
-            <Link href="/ricette">Vai alle ricette</Link>
-          </Button>
-        </div>
+        <EditorialEmptyState
+          icon={<ChefHat className="h-5 w-5" />}
+          eyebrow="Fuochi spenti"
+          title="Nessuna cottura attiva"
+          description="Apri una ricetta e avvia la modalita' cottura: quando torni qui ritroverai esattamente il tuo avanzamento."
+          action={
+            <Button asChild>
+              <Link href="/ricette">Vai alle ricette</Link>
+            </Button>
+          }
+        />
       ) : (
         /* === SESSION CARDS === */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

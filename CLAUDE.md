@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-21 (session 7)
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-23 (session 8)
 
 ## Quick Reference
 
@@ -103,6 +103,14 @@ Pages inside the dashboard layout must **not** add their own outer padding — `
 ---
 
 ## Recent Changes (Apr 2026)
+
+### Delight Pass (Apr 2026)
+- **Shared delight primitives**: added `EditorialLoader`, `EditorialEmptyState`, and `StatusBanner` in `src/components/ui/` to unify loading, empty, success, warning, and error moments across the app
+- **Global hot-toast theming**: `react-hot-toast` is now styled in `src/components/providers.tsx` with warm card surfaces and semantic success/error icon colors, matching the OKLCH cookbook palette
+- **Auth polish**: login/register now use a warmer editorial shell with clearer messaging and inline error banners; test credentials remain behind `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`
+- **AI Assistant polish**: PDF/text loading now uses the shared editorial loader; warning/error/success states were rewritten to use shared status banners; the “How it works” area is calmer and more editorial
+- **Chat AI refinement**: empty state, message bubbles, starter prompts, typing indicator, and send loading state now feel more intentional and better aligned with the cookbook brand
+- **Dashboard state polish**: Ricette, Pianificatore, Lista spesa, Cotture in corso, and Statistiche now use shared loading and empty-state patterns instead of one-off placeholders
 
 ### Animation Pass (Apr 2026)
 - **globals.css keyframes**: 4 custom `@keyframes` a root level (`fadeUp`, `fadeIn`, `slideInRight`, `scaleIn`) + utility classes in `@layer utilities` (`animate-fade-up`, `animate-fade-in`, `animate-slide-in-right`, `animate-scale-in`)
