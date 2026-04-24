@@ -23,6 +23,7 @@ import { FamilyContextToggle } from '@/components/family/family-context-toggle';
 import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import Link from 'next/link';
 import { StatusBanner } from '@/components/ui/status-banner';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
