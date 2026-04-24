@@ -65,7 +65,7 @@ export function RecipeTextInput({ onTextSubmit, isLoading, disabled }: RecipeTex
       {/* Footer: character count + submit button */}
       <div className="flex items-center justify-between">
         {/* Character count hint */}
-        <p className={`text-xs ${charCount === 0 ? 'text-muted-foreground' : isValid ? 'text-green-600' : 'text-orange-500'}`}>
+        <p className={`text-xs ${charCount === 0 ? 'text-muted-foreground' : isValid ? 'text-accent' : 'text-primary'}`}>
           {charCount === 0
             ? `Minimo ${MIN_CHARS} caratteri`
             : isValid

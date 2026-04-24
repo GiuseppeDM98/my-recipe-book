@@ -32,6 +32,9 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed active cooking sessions not appearing on the "In cucina" page without a hard refresh — the page now updates immediately after starting or finishing a cooking session
+- Fixed a brief loading flash on the "In cucina" page that caused visible layout shift between the empty state and the session cards
+- Fixed a brief loading flash on the AI Assistant page when switching between the "Free Text" and "Chat AI" tabs — both tabs now load instantly
 - Fixed the meal planner sidebar drawer on tablets and mobile landscape so it no longer appears transparent over the page content
 - Fixed meal planner AI recipe cards showing a misleading “Save to cookbook” action when the generated recipe payload was no longer complete
 - Fixed saving AI-generated planner recipes to the cookbook by normalizing optional recipe fields before persistence
@@ -94,6 +97,8 @@
 - Improved desktop layout breathing room — the main content area now has more generous horizontal and vertical padding, making pages feel more open and less cramped
 - Improved the meal planner week navigation and action buttons — they are now centred above the plan content instead of spread to opposite edges, making the layout feel more balanced
 
+- Improved visual consistency across all pages — completion states (checked ingredients, steps, shopping list sections, and progress bars) now use the design system's sage green accent instead of raw Tailwind colors, keeping the warm terracotta and sage green palette coherent everywhere
+- Improved cooking mode stop-timer button hover feedback — the tint now correctly uses the cream foreground color against the terracotta background instead of plain white
 - Improved recipe filters on the recipe list page — filters are now hidden by default in a collapsible panel; tap "Filter" to expand season, category, and subcategory controls; active filters appear as removable chips so you always know what is applied
 - Improved editorial typography throughout the app — recipe titles, page headings, and section labels (Ingredients, Preparation, Notes) now display in Bodoni Moda italic as intended, giving the interface a stronger cookbook feel
 - Improved cooking mode with a persistent "Finish cooking" button in a sticky footer — the button is always visible and activates automatically when all ingredients and steps are checked; it can no longer be accidentally dismissed

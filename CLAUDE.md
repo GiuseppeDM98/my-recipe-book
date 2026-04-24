@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-23
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-24
 
 ## Quick Reference
 
@@ -122,6 +122,14 @@ src/
 - Planner desktop columns are wider and recipe titles are more legible
 - The mobile-landscape/tablet sidebar drawer is now opaque and easier to read
 - AI Assistant tabs and several dashboard layouts were tightened to avoid small-screen overflow
+
+### Design system polish and UX fixes (2026-04)
+- Replaced hardcoded Tailwind `green-*`, `orange-500`, `purple-*` with design system tokens (`accent`, `primary`, `border`) across cooking mode collapsibles, shopping list, progress bar, AI assistant, family profile, and planner AI cards
+- Fixed `text-white` and `hover:bg-white/20` in cooking mode — replaced with `text-primary-foreground` and `hover:bg-primary-foreground/20`
+- Fixed active cooking session not appearing on `/cotture-in-corso` without hard refresh: added `queryClient.invalidateQueries` after `createCookingSession` and `deleteCookingSession`
+- Removed loading flash on `/cotture-in-corso` by decoupling the empty-state render from `isLoading`
+- Removed loading flash on AI Assistant tab switches by converting `RecipeTextInput` and `RecipeChatInput` from `next/dynamic` to static imports
+- Fixed Italian accented characters written as ASCII apostrophes (`li'`, `c'e'`, `piu'`, `cio'`) across recipe list, AI assistant, and shopping list pages
 
 ---
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getRecipe } from '@/lib/firebase/firestore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCookingSession,
   createCookingSession,
@@ -68,6 +68,7 @@ export default function CookingModePage() {
     queryFn: () => getRecipe(recipeId, user!.uid),
   });
 
+  const queryClient = useQueryClient();
   const timer = useCountdownTimer();
 
   /** Formats remaining seconds as "MM:SS" for the floating overlay */
@@ -192,6 +193,10 @@ export default function CookingModePage() {
         setCheckedSteps(session.checkedSteps);
       }
 
+      // Invalidate so /cotture-in-corso shows the new session immediately
+      // without requiring a hard refresh (React Query would otherwise serve stale cache).
+      queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
+
       // Switch to cooking mode
       setIsSetupMode(false);
     } catch (err) {
@@ -279,6 +284,7 @@ export default function CookingModePage() {
         servings: servings || null,
       });
       await deleteCookingSession(cookingSession.id);
+      queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
       router.push('/cotture-in-corso');
     } catch (err) {
       console.error('Error finishing cooking session:', err);
@@ -413,7 +419,7 @@ export default function CookingModePage() {
                   type="button"
                   aria-label="Ferma timer"
                   onClick={() => timer.stop(stepId)}
-                  className="ml-auto flex-shrink-0 rounded-full p-1 hover:bg-white/20 transition-colors"
+                  className="ml-auto flex-shrink-0 rounded-full p-1 hover:bg-primary-foreground/20 transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>

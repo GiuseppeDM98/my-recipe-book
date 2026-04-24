@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { RecipeExtractorUpload } from '@/components/recipe/recipe-extractor-upload';
 import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
+import { RecipeTextInput } from '@/components/recipe/recipe-text-input';
+import { RecipeChatInput } from '@/components/recipe/recipe-chat-input';
 import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
@@ -22,33 +23,6 @@ import { FamilyContextToggle } from '@/components/family/family-context-toggle';
 import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import Link from 'next/link';
 import { StatusBanner } from '@/components/ui/status-banner';
-import { EditorialLoader } from '@/components/ui/editorial-loader';
-
-const RecipeTextInput = dynamic(
-  () => import('@/components/recipe/recipe-text-input').then((mod) => mod.RecipeTextInput),
-  {
-    loading: () => (
-      <EditorialLoader
-        label="Sto preparando l'editor"
-        hint="Carico solo il necessario per questo flusso."
-        compact
-      />
-    ),
-  }
-);
-
-const RecipeChatInput = dynamic(
-  () => import('@/components/recipe/recipe-chat-input').then((mod) => mod.RecipeChatInput),
-  {
-    loading: () => (
-      <EditorialLoader
-        label="Sto preparando la chat AI"
-        hint="Recupero l'interfaccia conversazionale solo quando la apri."
-        compact
-      />
-    ),
-  }
-);
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
@@ -642,10 +616,10 @@ export default function RecipeExtractorPage() {
           <p className="editorial-kicker text-xs font-semibold uppercase text-muted-foreground">Come funziona</p>
           {inputMode === 'pdf' ? (
             <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
-              <li>1. Carica un PDF con una o piu' ricette.</li>
+              <li>1. Carica un PDF con una o più ricette.</li>
               <li>2. Claude legge il documento e separa ingredienti, passaggi e tempi.</li>
               <li>3. Ti propongo subito le ricette in anteprima con suggerimenti AI su categoria e stagione.</li>
-              <li>4. Salvi solo cio' che vuoi davvero tenere nel ricettario.</li>
+              <li>4. Salvi solo ciò che vuoi davvero tenere nel ricettario.</li>
             </ol>
           ) : (
             <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">

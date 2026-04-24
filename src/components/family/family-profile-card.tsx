@@ -156,7 +156,7 @@ export function FamilyProfileCard({
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {success && <p className="text-sm text-green-700">{success}</p>}
+      {success && <p className="text-sm text-accent">{success}</p>}
       {isLoading && <p className="text-sm text-muted-foreground">Caricamento profilo famiglia...</p>}
 
       <Button type="button" onClick={handleSave} disabled={isSaving}>

@@ -409,7 +409,7 @@ export default function RecipesPage() {
           icon={<Search className="h-5 w-5" />}
           eyebrow="Primo piatto"
           title="Il ricettario aspetta la prima ricetta"
-          description="Inizia con un piatto che fai spesso: da li' la raccolta prende ritmo e diventa davvero tua."
+          description="Inizia con un piatto che fai spesso: da lì la raccolta prende ritmo e diventa davvero tua."
           action={
             <Button asChild>
               <Link href="/ricette/new">Crea la tua prima ricetta</Link>
@@ -420,10 +420,10 @@ export default function RecipesPage() {
         <EditorialEmptyState
           icon={<Search className="h-5 w-5" />}
           eyebrow="Filtri"
-          title="Qui non c'e' ancora nulla"
+          title="Qui non c'è ancora nulla"
           description={
             searchQuery
-              ? `Nessun risultato per "${searchQuery}". Prova un nome piu' ampio o libera la ricerca.`
+              ? `Nessun risultato per "${searchQuery}". Prova un nome più ampio o libera la ricerca.`
               : 'I filtri attuali stringono troppo la selezione. Allargali e lascia riemergere il ricettario.'
           }
           action={

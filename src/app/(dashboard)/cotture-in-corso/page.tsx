@@ -106,19 +106,19 @@ export default function CottureInCorsoPage() {
       </div>
 
       {/* === EMPTY STATE === */}
-      {!isLoading && sessions.length === 0 ? (
+      {sessions.length === 0 && !isLoading ? (
         <EditorialEmptyState
           icon={<ChefHat className="h-5 w-5" />}
           eyebrow="Fuochi spenti"
           title="Nessuna cottura attiva"
-          description="Apri una ricetta e avvia la modalita' cottura: quando torni qui ritroverai esattamente il tuo avanzamento."
+          description="Apri una ricetta e avvia la modalità cottura: quando torni qui ritroverai esattamente il tuo avanzamento."
           action={
             <Button asChild>
               <Link href="/ricette">Vai alle ricette</Link>
             </Button>
           }
         />
-      ) : !isLoading ? (
+      ) : sessions.length > 0 ? (
         /* === SESSION CARDS === */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sessions.map((session) => {

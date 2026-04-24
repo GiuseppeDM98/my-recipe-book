@@ -43,7 +43,7 @@ export function ShoppingListContent({
         icon={<CalendarDays className="h-5 w-5" />}
         eyebrow="Settimana vuota"
         title="Nessun piano per questa settimana"
-        description="Prima definisci i pasti: la lista della spesa si compone da sola a partire da li'."
+        description="Prima definisci i pasti: la lista della spesa si compone da sola a partire da lì."
         action={
           <Button asChild>
             <Link href="/pianificatore">

@@ -136,7 +136,7 @@ export function ExtractedRecipePreview({
                     placeholder="Nome categoria"
                   />
                   {recipe.aiSuggestion.isNewCategory && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                    <span className="text-xs bg-accent/12 text-accent px-2 py-1 rounded">
                       Nuova
                     </span>
                   )}
