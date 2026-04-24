@@ -39,7 +39,7 @@ export default function EditRecipePage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6">Modifica ricetta</h1>
+      <h1 className="font-display text-4xl font-semibold italic mb-8">Modifica ricetta</h1>
       <RecipeForm mode="edit" recipe={recipe} />
     </div>
   );

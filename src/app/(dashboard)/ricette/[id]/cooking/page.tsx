@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getRecipe } from '@/lib/firebase/firestore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCookingSession,
   createCookingSession,
@@ -68,6 +68,7 @@ export default function CookingModePage() {
     queryFn: () => getRecipe(recipeId, user!.uid),
   });
 
+  const queryClient = useQueryClient();
   const timer = useCountdownTimer();
 
   /** Formats remaining seconds as "MM:SS" for the floating overlay */
@@ -192,6 +193,10 @@ export default function CookingModePage() {
         setCheckedSteps(session.checkedSteps);
       }
 
+      // Invalidate so /cotture-in-corso shows the new session immediately
+      // without requiring a hard refresh (React Query would otherwise serve stale cache).
+      queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
+
       // Switch to cooking mode
       setIsSetupMode(false);
     } catch (err) {
@@ -279,6 +284,7 @@ export default function CookingModePage() {
         servings: servings || null,
       });
       await deleteCookingSession(cookingSession.id);
+      queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
       router.push('/cotture-in-corso');
     } catch (err) {
       console.error('Error finishing cooking session:', err);
@@ -310,8 +316,7 @@ export default function CookingModePage() {
   // Pre-cooking configuration: user selects servings before starting.
   if (isSetupMode) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8">
-        <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto animate-fade-up motion-reduce:animate-none">
           <div className="flex items-center mb-6">
             <Button
               variant="outline"
@@ -325,16 +330,16 @@ export default function CookingModePage() {
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-4xl sm:text-5xl font-bold mb-4">{recipe.title}</h1>
-            <p className="text-xl text-gray-600">Prepara la tua modalità cottura</p>
+            <h1 className="font-display text-4xl sm:text-5xl font-semibold italic leading-tight mb-4">{recipe.title}</h1>
+            <p className="text-lg text-muted-foreground">Prepara la tua modalità cottura</p>
           </div>
 
           <div className="bg-card rounded-lg shadow-lg p-6 sm:p-8 border-2 border-primary/20">
-            <h2 className="text-2xl font-semibold mb-6 text-center">Per quante persone cucini?</h2>
+            <h2 className="font-display text-2xl font-semibold mb-6 text-center">Per quante persone cucini?</h2>
 
-            <div className="mb-8 p-6 bg-gray-50 rounded-lg">
+            <div className="mb-8 p-6 bg-muted/50 rounded-lg">
               <div className="text-center mb-4">
-                <span className="text-lg text-gray-700">
+                <span className="text-lg text-foreground">
                   Ricetta originale per <span className="font-bold text-primary">{originalServings}</span> {originalServings === 1 ? 'persona' : 'persone'}
                 </span>
               </div>
@@ -353,7 +358,7 @@ export default function CookingModePage() {
                   type="number"
                   value={servings}
                   onChange={(e) => handleServingsChange(parseInt(e.target.value) || 1)}
-                  className="w-24 h-14 text-center text-3xl font-bold border-2 border-gray-300 rounded-md focus:border-primary focus:outline-none"
+                  className="w-24 h-14 text-center text-3xl font-bold border-2 border-input rounded-md focus:border-primary focus:outline-none bg-background"
                   min="1"
                   max="99"
                 />
@@ -370,7 +375,7 @@ export default function CookingModePage() {
               </div>
 
               {servings !== originalServings && (
-                <p className="text-center text-sm text-gray-600 mt-4">
+                <p className="text-center text-sm text-muted-foreground mt-4">
                   ✨ Le quantità degli ingredienti saranno adattate automaticamente
                 </p>
               )}
@@ -385,14 +390,13 @@ export default function CookingModePage() {
             </Button>
           </div>
         </div>
-      </div>
     );
   }
 
   // === COOKING MODE RENDER ===
   // Active cooking: ingredient/step tracking with explicit completion CTA.
   return (
-    <div className="p-4 sm:p-6 lg:p-8 text-xl">
+    <div className="text-xl">
       {/* Floating timer overlay — un chip per ogni timer attivo, fixed top-right.
           Rimane sopra l'header (top-16) per non sovrapporre i controlli di navigazione. */}
       {timer.timers.length > 0 && (
@@ -403,7 +407,7 @@ export default function CookingModePage() {
             return (
               <div
                 key={stepId}
-                className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg"
+                className="flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground shadow-lg animate-slide-in-right motion-reduce:animate-none"
               >
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs opacity-75 truncate">{label}</span>
@@ -415,7 +419,7 @@ export default function CookingModePage() {
                   type="button"
                   aria-label="Ferma timer"
                   onClick={() => timer.stop(stepId)}
-                  className="ml-auto flex-shrink-0 rounded-full p-1 hover:bg-white/20 transition-colors"
+                  className="ml-auto flex-shrink-0 rounded-full p-1 hover:bg-primary-foreground/20 transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -436,30 +440,12 @@ export default function CookingModePage() {
         </Button>
       </div>
 
-      <h1 className="text-5xl font-bold mb-6 text-center">{recipe.title}</h1>
-
-      {isComplete && (
-        <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xl font-semibold text-primary">
-                Ricetta completata! Vuoi terminare la cottura?
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                La sessione restera&apos; visibile tra le cotture in corso finche&apos; non la chiudi.
-              </p>
-            </div>
-            <Button onClick={handleFinishCooking} size="lg">
-              Termina cottura
-            </Button>
-          </div>
-        </div>
-      )}
+      <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold italic leading-tight mb-6 text-center">{recipe.title}</h1>
 
       {/* Servings selector */}
-      <div className="mb-8 p-4 bg-gray-50 rounded-lg border-2 border-primary/20">
+      <div className="mb-8 p-4 bg-muted/50 rounded-lg border border-border">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <div className="text-lg sm:text-xl font-medium text-gray-700">
+          <div className="text-lg sm:text-xl font-medium text-foreground">
             Ricetta per <span className="font-bold text-primary">{originalServings}</span> {originalServings === 1 ? 'persona' : 'persone'}
           </div>
           <div className="flex items-center gap-3">
@@ -477,7 +463,7 @@ export default function CookingModePage() {
               type="number"
               value={servings}
               onChange={(e) => handleServingsChange(parseInt(e.target.value) || 1)}
-              className="w-20 h-12 text-center text-2xl font-bold border-2 border-gray-300 rounded-md focus:border-primary focus:outline-none"
+              className="w-20 h-12 text-center text-2xl font-bold border-2 border-input rounded-md focus:border-primary focus:outline-none bg-background"
               min="1"
               max="99"
             />
@@ -494,7 +480,7 @@ export default function CookingModePage() {
           </div>
         </div>
         {servings !== originalServings && (
-          <p className="text-center text-sm text-gray-600 mt-3">
+          <p className="text-center text-sm text-muted-foreground mt-3">
             ✨ Le quantità degli ingredienti sono state adattate automaticamente
           </p>
         )}
@@ -502,7 +488,7 @@ export default function CookingModePage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
-          <h2 className="text-3xl font-semibold mb-4">Ingredienti</h2>
+          <h2 className="font-display text-3xl font-semibold mb-4">Ingredienti</h2>
           <IngredientListCollapsible
             ingredients={scaledIngredients.length > 0 ? scaledIngredients : recipe.ingredients}
             defaultExpanded={true}
@@ -512,7 +498,7 @@ export default function CookingModePage() {
           />
         </div>
         <div>
-          <h2 className="text-3xl font-semibold mb-4">Preparazione</h2>
+          <h2 className="font-display text-3xl font-semibold mb-4">Preparazione</h2>
           <StepsListCollapsible
             steps={recipe.steps}
             ingredients={recipe.ingredients}
@@ -526,6 +512,36 @@ export default function CookingModePage() {
             isTimerActive={timer.isActive}
             getTimerSecondsLeft={timer.getSecondsLeft}
           />
+        </div>
+      </div>
+
+      {/* Sticky footer CTA — visible sempre, abilitata al 100% completamento */}
+      <div className="sticky bottom-0 max-lg:portrait:bottom-20 mt-8 bg-background border-t pt-2 pb-4 z-10">
+        {/* Animated progress bar */}
+        <div className="h-1 bg-muted rounded-full mb-3 overflow-hidden">
+          <div
+            className="h-full bg-primary rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+            role="progressbar"
+            aria-valuenow={Math.round(progress * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
+        </div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {isComplete
+              ? 'Ricetta completata! Puoi terminare la sessione.'
+              : `${checkedIngredients.length + checkedSteps.length} / ${recipe.ingredients.length + recipe.steps.length} elementi completati`}
+          </p>
+          <Button
+            onClick={handleFinishCooking}
+            size="lg"
+            disabled={!isComplete}
+            className="min-w-[180px] transition-all duration-200 motion-reduce:transition-none"
+          >
+            Termina cottura
+          </Button>
         </div>
       </div>
     </div>

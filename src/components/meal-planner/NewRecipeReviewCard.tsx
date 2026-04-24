@@ -66,8 +66,8 @@ export function NewRecipeReviewCard({
       className={cn(
         'rounded-xl border p-3 transition-colors',
         isSaved
-          ? 'border-green-200 bg-green-50'
-          : 'border-purple-200 bg-purple-50'
+          ? 'border-accent/30 bg-accent/8'
+          : 'border-primary/20 bg-primary/5'
       )}
     >
       {/* Header */}
@@ -75,13 +75,10 @@ export function NewRecipeReviewCard({
         <div className="flex items-start gap-2 min-w-0">
           <Sparkles className={cn(
             'h-4 w-4 mt-0.5 shrink-0',
-            isSaved ? 'text-green-500' : 'text-purple-400'
+            isSaved ? 'text-accent' : 'text-primary'
           )} />
           <div className="min-w-0">
-            <p className={cn(
-              'text-sm font-semibold leading-tight',
-              isSaved ? 'text-green-900' : 'text-purple-900'
-            )}>
+            <p className="text-sm font-semibold leading-tight text-foreground">
               {recipe.title}
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">{slotLabel}</p>
@@ -89,7 +86,7 @@ export function NewRecipeReviewCard({
         </div>
 
         {isSaved ? (
-          <div className="flex items-center gap-1 text-green-600 text-xs font-medium shrink-0">
+          <div className="flex items-center gap-1 text-accent text-xs font-medium shrink-0">
             <Check className="h-3.5 w-3.5" />
             Salvata
           </div>
@@ -97,7 +94,7 @@ export function NewRecipeReviewCard({
           <button
             type="button"
             onClick={() => setExpanded(v => !v)}
-            className="text-purple-600 hover:text-purple-800 shrink-0"
+            className="text-primary hover:text-primary-700 shrink-0"
             aria-label={expanded ? 'Chiudi' : 'Salva nel ricettario'}
           >
             {expanded ? (
@@ -118,7 +115,7 @@ export function NewRecipeReviewCard({
 
       {/* Save panel (expandable) */}
       {expanded && !isSaved && (
-        <div className="mt-3 space-y-3 border-t border-purple-200 pt-3">
+        <div className="mt-3 space-y-3 border-t border-border pt-3">
           {/* Category */}
           <div>
             <label className="text-xs font-medium text-foreground block mb-1">

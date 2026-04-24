@@ -32,7 +32,7 @@ export function PlannerHeader({
   const weekLabel = formatWeekLabel(weekStartDate);
 
   return (
-    <div className="flex items-center justify-between gap-2 flex-wrap">
+    <div className="flex flex-col items-center gap-3">
       {/* Week navigation */}
       <div className="flex items-center gap-1">
         <Button

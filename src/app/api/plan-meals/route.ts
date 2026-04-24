@@ -94,6 +94,10 @@ Usa ESATTAMENTE questa struttura per ogni ricetta nuova:
 ---
 ---
 
+- Per OGNI riga del blocco [PIANO] con type="new" devi fornire UNA ricetta completa nel blocco [RICETTE_NUOVE]
+- L'ordine deve combaciare: la prima riga type="new" del [PIANO] corrisponde alla prima ricetta in [RICETTE_NUOVE], la seconda alla seconda, e cosi' via
+- E' VIETATO usare type="new" senza scrivere la ricetta completa corrispondente in [RICETTE_NUOVE]
+
 REGOLE GENERALI:
 - Ingredienti nel formato "nome, quantità" (es: "Pasta, 200 g", "Sale, q.b.")
 - Prefix ogni ingrediente con un riferimento progressivo globale nel formato [ING:n]
@@ -142,6 +146,7 @@ function buildPlanningMessage(
   const activeDayLabels = config.activeDays
     ? config.activeDays.map(d => DAY_LABELS[Math.max(0, Math.min(6, d))])
     : DAY_LABELS;
+  const isSingleSlotRegeneration = activeDayLabels.length === 1 && config.activeMealTypes.length === 1;
 
   // Build per-meal category hints from mealTypeConfigs (new) or courseCategoryMap (legacy fallback)
   let mealCategoryHints = '';
@@ -195,7 +200,7 @@ function buildPlanningMessage(
     ? `Genera ricette nuove (type="new") distribuite così:\n${newRecipeLines}\n  (totale: ${config.newRecipeCount})`
     : `Genera esattamente ${config.newRecipeCount} ricette nuove (type="new")`;
 
-  return `${familyPromptContext}Crea un piano pasti per la settimana: ${weekLabel}
+  return `${familyPromptContext}${isSingleSlotRegeneration ? 'Rigenera un singolo slot del piano pasti.' : `Crea un piano pasti per la settimana: ${weekLabel}`}
 
 PARAMETRI:
 - Stagione: ${config.season}
@@ -236,7 +241,11 @@ ISTRUZIONI:
 }
 7. Non ripetere la stessa ricetta più di una volta nella settimana
 8. Varia i tipi di piatto e gli ingredienti principali
-9. Se il ricettario ha poche ricette o nessuna, usa type="new" per colmare i gap`;
+9. Se il ricettario ha poche ricette o nessuna, usa type="new" per colmare i gap${
+  isSingleSlotRegeneration
+    ? `\n10. Stai lavorando su UN SOLO slot: restituisci una sola riga nel blocco [PIANO]\n11. Se scegli type="new", nel blocco [RICETTE_NUOVE] devi scrivere esattamente UNA ricetta completa e parseabile\n12. Se la richiesta utente e' una modifica locale del piatto corrente, preferisci una variante coerente dello stesso piatto invece di cambiare completamente direzione`
+    : ''
+}`;
 }
 
 /**
@@ -262,18 +271,19 @@ ISTRUZIONI:
 function parsePlanResponse(
   fullText: string,
   existingRecipeIds: Set<string>
-): { slots: MealSlot[] } {
+): { slots: MealSlot[]; expectedNewSlots: number; parsedNewRecipes: number } {
   const pianoMatch = fullText.match(/\[PIANO\]([\s\S]*?)\[\/PIANO\]/i);
   const ricetteMatch = fullText.match(/\[RICETTE_NUOVE\]([\s\S]*?)\[\/RICETTE_NUOVE\]/i);
 
   if (!pianoMatch) {
-    return { slots: [] };
+    return { slots: [], expectedNewSlots: 0, parsedNewRecipes: 0 };
   }
 
   // Parse ALL new recipes upfront — will be assigned to slots in order
   const newRecipesMarkdown = ricetteMatch ? ricetteMatch[1].trim() : '';
   const parsedNewRecipes = newRecipesMarkdown ? parseExtractedRecipes(newRecipesMarkdown) : [];
   let newRecipeIndex = 0;
+  let expectedNewSlots = 0;
 
   const lines = pianoMatch[1]
     .split('\n')
@@ -315,6 +325,7 @@ function parsePlanResponse(
           newRecipe: null,
         });
       } else if (parsed.type === 'new') {
+        expectedNewSlots++;
         // Assign the next parsed recipe in sequence — no title matching needed
         const newRecipe = parsedNewRecipes[newRecipeIndex++] ?? null;
         const VALID_SEASONS = ['primavera', 'estate', 'autunno', 'inverno', 'tutte_stagioni'];
@@ -335,7 +346,7 @@ function parsePlanResponse(
     }
   }
 
-  return { slots };
+  return { slots, expectedNewSlots, parsedNewRecipes: parsedNewRecipes.length };
 }
 
 /**
@@ -465,12 +476,22 @@ export async function POST(request: NextRequest) {
       .map(block => (block as { type: 'text'; text: string }).text)
       .join('\n');
 
-    let { slots } = parsePlanResponse(fullText, existingRecipeIds);
+    let { slots, expectedNewSlots, parsedNewRecipes } = parsePlanResponse(fullText, existingRecipeIds);
 
     // Server-side safeguard: discard slots for days not in activeDays
     if (config.activeDays && config.activeDays.length > 0) {
       const activeDaySet = new Set(config.activeDays);
       slots = slots.filter(s => activeDaySet.has(s.dayIndex));
+    }
+
+    if (expectedNewSlots > parsedNewRecipes) {
+      return NextResponse.json(
+        {
+          error: 'L\'AI ha restituito una nuova ricetta incompleta. Riprova con una richiesta piu\' semplice o rigenera di nuovo lo slot.',
+          details: `Nuovi slot richiesti: ${expectedNewSlots}, ricette parseate: ${parsedNewRecipes}`,
+        },
+        { status: 500 }
+      );
     }
 
     if (slots.length === 0) {

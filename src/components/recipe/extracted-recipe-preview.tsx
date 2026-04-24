@@ -90,11 +90,11 @@ export function ExtractedRecipePreview({
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold">
               {index + 1}
             </span>
-            <h3 className="text-2xl font-bold text-gray-900">{recipe.title}</h3>
+            <h3 className="text-2xl font-bold text-foreground">{recipe.title}</h3>
           </div>
 
           {/* Metadata */}
-          <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             {recipe.servings && (
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
@@ -125,7 +125,7 @@ export function ExtractedRecipePreview({
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-foreground mb-1">
                   Categoria
                 </label>
                 <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export function ExtractedRecipePreview({
                     placeholder="Nome categoria"
                   />
                   {recipe.aiSuggestion.isNewCategory && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                    <span className="text-xs bg-accent/12 text-accent px-2 py-1 rounded">
                       Nuova
                     </span>
                   )}
@@ -203,18 +203,18 @@ export function ExtractedRecipePreview({
               {Array.from(ingredientSections.entries()).map(([sectionName, ingredients]) => (
                 <div key={sectionName}>
                   {ingredientSections.size > 1 && (
-                    <h5 className="font-medium text-gray-700 mb-2">
+                    <h5 className="font-medium text-foreground mb-2">
                       {sectionName}
                     </h5>
                   )}
                   <ul className="space-y-1 ml-4">
                     {ingredients.map(ing => (
                       <li key={ing.id} className="flex items-baseline gap-2">
-                        <span className="text-gray-400">•</span>
+                        <span className="text-muted-foreground">•</span>
                         <span className="flex-1">
                           <span className="font-medium">{ing.name}</span>
                           {ing.quantity && (
-                            <span className="text-gray-600 ml-2">- {ing.quantity}</span>
+                            <span className="text-muted-foreground ml-2">- {ing.quantity}</span>
                           )}
                         </span>
                       </li>
@@ -232,7 +232,7 @@ export function ExtractedRecipePreview({
               {Array.from(stepSections.entries()).map(([sectionName, steps]) => (
                 <div key={sectionName}>
                   {stepSections.size > 1 && (
-                    <h5 className="font-medium text-gray-700 mb-2">
+                    <h5 className="font-medium text-foreground mb-2">
                       {sectionName}
                     </h5>
                   )}
@@ -242,7 +242,7 @@ export function ExtractedRecipePreview({
                         <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex-shrink-0 mt-0.5">
                           {step.order}
                         </span>
-                        <span className="flex-1 text-gray-700 leading-relaxed">
+                        <span className="flex-1 text-foreground leading-relaxed">
                           {step.description}
                         </span>
                       </li>
@@ -258,7 +258,7 @@ export function ExtractedRecipePreview({
             <div>
               <h4 className="text-lg font-semibold mb-2">Note</h4>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-gray-700 whitespace-pre-line">{recipe.notes}</p>
+                <p className="text-sm text-foreground whitespace-pre-line">{recipe.notes}</p>
               </div>
             </div>
           )}

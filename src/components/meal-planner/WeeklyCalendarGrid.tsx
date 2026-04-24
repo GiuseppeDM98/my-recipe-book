@@ -82,12 +82,14 @@ export function WeeklyCalendarGrid({
       {/* ─────────────────────────────────────────
           DESKTOP GRID (≥1440px and landscape)
           8-column grid: meal labels | 7 days
+          overflow-x-auto ensures narrow landscape phones can scroll
+          rather than cramping columns below 72px.
           ───────────────────────────────────────── */}
-      <div className="hidden lg:block max-lg:portrait:hidden max-lg:landscape:block">
+      <div className="hidden lg:block max-lg:portrait:hidden max-lg:landscape:block overflow-x-auto">
         {/* Day headers */}
         <div
-          className="grid gap-2 mb-2"
-          style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, 1fr)` }}
+          className="grid gap-2 mb-2 min-w-max"
+          style={{ gridTemplateColumns: `88px repeat(${activeDays.length}, minmax(150px, 1fr))` }}
         >
           {/* Empty corner */}
           <div />
@@ -104,7 +106,7 @@ export function WeeklyCalendarGrid({
           <div
             key={mealType}
             className="grid gap-2 mb-2"
-            style={{ gridTemplateColumns: `80px repeat(${activeDays.length}, 1fr)` }}
+            style={{ gridTemplateColumns: `88px repeat(${activeDays.length}, minmax(150px, 1fr))` }}
           >
             {/* Meal type label */}
             <div className="flex items-center">
@@ -123,7 +125,7 @@ export function WeeklyCalendarGrid({
                   slot={slot}
                   isNew={isNewRecipeSlot(slot)}
                   onClick={() => onSlotClick(dayIndex, mealType)}
-                  onSaveNewRecipe={slot ? () => onSaveNewRecipe(slot) : undefined}
+                  onSaveNewRecipe={slot?.newRecipe ? () => onSaveNewRecipe(slot) : undefined}
                   onRegenerate={slot ? () => onRegenerateSlot(dayIndex, mealType) : undefined}
                   isRegenerating={regeneratingSlots.has(slotKey)}
                 />
@@ -138,13 +140,15 @@ export function WeeklyCalendarGrid({
           Each card = one day with meal rows inside
           ───────────────────────────────────────── */}
       <div className="block lg:hidden max-lg:portrait:block max-lg:landscape:hidden space-y-3">
-        {activeDays.map(dayIndex => (
+        {activeDays.map((dayIndex, i) => (
           <div
             key={dayIndex}
             className={cn(
               'rounded-xl border bg-card p-3',
+              'animate-fade-up motion-reduce:animate-none',
               isToday(dayIndex) ? 'border-primary/50 bg-primary/5' : 'border-border'
             )}
+            style={{ animationDelay: `${i * 40}ms` }}
           >
             {/* Day header */}
             <div className="flex items-center gap-2 mb-3">
@@ -169,7 +173,7 @@ export function WeeklyCalendarGrid({
                         slot={slot}
                         isNew={isNewRecipeSlot(slot)}
                         onClick={() => onSlotClick(dayIndex, mealType)}
-                        onSaveNewRecipe={slot ? () => onSaveNewRecipe(slot) : undefined}
+                        onSaveNewRecipe={slot?.newRecipe ? () => onSaveNewRecipe(slot) : undefined}
                         onRegenerate={slot ? () => onRegenerateSlot(dayIndex, mealType) : undefined}
                         isRegenerating={regeneratingSlots.has(slotKey)}
                       />

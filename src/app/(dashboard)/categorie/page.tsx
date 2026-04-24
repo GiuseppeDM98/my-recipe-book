@@ -247,9 +247,9 @@ export default function GestioneCategoriePage() {
   }
 
   return (
-    <div className="container mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Categorie</h1>
+    <div>
+      <div className="mb-8">
+        <h1 className="font-display text-4xl font-semibold italic">Categorie</h1>
       </div>
 
       {/* Create Form */}
@@ -291,7 +291,7 @@ export default function GestioneCategoriePage() {
       {/* === CATEGORY LIST === */}
       {categories.length === 0 ? (
         <Card className="p-12 text-center">
-          <p className="text-gray-500">Nessuna categoria trovata</p>
+          <p className="text-muted-foreground">Nessuna categoria trovata</p>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -308,7 +308,7 @@ export default function GestioneCategoriePage() {
                     </span>
                     <div className="flex-grow min-w-0">
                       <h3 className="font-semibold text-base sm:text-lg truncate">{cat.name}</h3>
-                      <p className="text-xs sm:text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {cat.isDefault ? 'Predefinita' : 'Personalizzata'}
                       </p>
                     </div>
@@ -351,7 +351,7 @@ export default function GestioneCategoriePage() {
                       {subcategories[cat.id]?.length > 0 ? (
                         <div className="space-y-2">
                           {subcategories[cat.id].map((sub) => (
-                            <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 bg-gray-50 rounded">
+                            <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 bg-muted/30 rounded">
                               <span className="flex-grow min-w-0 text-sm sm:text-base break-words">{sub.name}</span>
                               <div className="flex gap-2">
                                 <Button
@@ -375,7 +375,7 @@ export default function GestioneCategoriePage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-xs sm:text-sm text-gray-500">Nessuna sottocategoria</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Nessuna sottocategoria</p>
                       )}
                     </div>
                     {addingSubcategoryTo === cat.id ? (

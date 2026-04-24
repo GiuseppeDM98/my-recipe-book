@@ -18,15 +18,15 @@ export function ShoppingProgressBar({ checked, total }: ShoppingProgressBarProps
         <span className="text-muted-foreground">
           {checked} di {total} articoli
         </span>
-        <span className={cn('font-medium', percent === 100 ? 'text-green-600' : 'text-primary')}>
+        <span className={cn('font-medium', percent === 100 ? 'text-accent' : 'text-primary')}>
           {percent}%
         </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
         <div
           className={cn(
             'h-full rounded-full transition-all duration-300',
-            percent === 100 ? 'bg-green-500' : 'bg-primary'
+            percent === 100 ? 'bg-accent' : 'bg-primary'
           )}
           style={{ width: `${percent}%` }}
         />

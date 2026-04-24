@@ -32,6 +32,19 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed active cooking sessions not appearing on the "In cucina" page without a hard refresh — the page now updates immediately after starting or finishing a cooking session
+- Fixed a brief loading flash on the "In cucina" page that caused visible layout shift between the empty state and the session cards
+- Fixed a brief loading flash on the AI Assistant page when switching between the "Free Text" and "Chat AI" tabs — both tabs now load instantly
+- Fixed the meal planner sidebar drawer on tablets and mobile landscape so it no longer appears transparent over the page content
+- Fixed meal planner AI recipe cards showing a misleading “Save to cookbook” action when the generated recipe payload was no longer complete
+- Fixed saving AI-generated planner recipes to the cookbook by normalizing optional recipe fields before persistence
+- Fixed planner slot regeneration replacing a valid slot with an inconsistent AI result when the response was only partially structured
+- Fixed the recipe step editor on mobile so step descriptions now use the full available width instead of being squeezed by the move/delete controls
+- Fixed the recipe step editor feeling visually pushed to the right during editing, with a calmer in-card step marker and less intrusive controls
+- Fixed cooking mode pages displaying with excessive padding on all screen sizes — content was pushed in from both the layout and the page itself
+- Fixed recipe page action buttons (Edit, Delete, Start Cooking) overflowing off-screen on narrow mobile phones
+- Fixed the AI Assistant tabs (Upload PDF, Free Text, Chat AI) overflowing horizontally on phones narrower than about 400px
+- Fixed input fields, dropdowns, and text areas in recipe editing and the family profile page showing a white background instead of the app's warm cream theme
 - Fixed ingredient names disappearing from recipe steps when AI-generated or adapted recipes used a quantity reference without explicitly writing the ingredient name in the step text (e.g. "Add 15 g and stir" now correctly shows "Add 15 g of walnuts and stir")
 - Fixed AI Assistant requests failing with unauthorized errors after the new protected AI authentication checks
 - Fixed cooking sessions closing automatically as soon as all ingredients and steps were checked
@@ -46,11 +59,64 @@
 
 ## 🔧 Improvements
 
+- Improved the meal planner regeneration flow with a dedicated dialog for optional notes to the AI
+- Improved planner regeneration results by giving the AI the current recipe context, so targeted changes are more likely to stay close to the original dish
+- Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
+- Improved planner loading behavior by removing distracting global loading flashes on protected pages
+- Improved the planner generation state with a more polished editorial animation while the AI prepares the week
+- Improved desktop readability in the meal planner so long recipe names are easier to read in the weekly grid
+- Improved the AI Assistant startup path by loading cookbook data only when the chat tab actually needs it
+- Improved recipe page filter performance and planner-related loading responsiveness across the app
+- Improved the overall app atmosphere with a more cinematic editorial shell, including warmer framed surfaces, softer depth, and a more immersive cookbook feel across the dashboard
+- Improved the main navigation across desktop and mobile with more refined header, sidebar, bottom navigation, and “More” sheet styling
+- Improved the Recipes page, recipe cards, recipe detail view, and AI Assistant with a more cohesive editorial presentation and stronger visual continuity
+- Improved the login and registration experience with a warmer cookbook-style layout, clearer messaging, and cleaner inline error feedback
+- Improved loading moments across the app with more polished, contextual waiting states on key pages such as Recipes, Meal Planner, Shopping List, Statistics, and the AI Assistant
+- Improved empty states across key pages so first-time and no-result screens now feel more intentional and easier to understand
+- Improved AI Assistant feedback panels for warnings, errors, and ready-to-save results with a more consistent visual style
+- Improved the AI chat experience with a more refined welcome state, clearer message bubbles, and a smoother typing indicator
+- Improved in-app toast notifications with a more cohesive visual style that matches the app's warm editorial theme
+
+- Improved recipe cards with a subtle lift on hover, making them feel more responsive and inviting to tap
+- Improved the recipe list with a staggered entrance animation — cards reveal in sequence as the page loads, giving the collection a more editorial feel
+- Improved the bottom navigation bar with a scale-up effect on the active tab icon and a brief press-down feedback when tapping any tab
+- Improved sidebar navigation links with a gentle nudge-right on hover
+- Improved cooking mode with an animated progress bar in the footer — the terracotta fill grows smoothly as you check off ingredients and steps, giving a continuous visual sense of progress
+- Improved cooking mode timer chips with a slide-in animation when a new timer starts
+- Improved the meal planner setup screen and cooking mode setup card with a fade-up entrance animation
+- Improved meal planner slots with hover feedback — empty slots scale up slightly to invite interaction, occupied slots gain a subtle shadow on hover
+- Improved meal planner slot regeneration state with a pulsing background instead of just a spinner, making it clearer that the whole slot is updating
+- Improved mobile meal planner with a staggered entrance for the seven day cards, so the week reveals naturally from top to bottom
+- Improved recipe and cooking mode page titles to scale down gracefully on mobile instead of filling the screen at a fixed large size
+- Improved the shopping list page layout so the content sits at a comfortable reading width on large screens, matching the style of the statistics and family profile pages
+- Improved the meal planner weekly calendar on small landscape phones — day columns now maintain a minimum readable width and the grid scrolls horizontally when needed, instead of squeezing all seven days into illegible narrow cells
+- Improved the recipe card design — recipe titles now display in the editorial Bodoni Moda italic font, with the category shown as a small coloured label above the title and a cleaner footer row for cooking time and servings
+- Improved the recipe detail page — servings, prep time, cook time, and total time are now shown as a single inline row with large numerals and short labels, replacing four identical boxes that made every recipe look the same
+- Improved visual consistency across all pages — every page heading now uses the same editorial italic display font and size, giving the app a more unified and refined look
+- Improved the navigation sidebar with semantic grouping — AI tools (AI Assistant, Meal Planner, Shopping List) are now grouped under a clear "AI Tools" section label, with a more refined active page highlight and no unnecessary visual weight
+- Improved desktop layout breathing room — the main content area now has more generous horizontal and vertical padding, making pages feel more open and less cramped
+- Improved the meal planner week navigation and action buttons — they are now centred above the plan content instead of spread to opposite edges, making the layout feel more balanced
+
+- Improved visual consistency across all pages — completion states (checked ingredients, steps, shopping list sections, and progress bars) now use the design system's sage green accent instead of raw Tailwind colors, keeping the warm terracotta and sage green palette coherent everywhere
+- Improved cooking mode stop-timer button hover feedback — the tint now correctly uses the cream foreground color against the terracotta background instead of plain white
+- Improved recipe filters on the recipe list page — filters are now hidden by default in a collapsible panel; tap "Filter" to expand season, category, and subcategory controls; active filters appear as removable chips so you always know what is applied
+- Improved editorial typography throughout the app — recipe titles, page headings, and section labels (Ingredients, Preparation, Notes) now display in Bodoni Moda italic as intended, giving the interface a stronger cookbook feel
+- Improved cooking mode with a persistent "Finish cooking" button in a sticky footer — the button is always visible and activates automatically when all ingredients and steps are checked; it can no longer be accidentally dismissed
+- Improved empty states across the app with distinct visuals per page — each empty page now has a relevant emoji, italic heading, and a softer background instead of a generic dashed border
+- Improved meal planner slot design — cookbook recipes and AI-generated recipes are now distinguished by small corner badges (book icon vs. sparkle icon) instead of colored side borders
+- Improved shopping list week navigation with an explicit "Week of…" label so the selected week is always clear
 - Improved the overall visual design with a warm cream background and terracotta accents inspired by Italian cookbooks, replacing the default white interface
 - Improved typography throughout the app with Bodoni Moda editorial headings and Jost body text, giving the interface a more refined cookbook feel
 - Improved season badges on recipe detail pages to use the app's warm terracotta palette instead of blue
 - Improved the Statistics page layout — replaced three identical metric cards with a cleaner editorial summary showing your total count, most-cooked dish, and recent activity in a more readable format
 - Improved collapsible sections in cooking mode and the shopping list with smoother, more natural open/close animations
+- Improved the app header — the "Il Mio Ricettario" brand name now displays in terracotta, making the identity visible at a glance
+- Improved the navigation sidebar — the "AI Tools" section label now uses the sage green accent colour to visually separate it from the main navigation links
+- Improved the bottom navigation bar on mobile — the active tab now shows a warm terracotta pill behind the icon, making your current location clearer
+- Improved recipe cards — cooking time and servings now display with small icons alongside the text, adding visual warmth without extra noise
+- Improved season badges on recipe detail pages — they now correctly display with a terracotta tint background and label (they were previously rendering with no colour due to a palette mismatch)
+- Improved the Statistics page — the total cooking count is now shown in terracotta, and the top-ranked recipe gets a subtle highlighted background to help it stand out
+- Improved active cooking session cards — recipe titles now use the editorial italic display font, and the ingredients and steps progress indicators now show distinct coloured icons
 - Improved bottom navigation on iPhone and iPad to respect the safe area at the bottom of the screen, preventing content from being hidden behind the home indicator
 - Improved cooking mode so interactive ingredient and step rows can now be navigated and checked via keyboard, in addition to touch
 - Improved cooking mode with a clear "Finish cooking" action after completing a recipe

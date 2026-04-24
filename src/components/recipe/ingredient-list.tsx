@@ -13,7 +13,7 @@ export function IngredientList({ ingredients }: IngredientListProps) {
           <div>
             <span className="font-medium">{ingredient.name}</span>
             {ingredient.quantity && (
-              <span className="text-gray-500 ml-2">({ingredient.quantity})</span>
+              <span className="text-muted-foreground ml-2">({ingredient.quantity})</span>
             )}
           </div>
         </li>

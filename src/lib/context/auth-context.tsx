@@ -15,7 +15,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { User } from '@/types';
 import { initializeDefaultCategories } from '../firebase/categories';
-import { Spinner } from '@/components/ui/spinner';
 import { ensureUserProfileDocument } from '../firebase/user-profile';
 
 /**
@@ -171,20 +170,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signInWithGoogle,
     signOut,
   };
-
-  // Show full-screen loading overlay during initial auth check
-  // Prevents flash of unauthenticated content (FOUC) and blocks access
-  // to protected routes until auth state is known
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Spinner size="lg" />
-          <p className="text-sm text-gray-600">Caricamento...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <AuthContext.Provider value={value}>

@@ -38,8 +38,8 @@ export function ShoppingSection({
           'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left',
           'font-semibold text-sm transition-colors',
           allChecked
-            ? 'text-green-600 bg-green-50 border border-green-200'
-            : 'text-gray-700 hover:bg-gray-100'
+            ? 'text-accent bg-accent/8 border border-accent/30'
+            : 'text-foreground hover:bg-muted'
         )}
       >
         {expanded ? (
@@ -53,7 +53,7 @@ export function ShoppingSection({
         </span>
         <span className={cn(
           'text-xs font-normal',
-          allChecked ? 'text-green-500' : 'text-muted-foreground'
+          allChecked ? 'text-accent' : 'text-muted-foreground'
         )}>
           {checkedCount}/{items.length}
         </span>

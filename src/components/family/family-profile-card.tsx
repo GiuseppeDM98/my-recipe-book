@@ -114,7 +114,7 @@ export function FamilyProfileCard({
               value={member.label}
               onChange={(e) => updateMember(member.id, 'label', e.target.value)}
               placeholder={`Componente ${index + 1} (opzionale)`}
-              className="rounded-md border border-border px-3 py-2 text-sm"
+              className="rounded-md border border-input px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
             <input
               type="number"
@@ -123,7 +123,7 @@ export function FamilyProfileCard({
               value={member.age}
               onChange={(e) => updateMember(member.id, 'age', e.target.value)}
               placeholder="Età"
-              className="rounded-md border border-border px-3 py-2 text-sm"
+              className="rounded-md border border-input px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
             />
             <Button
               type="button"
@@ -151,12 +151,12 @@ export function FamilyProfileCard({
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           placeholder="Esempio: due adulti, un bimbo di 4 anni, preferenza per porzioni moderate a cena."
-          className="w-full rounded-md border border-border px-3 py-2 text-sm"
+          className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         />
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {success && <p className="text-sm text-green-700">{success}</p>}
+      {success && <p className="text-sm text-accent">{success}</p>}
       {isLoading && <p className="text-sm text-muted-foreground">Caricamento profilo famiglia...</p>}
 
       <Button type="button" onClick={handleSave} disabled={isSaving}>

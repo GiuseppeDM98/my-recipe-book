@@ -26,12 +26,13 @@ export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
         side="bottom"
         showClose={false}
         className={cn(
-          'max-lg:portrait:rounded-t-xl',
+          'max-lg:portrait:rounded-t-[1.75rem] border-border/70 bg-[linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(96%_0.012_74)_100%)]',
           'lg:hidden max-lg:landscape:hidden'
         )}
       >
         <SheetHeader>
-          <SheetTitle>Altro</SheetTitle>
+          <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-border/90" />
+          <SheetTitle className="font-display text-3xl font-semibold italic">Altro</SheetTitle>
           <SheetDescription className="sr-only">
             Menu aggiuntivo con altre opzioni dell'app
           </SheetDescription>
@@ -46,11 +47,13 @@ export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
                 href={item.href}
                 onClick={() => onOpenChange(false)}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-4 py-3',
-                  'text-sm font-medium hover:bg-accent transition-colors'
+                  'group flex items-center gap-3 rounded-[1.1rem] px-4 py-3.5',
+                  'shell-panel text-sm font-medium transition-all duration-200 motion-reduce:transition-none hover:-translate-y-0.5'
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-primary/14 bg-primary/8 text-primary">
+                  <Icon className="h-5 w-5" />
+                </span>
                 <span>{item.label}</span>
               </Link>
             );

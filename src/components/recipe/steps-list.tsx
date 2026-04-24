@@ -18,7 +18,7 @@ export function StepsList({
     <ol className="space-y-4">
       {steps.map((step, index) => (
         <li key={step.id} className="flex items-start">
-          <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary-600 text-white font-bold mr-4">
+          <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold mr-4">
             {index + 1}
           </div>
           <div className="flex-1">
@@ -40,7 +40,7 @@ export function StepsList({
                 <div className="space-y-2">
                   {lines.map((line, idx) => (
                     <div key={idx} className="flex items-start gap-2">
-                      <span className="text-gray-500 mt-1 flex-shrink-0">•</span>
+                      <span className="text-muted-foreground mt-1 flex-shrink-0">•</span>
                       <p className="flex-1">{line}</p>
                     </div>
                   ))}

@@ -22,8 +22,13 @@ import { useAuth } from '@/lib/hooks/useAuth';
 /** Returns the query key for a user's recipe list (use at mutation call-sites to invalidate) */
 export const recipesQueryKey = (uid: string) => ['recipes', uid] as const;
 
-export function useRecipes() {
+interface UseRecipesOptions {
+  enabled?: boolean;
+}
+
+export function useRecipes(options?: UseRecipesOptions) {
   const { user } = useAuth();
+  const isQueryEnabled = (options?.enabled ?? true) && !!user;
 
   const {
     data: recipes = [],
@@ -33,7 +38,9 @@ export function useRecipes() {
   } = useQuery({
     // Disable the query while the user is not authenticated — avoids
     // sending an unauthenticated Firestore request on initial render.
-    enabled: !!user,
+    // Callers can also keep the query idle until a specific UI path is active
+    // (for example the AI chat tab), reducing unnecessary initial reads.
+    enabled: isQueryEnabled,
     queryKey: recipesQueryKey(user?.uid ?? ''),
     queryFn: () => getUserRecipes(user!.uid),
   });

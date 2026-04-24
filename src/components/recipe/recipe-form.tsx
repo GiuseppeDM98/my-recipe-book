@@ -470,7 +470,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         <label htmlFor="recipe-description" className="block text-sm font-medium mb-2">Descrizione</label>
         <textarea
           id="recipe-description"
-          className="w-full border rounded-md p-2"
+          className="w-full border border-input rounded-md p-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
@@ -535,7 +535,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
 
         <div className="space-y-4">
           {ingredientSections.map((section) => (
-            <div key={section.id} className="border rounded-lg p-4 bg-gray-50">
+            <div key={section.id} className="border rounded-lg p-4 bg-muted/30">
               {/* Header Sezione */}
               <div className="flex items-center gap-2 mb-3">
                 <>
@@ -562,7 +562,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
               <div className="space-y-2 ml-6">
                 {section.ingredients.map((ing) => (
                   <div key={ing.id} className="flex gap-2 items-center bg-background p-2 rounded border">
-                    <span className="text-gray-400">•</span>
+                    <span className="text-muted-foreground">•</span>
                     <Input
                       placeholder="Nome ingrediente"
                       value={ing.name}
@@ -620,10 +620,10 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
           </div>
         </div>
         {autoDetectDurationSummary && (
-          <p className="mb-3 text-sm text-gray-600">{autoDetectDurationSummary}</p>
+          <p className="mb-3 text-sm text-muted-foreground">{autoDetectDurationSummary}</p>
         )}
         {autoAdaptSummary && (
-          <p className="mb-3 text-sm text-gray-600">{autoAdaptSummary}</p>
+          <p className="mb-3 text-sm text-muted-foreground">{autoAdaptSummary}</p>
         )}
         <div className="space-y-3">
           {steps.map((step, idx) => {
@@ -646,12 +646,54 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
             );
 
             return (
-              <div key={step.id} className="border rounded-lg p-3 space-y-3">
-                <div className="flex items-start gap-2">
-                  <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
-                    {idx + 1}
-                  </span>
-                  <div className="flex-1 space-y-2">
+              <div key={step.id} className="rounded-[1rem] border border-border bg-background p-3 sm:p-4 space-y-3">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-primary/10 px-2 text-xs font-semibold text-primary">
+                        {idx + 1}
+                      </span>
+                      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        Step
+                      </span>
+                    </div>
+                    <div className="hidden shrink-0 items-center gap-1 rounded-full border border-border bg-muted/25 p-1 sm:flex">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveStep(idx, idx - 1)}
+                        disabled={idx === 0}
+                        className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                        title="Sposta in alto"
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => moveStep(idx, idx + 1)}
+                        disabled={idx === steps.length - 1}
+                        className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                        title="Sposta in basso"
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeStep(step.id)}
+                        className="h-8 w-8 rounded-full p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        title="Elimina step"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
                     <Input
                       value={step.section || ''}
                       onChange={(e) => updateStep(step.id, 'section', e.target.value)}
@@ -659,7 +701,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                       className="font-medium"
                     />
                     <textarea
-                      className="w-full border rounded-md p-2"
+                      className="w-full border border-input rounded-md p-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       value={step.description}
                       onChange={(e) => updateStep(step.id, 'description', e.target.value)}
                       rows={3}
@@ -668,7 +710,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                     {/* Duration input — optional. When set, activates the countdown timer
                         in cooking mode so the user can start it directly from the step. */}
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600 whitespace-nowrap" htmlFor={`duration-${step.id}`}>
+                      <label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor={`duration-${step.id}`}>
                         Durata (min)
                       </label>
                       <Input
@@ -684,11 +726,11 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                         placeholder="es. 10"
                         className="w-24 text-sm"
                       />
-                      <span className="text-xs text-gray-400">Opzionale — attiva il timer in cottura</span>
+                      <span className="text-xs text-muted-foreground">Opzionale — attiva il timer in cottura</span>
                     </div>
-                    <div className="rounded-md border bg-gray-50 p-3 space-y-3">
+                    <div className="rounded-md border bg-muted/30 p-3 space-y-3">
                       <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                        <label className="text-xs font-medium text-gray-700 md:w-40">
+                        <label className="text-xs font-medium text-foreground md:w-40">
                           Quantità dinamiche
                         </label>
                         <select
@@ -724,52 +766,54 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
                       </div>
 
                       {linkedIngredients.length > 0 && (
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           Collegamenti attivi: {linkedIngredients.map(getIngredientLabel).join(' · ')}
                         </div>
                       )}
 
-                      <div className="text-xs text-gray-600">
-                        Anteprima step: <span className="text-gray-800">{previewDescription || 'Nessun testo'}</span>
+                      <div className="text-xs text-muted-foreground">
+                        Anteprima step: <span className="text-foreground">{previewDescription || 'Nessun testo'}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+
+                  <div className="flex items-center justify-end gap-1 rounded-full border border-border bg-muted/25 p-1 sm:hidden">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => moveStep(idx, idx - 1)}
                       disabled={idx === 0}
-                      className="flex-shrink-0"
+                      className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
                       title="Sposta in alto"
                     >
-                      <ArrowUp className="w-4 h-4" />
+                      <ArrowUp className="h-4 w-4" />
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => moveStep(idx, idx + 1)}
                       disabled={idx === steps.length - 1}
-                      className="flex-shrink-0"
+                      className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
                       title="Sposta in basso"
                     >
-                      <ArrowDown className="w-4 h-4" />
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeStep(step.id)}
+                      className="h-8 w-8 rounded-full p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Elimina step"
+                    >
+                      ✕
                     </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeStep(step.id)}
-                    className="flex-shrink-0"
-                  >
-                    ✕
-                  </Button>
                 </div>
                 {step.section && (
-                  <div className="ml-10 text-xs text-gray-500 italic">
+                  <div className="text-xs text-muted-foreground italic">
                     Questo step sarà raggruppato nella sezione "{step.section}"
                   </div>
                 )}

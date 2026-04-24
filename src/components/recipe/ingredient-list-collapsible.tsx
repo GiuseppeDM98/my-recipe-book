@@ -143,7 +143,7 @@ export function IngredientListCollapsible({
           return (
             <div key={sectionKey} className={cn(
               interactive && sectionComplete
-                ? 'rounded-lg border border-green-400 bg-green-50 p-3 transition-colors duration-300'
+                ? 'rounded-lg border border-accent/40 bg-accent/8 p-3 transition-colors duration-300'
                 : ''
             )}>
             <ul className="space-y-3">
@@ -190,7 +190,7 @@ export function IngredientListCollapsible({
         return (
           <div key={sectionKey} className={cn(
             'border rounded-lg overflow-hidden transition-colors duration-300',
-            sectionComplete ? 'border-green-400 bg-green-50' : 'border-border'
+            sectionComplete ? 'border-accent/40 bg-accent/8' : 'border-border'
           )}>
             {/* Section Header */}
             <button
@@ -198,19 +198,19 @@ export function IngredientListCollapsible({
               aria-expanded={isExpanded}
               className={cn(
                 'w-full flex items-center justify-between p-4 transition-colors',
-                sectionComplete ? 'bg-green-100 hover:bg-green-200' : 'bg-secondary hover:bg-secondary/80'
+                sectionComplete ? 'bg-accent/12 hover:bg-accent/18' : 'bg-secondary hover:bg-secondary/80'
               )}
             >
               <div className="flex items-center gap-3">
                 {isExpanded ? (
-                  <ChevronDown className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
+                  <ChevronDown className={cn('w-5 h-5', sectionComplete ? 'text-accent' : 'text-muted-foreground')} />
                 ) : (
-                  <ChevronRight className={cn('w-5 h-5', sectionComplete ? 'text-green-600' : 'text-gray-600')} />
+                  <ChevronRight className={cn('w-5 h-5', sectionComplete ? 'text-accent' : 'text-muted-foreground')} />
                 )}
-                <h3 className={cn('font-semibold text-lg', sectionComplete ? 'text-green-700' : 'text-gray-900')}>
+                <h3 className={cn('font-semibold text-lg', sectionComplete ? 'text-accent' : 'text-foreground')}>
                   {group.section}
                 </h3>
-                {sectionComplete && <span className="ml-2 text-green-600">&#10003;</span>}
+                {sectionComplete && <span className="ml-2 text-accent">&#10003;</span>}
               </div>
             </button>
 
@@ -228,7 +228,7 @@ export function IngredientListCollapsible({
                     return (
                       <li
                         key={ingredient.id}
-                        className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors' : ''}`}
+                        className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors' : ''}`}
                         onClick={() => interactive && onToggleIngredient?.(ingredient.id)}
                       >
                         {interactive ? (
@@ -241,10 +241,10 @@ export function IngredientListCollapsible({
                         ) : (
                           <span className="flex-shrink-0 mr-3 text-primary">&#10003;</span>
                         )}
-                        <div className={isChecked && interactive ? 'line-through text-gray-400' : ''}>
+                        <div className={isChecked && interactive ? 'line-through text-muted-foreground' : ''}>
                           <span className="font-medium">{ingredient.name}</span>
                           {ingredient.quantity && (
-                            <span className="text-gray-500 ml-2">({ingredient.quantity})</span>
+                            <span className="text-muted-foreground ml-2">({ingredient.quantity})</span>
                           )}
                         </div>
                       </li>

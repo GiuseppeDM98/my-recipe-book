@@ -48,6 +48,8 @@ Designed for home cooks who want to digitize their recipe collections without co
 
 The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself.
 
+Loading states, empty states, and inline feedback follow the same warm editorial language so the app stays coherent even during waiting, first-use, or error moments. The main dashboard shell and high-traffic pages now also share a more cinematic editorial framing, so moving between recipes, AI tools, and detail pages feels like browsing one curated object rather than separate app screens.
+
 ---
 
 ## Features
@@ -57,11 +59,12 @@ The interface uses a warm cream palette, Bodoni Moda editorial headings, and ter
 - **Complete CRUD Operations**: Create, read, update, and delete recipes with full metadata support
 - **Sectioned Organization**: Organize ingredients and steps into sections (e.g., "For the dough", "For the filling")
 - **Manual Step Reordering**: Move preparation steps up or down while editing a recipe
+- **Mobile-Friendly Step Editor**: Step numbers and controls stay compact while editing, so descriptions keep their full readable width on phones
 - **Rich Metadata**: Track servings, prep time, cook time, difficulty level, and seasonal availability
 - **Smart Categorization**: Organize recipes with customizable categories and subcategories, each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)
 - **Multiple Seasons**: Assign multiple seasons to recipes (e.g., Pasta e Fagioli for both autumn and winter)
-- **Advanced Filtering**: Filter recipes by category, subcategory, and season simultaneously with live count updates
+- **Advanced Filtering**: Filter recipes by category, subcategory, and season via a collapsible panel; active filters appear as removable chips with live count updates
 
 <img width="1884" height="777" alt="image" src="https://github.com/user-attachments/assets/fa9cc1bd-f032-408a-9233-a1dd9e700dd8" />
 
@@ -80,12 +83,12 @@ The interface uses a warm cream palette, Bodoni Moda editorial headings, and ter
 
 - **Screen Wake Lock**: Uses nosleep.js to prevent your device from going to sleep while cooking
 - **Interactive Checkboxes**: Check off ingredients and steps as you complete them
-- **Progress Tracking**: Visual progress bar shows completion percentage
+- **Progress Tracking**: Animated terracotta progress bar in the sticky footer grows as you check off ingredients and steps
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
 - **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
-- **Manual Finish Flow**: When all ingredients and steps are completed, the app invites you to finish the cooking session explicitly
+- **Persistent Finish CTA**: A "Finish cooking" button in a sticky footer is always visible; it activates automatically when all ingredients and steps are checked
 - **Per-Step Countdown Timers**: Steps with a duration show an "▶ Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
 - **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
 
@@ -160,8 +163,10 @@ Plan your meals for the week — AI-assisted or fully manual.
 - **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
 - **Per-meal control**: Set how many new AI-generated recipes to include for each meal type (breakfast, lunch, dinner)
 - **Category hints**: Tell the AI which category to prefer for each meal type
-- **Edit after generation**: Click any slot to swap the recipe at any time
-- **Save AI recipes**: Newly generated recipes (shown in purple) can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
+- **Edit after generation**: Click any slot to swap the recipe manually at any time
+- **Regenerate with guidance**: Use the refresh action on a slot to ask the AI for a new suggestion, optionally with a specific note such as "no asparagus" or "keep it simpler"
+- **Day-by-day correction**: Remove individual days from an already generated week without rebuilding the whole plan
+- **Save AI recipes**: Newly generated recipes can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
 - **Quick navigation**: Green cells link directly to the full recipe page
 - **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
@@ -1713,7 +1718,6 @@ Looking for where to start? Try these:
 - **Add Unit Tests**: Cover utility functions in `src/lib/utils/`
 - **Improve Error Messages**: Make error toasts more user-friendly
 - **Add i18n Support**: Implement English localization
-- **Mobile UI Enhancements**: Improve animations and transitions
 - **Documentation**: Fix typos, improve examples, add missing sections
 - **Accessibility**: Extend WCAG AA coverage (contrast ratios, screen reader testing)
 - **Performance**: Optimize re-renders, add loading states

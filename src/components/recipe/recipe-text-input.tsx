@@ -57,7 +57,7 @@ export function RecipeTextInput({ onTextSubmit, isLoading, disabled }: RecipeTex
         disabled={isLoading || disabled}
         rows={10}
         className={`w-full rounded-lg border px-4 py-3 text-sm leading-relaxed resize-y
-          placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+          placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
           disabled:opacity-50 disabled:cursor-not-allowed
           ${isLoading || disabled ? 'bg-muted' : 'bg-background border-input'}`}
       />
@@ -65,7 +65,7 @@ export function RecipeTextInput({ onTextSubmit, isLoading, disabled }: RecipeTex
       {/* Footer: character count + submit button */}
       <div className="flex items-center justify-between">
         {/* Character count hint */}
-        <p className={`text-xs ${charCount === 0 ? 'text-gray-400' : isValid ? 'text-green-600' : 'text-orange-500'}`}>
+        <p className={`text-xs ${charCount === 0 ? 'text-muted-foreground' : isValid ? 'text-accent' : 'text-primary'}`}>
           {charCount === 0
             ? `Minimo ${MIN_CHARS} caratteri`
             : isValid

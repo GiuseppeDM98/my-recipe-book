@@ -8,8 +8,13 @@
 
 | Gotcha | Problema | Soluzione |
 |--------|----------|-----------|
+| Custom `@keyframes` in `@layer` | `@keyframes` definiti dentro `@layer utilities` vengono ignorati da Tailwind Animate | Definire `@keyframes` a root level in `globals.css`, PRIMA dei blocchi `@layer`; le classi utility che li usano vanno dentro `@layer utilities` |
+| Stagger con Tailwind | `animation-delay-[--delay]` e `[animation-delay:var(--delay)]` non funzionano come classi arbitrarie su tutti i build | Usare `style={{ animationDelay: '...' }}` inline; cap delay a 350ms su collection grandi |
 | Orientation classes | `portrait:` applica anche a desktop | Usare `max-lg:portrait:` |
-| Firebase optional | `undefined` causa errori silenziosi | Usare `null` |
+| Page self-padding | Pagina interna aggiunge `p-4 lg:p-8` su layout che già fornisce `portrait:p-4` / `lg:px-10` | Pagine dentro dashboard layout non devono aggiungere padding esterno; usare `max-w-*` solo per centrare contenuto |
+| Flex tab bar overflow | Tab con `px-5` fisso in `flex` container traboccano su ≤375px (3 tab ≈ 420px > 343px disponibili) | `px-3 sm:px-5` + `flex-shrink-0` + `overflow-x-auto` sul container |
+| CSS grid su landscape stretto | `repeat(N, 1fr)` con N=7 su iPhone SE landscape (~568px) = ~65px per colonna — celle illeggibili | `repeat(N, minmax(72px, 1fr))` + `overflow-x-auto` sul wrapper |
+| Firebase optional | `undefined` causa errori silenziosi in scrittura | Per campi opzionali persistiti usare `null` oppure omettere proprio la chiave; mai passare `undefined` a Firestore |
 | Firestore composite index | query `where + orderBy` fallisce o rompe in runtime | Aggiungere indice in `firebase/firestore.indexes.json` e deployare |
 | Firestore deploy drift | Rules/indexes aggiornati nel repo ma non in Firebase | Eseguire `firebase deploy --only firestore` |
 | Cooking sessions | Duplicate se create in `useEffect` | Usare setup screen pattern |
@@ -27,6 +32,8 @@
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
 | Planner stagione soft | Il selettore stagione non vincola le ricette esistenti se non filtrate | Filtrare server-side per stagione prima di inviare a Claude (fallback se < 5 ricette) |
 | Planner ingredienti mancanti | Vincoli dietetici ignorati su ricette esistenti | Includere `ingredientNames` nel summary, non solo il conteggio |
+| Planner `type="new"` senza ricetta | Claude può restituire uno slot nuovo nel blocco `[PIANO]` ma omettere la ricetta completa in `[RICETTE_NUOVE]`, rompendo rigenerazione e save flow | In `/api/plan-meals` validare sempre parità tra nuovi slot dichiarati e ricette parseate; se mancano ricette complete, fallire esplicitamente e non salvare slot incoerenti |
+| Planner save CTA fantasma | Una cella può sembrare salvabile anche quando `newRecipe` è già `null` | Mostrare `Salva nel ricettario` solo se `slot.newRecipe` esiste davvero; badge/label AI da soli non bastano |
 | Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
 | isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
 | React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
@@ -35,8 +42,21 @@
 | Step duration max | Browser validation error su step con molte ore | Usare `max={9999}` non `max={999}` — 24h = 1440 min |
 | Timer multipli | Singolo `setInterval` + singolo stato non supporta parallelo | Usare `Map<stepId, setInterval>` in un ref + `Record<stepId, secondsLeft>` nello stato |
 | `bg-white` hardcoded | `bg-white` è sempre `#ffffff` — ignora il token `--background` | Usare `bg-background`, `bg-card`, `bg-muted`, `bg-secondary` |
+| OKLCH color scale inesistente | `bg-primary-100`, `border-primary-200`, `text-primary-700` non esistono con palette OKLCH custom — Tailwind genera scale solo per colori statici, non per CSS vars | Usare opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary` |
+| Elementi HTML nativi senza `bg` | `<textarea>`, `<select>`, `<input>` mostrano sfondo bianco anche con tema OKLCH | Aggiungere sempre `bg-background text-foreground` esplicitamente — il browser non eredita CSS custom properties dal tema |
+| Side-stripe design ban | `border-l-[2px+]` su card/list item è AI slop tell — vietato anche se semantico | Sostituire con badge `absolute top-1.5 left-1.5` (icona + colore) o background tint; mai side-stripe |
+| `animate-bounce` datato | Bounce easing su typing indicator o bottoni appare datato | Usare `animate-pulse` per indicatori di attività; easing `ease-out` per motion intenzionale |
+| Delight state drift | Loading/empty/error box creati ad hoc pagina per pagina rompono coerenza visiva e portano classi colore hardcoded | Riutilizzare `EditorialLoader`, `EditorialEmptyState`, `StatusBanner`; se serve un toast `react-hot-toast`, stilizzarlo globalmente in `providers.tsx`, non localmente |
+| React Query stale cache dopo write | Dopo `createCookingSession` / `deleteCookingSession` (o qualsiasi write Firestore), navigare su una list-page mostra dati stale finché `staleTime` non scade | Chiamare sempre `queryClient.invalidateQueries({ queryKey: [...] })` dopo ogni write che impatta una query su un'altra pagina |
+| `next/dynamic` su componenti UI tab | `dynamic()` con `loading` fallback mostra un loader visibile al primo cambio tab — inaccettabile per componenti piccoli sulla stessa route | Usare import statici normali; `next/dynamic` ha senso solo per componenti pesanti a livello di pagina intera |
+| Colori Tailwind raw fuori design system | `green-*`, `orange-*`, `purple-*` usati per stati (completamento, validazione, AI) sono visivamente incoerenti — il token `accent` del progetto è già verde salvia | Per stati di completamento: `text-accent`, `bg-accent/10`, `border-accent/40`; per warning: `text-primary`; mai `purple-*` |
+| Credenziali test invisibili | Si pensa che il pannello login sia sparito, ma la UI è corretta | Le credenziali test nel login compaiono solo con `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`; dopo cambio env riavviare `npm run dev` |
 | `next/font` in `'use client'` | Errore runtime — `next/font/google` funziona solo in Server Components | Root layout deve essere server component; estrarre QueryClient+Auth in `src/components/providers.tsx` |
 | Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
+| `container mx-auto` non configurato | `container` di Tailwind si espande senza limiti se non configurato in `tailwind.config.js` | Usare `max-w-*` espliciti (`max-w-4xl`, `max-w-5xl`) invece di `container` |
+| `max-w-*` senza `mx-auto` | Contenuto rimane allineato a sinistra su desktop wide anche con `max-w` | Aggiungere sempre `mx-auto` insieme a `max-w-*` su pagine con contenuto centrato |
+| Step editor actions inline on mobile | Toolbar `su/giu/elimina` nella stessa riga del contenuto riduce la larghezza utile della textarea e fa sembrare lo step "schiacciato" | Su mobile mettere i controlli in una riga separata sotto il contenuto; da `sm` in su possono stare in alto a destra |
+| Build sandbox `spawn EPERM` | `npx next build --webpack` può fallire nel sandbox anche se il codice è corretto | Se compare `spawn EPERM`, rilanciare la build fuori sandbox; non trattarlo come errore applicativo |
 
 ---
 
@@ -58,11 +78,38 @@ className="portrait:flex landscape:hidden"                 // ❌ applica a desk
 <div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10">
 ```
 
+**Le pagine non devono aggiungere il proprio padding esterno:**
+Il `<main>` nel dashboard layout fornisce già tutti i padding per viewport:
+- `lg:px-10 lg:py-8` — desktop
+- `max-lg:portrait:p-4 max-lg:portrait:pb-20` — mobile portrait
+- `max-lg:landscape:p-4` — mobile landscape
+
+```tsx
+// ❌ SBAGLIATO — crea doppio padding (es. 32px su portrait invece di 16px)
+return <div className="p-4 sm:p-6 lg:p-8">...</div>
+
+// ✅ CORRETTO — usa max-w solo per centrare contenuto, non per padding di pagina
+return <div className="max-w-2xl mx-auto">...</div>
+```
+
+**Grid con colonne a larghezza minima + scroll orizzontale:**
+```tsx
+// ❌ SBAGLIATO — su 7 colonne in 568px landscape = ~65px per colonna (illeggibile)
+style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
+
+// ✅ CORRETTO — mantiene un minimo leggibile, scroll se necessario
+<div className="overflow-x-auto">
+  <div style={{ gridTemplateColumns: `80px repeat(7, minmax(72px, 1fr))` }}>
+```
+
 ---
 
 ## 2. Firebase Patterns
 
-**`null` vs `undefined`**: Firebase rifiuta `undefined` in scrittura — usare sempre `null` per campi opzionali.
+**`null` vs `undefined`**: Firebase rifiuta `undefined` in scrittura. Per campi opzionali persistiti:
+- usare `null` quando il modello dati lo prevede esplicitamente
+- oppure omettere la chiave con spread condizionale (`...(value ? { field: value } : {})`)
+- mai passare `undefined` a `addDoc()` / `updateDoc()`
 
 **Composite Index**: query `where(...) + orderBy(...)` richiedono indice in `firebase/firestore.indexes.json`. Se l'errore è catturato in un `catch` generico, lato UI sembra solo "nessun dato". Dopo ogni modifica: `firebase deploy --only firestore`.
 
@@ -176,11 +223,34 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 - `bg-muted` per stato disabilitato o hover passivo
 - `bg-secondary` per sfondi secondari (sezioni, filtri)
 
+**Elementi HTML nativi**: `<textarea>`, `<select>`, `<input>` NON ereditano `--background` automaticamente — il browser usa `white` di default. Aggiungere sempre `bg-background text-foreground placeholder:text-muted-foreground` esplicitamente. Il componente shadcn `Input` lo fa già; gli elementi nativi no.
+
+**OKLCH color scale**: `bg-primary-100`, `border-primary-200`, `text-primary-700` non funzionano — Tailwind genera scale numeriche solo per colori statici. Con CSS vars OKLCH usare sempre l'opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary`.
+
+**Side-stripe ban**: `border-l-2` o superiore con colore su card/list item è vietato da impeccable guidelines indipendentemente dall'intenzione semantica. Sostituire con badge angolare `absolute top-1.5 left-1.5` (icona + tint) che porta la stessa informazione senza il pattern visivo da AI slop.
+
 **Palette OKLCH**: i token CSS contengono solo i parametri (`--background: 97% 0.01 75`), il wrapper `oklch()` è nel `tailwind.config.js`. Questo è lo stesso pattern del vecchio `hsl()`. Tutti i browser moderni supportano `oklch()`.
+
+**Delight shared states**: per loading, empty state e feedback cross-app usare i wrapper condivisi:
+- `EditorialLoader` per attese importanti (auth bootstrap, dashboard load, AI generation)
+- `EditorialEmptyState` per primo uso / nessun risultato
+- `StatusBanner` per info/success/warning/error inline
+Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
+
+**Hot toast styling**: se una pagina usa `react-hot-toast`, il look va definito in `src/components/providers.tsx`; nelle pagine si cambia solo il contenuto del messaggio.
 
 **Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 
 **Category Colors**: usare palette preset, non `input[type=color]` — UX più stabile su mobile, evita colori fuori palette.
+
+**Layout max-width per tipo di pagina**:
+- Pagine con griglia card (ricette, categorie, cotture): **nessun max-w** — la grid gestisce già la responsività
+- Pagine a contenuto testuale stretto (statistiche, profilo, lista spesa): `max-w-Xrem mx-auto` per leggibilità
+- Pagine miste/centrate (pianificatore): `max-w-[1200px] mx-auto`; i sotto-pannelli di form usano `max-w-lg mx-auto`
+
+**Editorial cinema shell**: i wrapper condivisi `shell-stage` e `shell-panel` vivono in `globals.css` e portano pseudo-elementi, gradienti e shadow già incorporati. Usarli su shell e pannelli chiave, non impilarli in profondità senza motivo; il parent che ospita lo stage deve restare `relative`/`isolation:isolate` e il motion deve sempre avere fallback `motion-reduce`.
+
+**Step editor mobile**: il badge numero step deve restare leggero e integrato nella card. Evitare badge assoluti che escono dal bordo o toolbar rigide nello stesso asse della textarea: su telefoni riducono troppo la larghezza e fanno sembrare gli step spostati a destra.
 
 ---
 
@@ -208,7 +278,9 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 
 - Docker Compose: sempre `--env-file .env.local` (non legge `.env.local` automaticamente)
 - Build affidabile in sandbox: `npx next build --webpack` (evita problemi Turbopack)
+- Se `npx next build --webpack` fallisce con `spawn EPERM` nel sandbox, rilanciare fuori sandbox prima di indagare il codice
 - Dopo `npm audit fix`: allineare `package.json` se il lockfile aggiorna una dipendenza diretta già validata
+- Per mostrare il pannello credenziali di test nel login in locale: `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true` e riavvio del dev server
 
 ---
 
@@ -225,6 +297,11 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 **`MealTypeConfig`**: unifica preferenza + esclusione per portata. Server-side hard filter usa l'**intersezione** delle `excludedCategoryIds` di tutte le portate attive. UI: una categoria non può essere sia preferita che esclusa — `setMealPreferred` la rimuove automaticamente da `excludedCategoryIds`.
 
 **Slot Regeneration**: chiave `"dayIndex-mealType"`. Riutilizza `/api/plan-meals` con `activeMealTypes: [mealType], activeDays: [dayIndex], newRecipeCount: 1`.
+
+**Slot Regeneration — prompt contract**: se Claude usa `type="new"` nel blocco `[PIANO]`, deve sempre fornire la ricetta completa corrispondente in `[RICETTE_NUOVE]`, nello stesso ordine. Per rigenerazione single-slot:
+- prompt più esplicito: una sola riga nel `[PIANO]`, una sola ricetta completa se `type="new"`
+- server-side validation: `expectedNewSlots === parsedNewRecipes.length`
+- client-side safety: non sostituire mai uno slot esistente con un risultato `type="new"` privo di `newRecipe`
 
 **Shopping List — Derived View**: lista derivata dal `MealPlan`, nessuna collection Firestore separata.
 - Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato)

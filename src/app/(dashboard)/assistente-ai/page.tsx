@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { RecipeExtractorUpload } from '@/components/recipe/recipe-extractor-upload';
+import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
 import { RecipeTextInput } from '@/components/recipe/recipe-text-input';
 import { RecipeChatInput } from '@/components/recipe/recipe-chat-input';
-import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
 import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
@@ -15,13 +15,15 @@ import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { useRecipes, recipesQueryKey } from '@/lib/hooks/useRecipes';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Sparkles, FileText, PenLine, MessageSquare } from 'lucide-react';
+import { AlertCircle, CheckCircle2, FileText, PenLine, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Category, Season } from '@/types';
 import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
 import { FamilyContextToggle } from '@/components/family/family-context-toggle';
 import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import Link from 'next/link';
+import { StatusBanner } from '@/components/ui/status-banner';
+import { EditorialLoader } from '@/components/ui/editorial-loader';
 
 /**
  * Recipe Extractor Page - Multi-Step AI Extraction Workflow
@@ -64,7 +66,8 @@ export default function RecipeExtractorPage() {
   const [currentSourceType, setCurrentSourceType] = useState<'pdf' | 'manual' | 'chat'>('pdf');
 
   // User's existing recipes — passed to chat mode so AI avoids duplicate suggestions
-  const { recipes: existingRecipes } = useRecipes();
+  const isChatMode = inputMode === 'chat';
+  const { recipes: existingRecipes } = useRecipes({ enabled: isChatMode });
 
   // Test account is blocked from AI extraction because:
   // - Prevents API cost abuse on publicly accessible demo account
@@ -77,6 +80,15 @@ export default function RecipeExtractorPage() {
     familyProfile,
     hasValidProfile,
   } = useFamilyProfile();
+  const existingRecipeSummaries = useMemo(
+    () =>
+      existingRecipes.map((recipe) => ({
+        title: recipe.title,
+        ingredients: recipe.ingredients,
+        seasons: recipe.seasons ?? [],
+      })),
+    [existingRecipes]
+  );
 
   // Load user categories on mount
   useEffect(() => {
@@ -352,9 +364,6 @@ export default function RecipeExtractorPage() {
         totalTime: (recipe.prepTime || 0) + (recipe.cookTime || 0),
         ingredients: recipe.ingredients,
         steps: recipe.steps,
-        categoryId: categoryId,
-        subcategoryId: '',
-        seasons: seasons.length > 0 ? seasons : undefined,
         aiSuggested: recipe.aiSuggestion ? true : false,
         difficulty: 'media' as const,
         tags: [],
@@ -366,6 +375,8 @@ export default function RecipeExtractorPage() {
           : { type: 'manual' as const, name: 'Formattata con AI da testo' },
         notes: recipe.notes || '',
         images: [],
+        ...(categoryId ? { categoryId } : {}),
+        ...(seasons.length > 0 ? { seasons } : {}),
       };
 
       await createRecipe(user.uid, recipeData);
@@ -433,38 +444,35 @@ export default function RecipeExtractorPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3 mb-2">
-          <Sparkles className="w-8 h-8 text-primary" />
-          <h1 className="text-3xl font-bold">Assistente Ricette AI</h1>
+        <div className="cinematic-heading mb-2">
+          <p className="editorial-kicker text-[0.7rem] font-semibold uppercase text-muted-foreground">Assistente editoriale</p>
+          <h1 className="font-display text-4xl font-semibold italic">Assistente AI</h1>
         </div>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Carica un PDF, scrivi una ricetta in formato libero, oppure chatta con l'AI per farti suggerire nuove ricette.
         </p>
       </div>
 
       {/* Test Account Warning */}
       {isTestAccount && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-yellow-900">Funzionalità AI Disabilitata</h3>
-            <p className="text-sm text-yellow-700 mt-1">
-              L'estrazione, la formattazione e la Chat AI sono disabilitate per l'account di test per proteggere le risorse API.
-            </p>
-          </div>
-        </div>
+        <StatusBanner
+          icon={<AlertCircle className="h-4 w-4" />}
+          title="Funzionalita' AI disabilitata"
+          description="L'estrazione, la formattazione e la Chat AI restano disabilitate per l'account di test per proteggere le risorse API."
+          tone="warning"
+        />
       )}
 
       {/* Input Card with Tab Switcher */}
-      <div className="bg-background rounded-lg border">
-        {/* Tab switcher */}
-        <div className="flex border-b">
+      <div className="shell-panel rounded-[1.9rem]">
+        {/* Tab switcher — overflow-x-auto prevents tabs from overflowing on narrow screens */}
+        <div className="cinematic-scrollbar flex overflow-x-auto border-b border-border/70 px-2 pt-2">
           <button
             onClick={() => handleModeSwitch('pdf')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-2 rounded-t-[1.1rem] px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'pdf'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary bg-background/70 text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <FileText className="w-4 h-4" />
@@ -472,10 +480,10 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('text')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-2 rounded-t-[1.1rem] px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'text'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary bg-background/70 text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <PenLine className="w-4 h-4" />
@@ -483,10 +491,10 @@ export default function RecipeExtractorPage() {
           </button>
           <button
             onClick={() => handleModeSwitch('chat')}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 -mb-px
+            className={`flex items-center gap-2 rounded-t-[1.1rem] px-3 sm:px-5 py-3 text-sm font-medium transition-colors border-b-[2px] -mb-px flex-shrink-0
               ${inputMode === 'chat'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary bg-background/70 text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
           >
             <MessageSquare className="w-4 h-4" />
@@ -535,25 +543,19 @@ export default function RecipeExtractorPage() {
               disabled={isTestAccount}
               useFamilyContext={useFamilyContext}
               familyProfile={familyProfile}
-              existingRecipes={existingRecipes.map((r) => ({
-                title: r.title,
-                ingredients: r.ingredients,
-                seasons: r.seasons ?? [],
-              }))}
+              existingRecipes={existingRecipeSummaries}
             />
           )}
 
           {/* Loading indicator: shown for PDF/text modes only.
               Chat mode has its own inline typing indicator in RecipeChatInput. */}
           {isExtracting && inputMode !== 'chat' && (
-            <div className="mt-6 text-center">
-              <div className="inline-flex items-center gap-2 text-primary">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
-                <span className="font-medium">{loadingMessage}</span>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">
-                Questo processo può richiedere alcuni secondi
-              </p>
+            <div className="mt-6 flex justify-center">
+              <EditorialLoader
+                label={loadingMessage}
+                hint="Lettura, parsing e suggerimenti arrivano in sequenza. Ti mostro tutto appena pronto."
+                compact
+              />
             </div>
           )}
         </div>
@@ -561,37 +563,29 @@ export default function RecipeExtractorPage() {
 
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="font-semibold text-red-900">Errore</h3>
-            <p className="text-sm text-red-700 mt-1">{error}</p>
-          </div>
-        </div>
+        <StatusBanner
+          icon={<AlertCircle className="h-4 w-4" />}
+          title="Errore"
+          description={error}
+          tone="danger"
+        />
       )}
 
       {/* Success Message and Bulk Actions */}
       {extractedRecipes.length > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-green-900">
-                  {extractedRecipes.length} ricett{extractedRecipes.length === 1 ? 'a trovata' : 'e trovate'}
-                </h3>
-                <p className="text-sm text-green-700 mt-1">
-                  Controlla i dettagli e salvale nel tuo ricettario
-                </p>
-              </div>
-            </div>
-            {savedStates.size < extractedRecipes.length && (
+        <StatusBanner
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          title={`${extractedRecipes.length} ricett${extractedRecipes.length === 1 ? 'a pronta' : 'e pronte'}`}
+          description="Controlla i dettagli, conferma categorie e salvale nel tuo ricettario."
+          tone="success"
+          action={
+            savedStates.size < extractedRecipes.length ? (
               <Button onClick={handleSaveAll} size="sm">
                 Salva Tutte ({extractedRecipes.length - savedStates.size})
               </Button>
-            )}
-          </div>
-        </div>
+            ) : null
+          }
+        />
       )}
 
       {/* Extracted Recipes List */}
@@ -619,27 +613,26 @@ export default function RecipeExtractorPage() {
 
       {/* Help Section — not shown in chat mode (RecipeChatInput has its own welcome state) */}
       {extractedRecipes.length === 0 && !isExtracting && !error && inputMode !== 'chat' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-900 mb-3">Come funziona?</h3>
+        <div className="shell-panel rounded-[1.6rem] p-6">
+          <p className="editorial-kicker text-xs font-semibold uppercase text-muted-foreground">Come funziona</p>
           {inputMode === 'pdf' ? (
-            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-              <li>Carica un file PDF contenente una o più ricette</li>
-              <li>L'AI di Claude analizzerà il documento ed estrarrà automaticamente tutte le ricette</li>
-              <li>Controlla le ricette estratte e modificale se necessario</li>
-              <li>Salva le ricette nel tuo ricettario personale</li>
+            <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+              <li>1. Carica un PDF con una o più ricette.</li>
+              <li>2. Claude legge il documento e separa ingredienti, passaggi e tempi.</li>
+              <li>3. Ti propongo subito le ricette in anteprima con suggerimenti AI su categoria e stagione.</li>
+              <li>4. Salvi solo ciò che vuoi davvero tenere nel ricettario.</li>
             </ol>
           ) : (
-            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-              <li>Scrivi o incolla il testo di una ricetta, anche in formato grezzo o non strutturato</li>
-              <li>L'AI di Claude interpreterà il testo e lo formatterà in modo preciso e completo</li>
-              <li>Controlla la ricetta formattata e modifica i dettagli se necessario</li>
-              <li>Salvala nel tuo ricettario personale</li>
+            <ol className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
+              <li>1. Incolla anche un testo grezzo o incompleto.</li>
+              <li>2. Claude lo riorganizza in una scheda ricetta leggibile e coerente.</li>
+              <li>3. Rivedi il risultato, correggi se serve, poi salvalo.</li>
             </ol>
           )}
-          <p className="text-xs text-blue-600 mt-4">
+          <p className="mt-5 rounded-xl border border-primary/15 bg-background/70 px-4 py-3 text-xs leading-5 text-muted-foreground">
             {inputMode === 'pdf'
-              ? '💡 Suggerimento: I PDF con ricette ben strutturate daranno risultati migliori.'
-              : '💡 Suggerimento: Anche una ricetta scritta in modo informale ("pasta al pomodoro: 400g pasta, pomodori...") verrà formattata correttamente.'}
+              ? 'I PDF con titoli, ingredienti e procedimento separati aiutano l\'estrazione a restare piu\' precisa.'
+              : 'Anche un promemoria rapido funziona: quantita\', ingredienti e passaggi sparsi bastano per ricostruire la ricetta.'}
           </p>
         </div>
       )}

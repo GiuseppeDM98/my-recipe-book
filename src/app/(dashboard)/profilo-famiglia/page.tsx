@@ -17,7 +17,7 @@ export default function FamilyProfilePage() {
       <div className="flex items-center gap-3">
         <Users className="w-7 h-7 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold">Profilo famiglia</h1>
+          <h1 className="font-display text-4xl font-semibold italic">Profilo famiglia</h1>
           <p className="text-muted-foreground">
             Configura i componenti del nucleo e le note generali usate dai flussi AI quando abiliti il contesto famiglia.
           </p>
