@@ -37,7 +37,7 @@ export function renderStepDescription(
   originalServings: number,
   targetServings: number
 ): string {
-  return step.description.replace(STEP_QUANTITY_TOKEN_REGEX, (token, ingredientId: string) => {
+  const resolved = step.description.replace(STEP_QUANTITY_TOKEN_REGEX, (token, ingredientId: string) => {
     const ingredient = ingredients.find(item => item.id === ingredientId);
 
     if (!ingredient?.quantity) {
@@ -55,6 +55,11 @@ export function renderStepDescription(
 
     return `${scaledQty} di ${simplifyIngredientName(ingredient.name)}`;
   });
+
+  // Strip any raw [QTY:n] tokens that survived from legacy Firestore data or a failed
+  // parser mapping (the parser now strips them at source, but older saved recipes may
+  // still contain them). Collapsing extra whitespace keeps the text readable.
+  return resolved.replace(/\[QTY:\d+\]/gi, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 function ingredientNameInContext(name: string, text: string): boolean {

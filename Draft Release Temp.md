@@ -32,6 +32,8 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed AI-generated recipe steps showing raw reference tokens like `[QTY:1]` instead of actual ingredient quantities — step descriptions now always display clean, readable text even when the AI's numbering was inconsistent
+- Fixed the bottom navigation bar appearing transparent on mobile portrait — it now has a solid background so it is always clearly visible while scrolling the recipe list
 - Fixed active cooking sessions not appearing on the "In cucina" page without a hard refresh — the page now updates immediately after starting or finishing a cooking session
 - Fixed a brief loading flash on the "In cucina" page that caused visible layout shift between the empty state and the session cards
 - Fixed a brief loading flash on the AI Assistant page when switching between the "Free Text" and "Chat AI" tabs — both tabs now load instantly
@@ -110,6 +112,8 @@
 - Improved season badges on recipe detail pages to use the app's warm terracotta palette instead of blue
 - Improved the Statistics page layout — replaced three identical metric cards with a cleaner editorial summary showing your total count, most-cooked dish, and recent activity in a more readable format
 - Improved collapsible sections in cooking mode and the shopping list with smoother, more natural open/close animations
+- Improved scrolling performance on the recipe list on mobile — the page no longer stutters when quickly scrolling through many recipes
+- Improved the auto-collapse animation when all items in a cooking section are checked — the section now closes more smoothly and quickly
 - Improved the app header — the "Il Mio Ricettario" brand name now displays in terracotta, making the identity visible at a glance
 - Improved the navigation sidebar — the "AI Tools" section label now uses the sage green accent colour to visually separate it from the main navigation links
 - Improved the bottom navigation bar on mobile — the active tab now shows a warm terracotta pill behind the icon, making your current location clearer
