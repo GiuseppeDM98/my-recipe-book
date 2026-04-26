@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-24
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-22
 
 ## Quick Reference
 
@@ -130,6 +130,11 @@ src/
 - Removed loading flash on `/cotture-in-corso` by decoupling the empty-state render from `isLoading`
 - Removed loading flash on AI Assistant tab switches by converting `RecipeTextInput` and `RecipeChatInput` from `next/dynamic` to static imports
 - Fixed Italian accented characters written as ASCII apostrophes (`li'`, `c'e'`, `piu'`, `cio'`) across recipe list, AI assistant, and shopping list pages
+
+### Bug fixes (2026-04-22)
+- **`[QTY:n]` tokens visibili negli step AI**: Claude resetta la numerazione `[ING:n]` per sezione su ricette multi-sezione. `replaceAiQuantityReferences()` ora restituisce `''` invece di `match` per mapping falliti. `renderStepDescription()` aggiunge un cleanup finale per i token residui già in Firestore (backward compat). File: `recipe-parser.ts`, `step-description.ts`
+- **Bottom nav trasparente su mobile portrait**: `bg-background/92` su sfondo crema era percettivamente identico al contenuto sottostante. Cambiato in `bg-background` (100% opaco); `backdrop-blur-sm` resta per i browser che lo supportano. File: `bottom-navigation.tsx`
+- **Scroll jank su lista ricette + collapsible scattosi in cooking mode**: rimosso `will-change-transform` statico dalle recipe card (→ `group-hover:will-change-transform`); eliminato `shadow` da `transition-[...]`; collapsible `duration-300` → `duration-200` + `will-change-[grid-template-rows]`. File: `recipe-card.tsx`, `steps-list-collapsible.tsx`, `ingredient-list-collapsible.tsx`
 
 ---
 

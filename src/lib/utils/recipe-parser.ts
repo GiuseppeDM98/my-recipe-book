@@ -373,7 +373,10 @@ function replaceAiQuantityReferences(
 ): string {
   return description.replace(/\[QTY:(\d+)\]/gi, (match, referenceKey: string) => {
     const ingredientId = ingredientReferenceMap.get(referenceKey);
-    return ingredientId ? createStepQuantityToken(ingredientId) : match;
+    // Strip unresolvable tokens rather than leaving raw [QTY:n] in storage.
+    // The AI prompt guarantees ingredient names are always written in the step text,
+    // so the token is supplementary — dropping it keeps the text readable.
+    return ingredientId ? createStepQuantityToken(ingredientId) : '';
   });
 }
 

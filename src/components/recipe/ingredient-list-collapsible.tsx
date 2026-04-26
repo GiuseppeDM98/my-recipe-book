@@ -217,7 +217,7 @@ export function IngredientListCollapsible({
             {/* Section Ingredients — grid-rows animation è GPU-friendly (no layout thrash) */}
             <div className={cn(
               'border-t grid motion-reduce:transition-none',
-              'transition-[grid-template-rows] duration-300 ease-in-out',
+              'transition-[grid-template-rows] duration-200 ease-in-out will-change-[grid-template-rows]',
               isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
             )}>
               <div className="overflow-hidden">

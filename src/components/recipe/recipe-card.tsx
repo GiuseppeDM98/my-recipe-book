@@ -39,9 +39,11 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
     >
       <article className={cn(
         'shell-panel relative h-full rounded-[1.5rem] p-5',
-        'transition-[shadow,transform,border-color] duration-300 ease-out motion-reduce:transition-none',
+        'transition-[transform,border-color] duration-300 ease-out motion-reduce:transition-none',
         'hover:-translate-y-1 hover:border-primary/20 hover:shadow-[0_28px_54px_-34px_oklch(var(--foreground)/0.38)]',
-        'will-change-transform'
+        // will-change activated only on hover so we don't create a compositing layer per card at rest.
+        // On mobile (no hover), this never fires — avoids GPU memory pressure from 20+ idle layers.
+        'group-hover:will-change-transform'
       )}>
         {/* Season badges — top-right corner */}
         {seasonsToShow.length > 0 && (

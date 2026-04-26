@@ -28,7 +28,7 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
         'max-lg:portrait:flex max-lg:portrait:fixed',
         'max-lg:portrait:bottom-0 max-lg:portrait:left-0 max-lg:portrait:right-0',
         'max-lg:portrait:z-50 max-lg:portrait:border-t max-lg:portrait:border-border/70',
-        'max-lg:portrait:bg-background/92 max-lg:portrait:backdrop-blur-sm max-lg:portrait:shadow-[0_-12px_34px_-24px_oklch(var(--foreground)/0.4)]',
+        'max-lg:portrait:bg-background max-lg:portrait:backdrop-blur-sm max-lg:portrait:shadow-[0_-12px_34px_-24px_oklch(var(--foreground)/0.4)]',
         // Safe area inset per iPhone con home indicator
         'max-lg:portrait:pb-safe'
       )}
