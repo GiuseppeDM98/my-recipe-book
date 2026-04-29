@@ -90,9 +90,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <ProtectedRoute>
       <div
         ref={shellRef}
-        className="min-h-screen bg-transparent px-0 pb-0 pt-0 lg:px-4 lg:pb-4 lg:pt-4"
+        className="min-h-[100dvh] bg-transparent px-0 pb-0 pt-0 lg:px-4 lg:pb-4 lg:pt-4"
       >
-        <div className="shell-stage flex min-h-screen flex-col rounded-none lg:min-h-[calc(100vh-2rem)] lg:rounded-[2rem]">
+        <div className="shell-stage flex min-h-[100dvh] flex-col rounded-none lg:min-h-[calc(100vh-2rem)] lg:rounded-[2rem]">
           <Header
             sidebarOpen={sidebarOpen}
             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}

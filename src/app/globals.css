@@ -122,6 +122,8 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Prevent rubber-band overscroll from propagating into nested scroll containers */
+    overscroll-behavior: contain;
   }
 
   body {
@@ -131,7 +133,9 @@
       radial-gradient(circle at 12% 14%, oklch(var(--primary) / 0.12), transparent 22rem),
       radial-gradient(circle at 82% 12%, oklch(var(--accent) / 0.12), transparent 18rem),
       linear-gradient(180deg, oklch(99% 0.012 78) 0%, oklch(var(--background)) 24%, oklch(96% 0.012 72) 100%);
-    background-attachment: fixed;
+    /* background-attachment: fixed removed — disables GPU-composited scrolling on iOS/mobile.
+       On mobile the shell-stage covers the body background entirely (no lateral padding),
+       so there is no visual change. On desktop the gradient remains visible outside the shell. */
   }
 
   /* Bodoni Moda per tutti i titoli — identità editoriale gastronomica */
@@ -282,6 +286,13 @@
   .scroll-reveal {
     animation: fadeUp 1ms linear both;
     animation-timeline: view(block 85% 8%);
+  }
+}
+
+/* ambientDrift is imperceptible on mobile and adds compositing overhead — disable it */
+@media (max-width: 1439px) {
+  .shell-stage::before {
+    animation: none;
   }
 }
 

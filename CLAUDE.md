@@ -136,6 +136,12 @@ src/
 - **Bottom nav trasparente su mobile portrait**: `bg-background/92` su sfondo crema era percettivamente identico al contenuto sottostante. Cambiato in `bg-background` (100% opaco); `backdrop-blur-sm` resta per i browser che lo supportano. File: `bottom-navigation.tsx`
 - **Scroll jank su lista ricette + collapsible scattosi in cooking mode**: rimosso `will-change-transform` statico dalle recipe card (→ `group-hover:will-change-transform`); eliminato `shadow` da `transition-[...]`; collapsible `duration-300` → `duration-200` + `will-change-[grid-template-rows]`. File: `recipe-card.tsx`, `steps-list-collapsible.tsx`, `ingredient-list-collapsible.tsx`
 
+### Performance fixes (2026-04-29)
+- **Scroll jank in portrait mode (fix sistemico)**: la causa primaria era `background-attachment: fixed` sul body — disabilita il GPU-composited scroll path su iOS Safari e mobile Chrome. Rimosso. Peggiore in portrait perché i documenti sono più alti e la bottom nav fixed (assente in landscape) aggiunge un layer compositor extra
+- Disabilitata animazione `ambientDrift` su `.shell-stage::before` via `@media (max-width: 1439px)`: overhead inutile su mobile
+- Aggiunto `overscroll-behavior: contain` su `html`: previene propagazione rubber-band a container annidati
+- `min-h-screen` → `min-h-[100dvh]` nei container top-level del dashboard layout: `100dvh` si adatta alla barra indirizzi mobile, `100vh` è statico. File: `globals.css`, `(dashboard)/layout.tsx`
+
 ---
 
 ## Environment Variables
