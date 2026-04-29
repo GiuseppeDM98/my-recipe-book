@@ -133,7 +133,7 @@ src/
 
 ### Bug fixes (2026-04-22)
 - **`[QTY:n]` tokens visibili negli step AI**: Claude resetta la numerazione `[ING:n]` per sezione su ricette multi-sezione. `replaceAiQuantityReferences()` ora restituisce `''` invece di `match` per mapping falliti. `renderStepDescription()` aggiunge un cleanup finale per i token residui già in Firestore (backward compat). File: `recipe-parser.ts`, `step-description.ts`
-- **Bottom nav trasparente su mobile portrait**: `bg-background/92` su sfondo crema era percettivamente identico al contenuto sottostante. Cambiato in `bg-background` (100% opaco); `backdrop-blur-sm` resta per i browser che lo supportano. File: `bottom-navigation.tsx`
+- **Bottom nav trasparente su mobile portrait**: `bg-background/92` su sfondo crema era percettivamente identico al contenuto sottostante. Cambiato in `bg-background` (100% opaco). File: `bottom-navigation.tsx`
 - **Scroll jank su lista ricette + collapsible scattosi in cooking mode**: rimosso `will-change-transform` statico dalle recipe card (→ `group-hover:will-change-transform`); eliminato `shadow` da `transition-[...]`; collapsible `duration-300` → `duration-200` + `will-change-[grid-template-rows]`. File: `recipe-card.tsx`, `steps-list-collapsible.tsx`, `ingredient-list-collapsible.tsx`
 
 ### Performance fixes (2026-04-29)
@@ -141,6 +141,7 @@ src/
 - Disabilitata animazione `ambientDrift` su `.shell-stage::before` via `@media (max-width: 1439px)`: overhead inutile su mobile
 - Aggiunto `overscroll-behavior: contain` su `html`: previene propagazione rubber-band a container annidati
 - `min-h-screen` → `min-h-[100dvh]` nei container top-level del dashboard layout: `100dvh` si adatta alla barra indirizzi mobile, `100vh` è statico. File: `globals.css`, `(dashboard)/layout.tsx`
+- **Scroll jank residuo — fix sistemico secondo giro (2026-04-29)**: causa principale rimasta erano `backdrop-filter: blur()` su Header (sticky) e BottomNavigation (fixed). Su iOS Safari / mobile Chrome, ogni `backdrop-blur` su un elemento sempre in viewport forza il browser a re-rasterizzare il contenuto sottostante su ogni frame di scroll — costo impossibile da ammortizzare. Rimosso `backdrop-blur-sm` da entrambi; header reso opaco (`bg-background`). Rimossi anche `shell-stage::before` e `::after` su mobile (`display: none` in media query): erano pseudo-elementi con gradienti OKLCH + `calc()` che coprono l'intera altezza del documento — rasterizzazione costosa ad ogni repaint. File: `header.tsx`, `bottom-navigation.tsx`, `globals.css`
 
 ---
 

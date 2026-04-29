@@ -283,10 +283,12 @@
 }
 
 
-/* ambientDrift is imperceptible on mobile and adds compositing overhead — disable it */
+/* Shell pseudo-elements are decorative-only and span full document height.
+   On mobile they add rasterization cost on every scroll repaint — hide entirely. */
 @media (max-width: 1439px) {
-  .shell-stage::before {
-    animation: none;
+  .shell-stage::before,
+  .shell-stage::after {
+    display: none;
   }
 }
 
