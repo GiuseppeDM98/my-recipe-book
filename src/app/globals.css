@@ -283,9 +283,22 @@
 }
 
 
-/* Shell pseudo-elements are decorative-only and span full document height.
-   On mobile they add rasterization cost on every scroll repaint — hide entirely. */
+/* On mobile, decorative paint layers add rasterization cost without perceptible benefit.
+   shell-stage fills 100% viewport width (no margin), so body gradients are fully hidden
+   behind it — remove them. Simplify shell-stage to a solid background; remove border and
+   box-shadow (clipped at screen edges anyway). Shell pseudo-elements span full document
+   height with complex oklch() calc() — hide entirely. */
 @media (max-width: 1439px) {
+  body {
+    background-image: none;
+  }
+
+  .shell-stage {
+    border: none;
+    background: oklch(97% 0.01 75);
+    box-shadow: none;
+  }
+
   .shell-stage::before,
   .shell-stage::after {
     display: none;
