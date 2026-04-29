@@ -282,12 +282,6 @@
   }
 }
 
-@supports (animation-timeline: scroll()) {
-  .scroll-reveal {
-    animation: fadeUp 1ms linear both;
-    animation-timeline: view(block 85% 8%);
-  }
-}
 
 /* ambientDrift is imperceptible on mobile and adds compositing overhead — disable it */
 @media (max-width: 1439px) {

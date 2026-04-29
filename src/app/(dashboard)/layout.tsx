@@ -70,10 +70,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     const scheduleUpdate = () => {
       if (frameId !== 0) return;
+      // --shell-focus drives gradient calc() in ::before — not GPU-compositable, triggers
+      // a full repaint on every scroll frame. On mobile the effect is imperceptible; skip.
+      if (window.innerWidth < 1440) return;
       frameId = window.requestAnimationFrame(updateShell);
     };
 
-    updateShell();
+    // Same guard: no point setting initial values on mobile if the listener is disabled.
+    if (window.innerWidth >= 1440) updateShell();
     window.addEventListener('scroll', scheduleUpdate, { passive: true });
     window.addEventListener('resize', scheduleUpdate);
 
@@ -111,7 +115,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               'max-lg:landscape:p-4'
             )}>
               <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,_oklch(var(--background)/0.92),_transparent)]" />
-              <div className="relative z-10 animate-fade-up motion-reduce:animate-none">
+              <div className="relative z-10 animate-fade-in motion-reduce:animate-none">
                 {children}
               </div>
             </main>

@@ -34,7 +34,7 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
   return (
     <Link
       href={`/ricette/${recipe.id}`}
-      className="group block animate-fade-up motion-reduce:animate-none scroll-reveal"
+      className="group block animate-fade-up motion-reduce:animate-none"
       style={{ animationDelay: delay }}
     >
       <article className={cn(
