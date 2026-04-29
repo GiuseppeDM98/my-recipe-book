@@ -113,6 +113,7 @@
 - Improved the Statistics page layout — replaced three identical metric cards with a cleaner editorial summary showing your total count, most-cooked dish, and recent activity in a more readable format
 - Improved collapsible sections in cooking mode and the shopping list with smoother, more natural open/close animations
 - Improved scrolling performance on the recipe list on mobile — the page no longer stutters when quickly scrolling through many recipes
+- Improved scrolling smoothness across all pages in portrait mode on mobile — the app now uses hardware-accelerated scrolling with no blur effects on sticky or fixed navigation elements, eliminating the jank that was visible when scrolling through recipes, the planner, and categories
 - Improved the auto-collapse animation when all items in a cooking section are checked — the section now closes more smoothly and quickly
 - Improved the app header — the "Il Mio Ricettario" brand name now displays in terracotta, making the identity visible at a glance
 - Improved the navigation sidebar — the "AI Tools" section label now uses the sage green accent colour to visually separate it from the main navigation links

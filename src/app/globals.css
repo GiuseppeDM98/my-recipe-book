@@ -122,6 +122,8 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Prevent rubber-band overscroll from propagating into nested scroll containers */
+    overscroll-behavior: contain;
   }
 
   body {
@@ -131,7 +133,9 @@
       radial-gradient(circle at 12% 14%, oklch(var(--primary) / 0.12), transparent 22rem),
       radial-gradient(circle at 82% 12%, oklch(var(--accent) / 0.12), transparent 18rem),
       linear-gradient(180deg, oklch(99% 0.012 78) 0%, oklch(var(--background)) 24%, oklch(96% 0.012 72) 100%);
-    background-attachment: fixed;
+    /* background-attachment: fixed removed — disables GPU-composited scrolling on iOS/mobile.
+       On mobile the shell-stage covers the body background entirely (no lateral padding),
+       so there is no visual change. On desktop the gradient remains visible outside the shell. */
   }
 
   /* Bodoni Moda per tutti i titoli — identità editoriale gastronomica */
@@ -278,10 +282,26 @@
   }
 }
 
-@supports (animation-timeline: scroll()) {
-  .scroll-reveal {
-    animation: fadeUp 1ms linear both;
-    animation-timeline: view(block 85% 8%);
+
+/* On mobile, decorative paint layers add rasterization cost without perceptible benefit.
+   shell-stage fills 100% viewport width (no margin), so body gradients are fully hidden
+   behind it — remove them. Simplify shell-stage to a solid background; remove border and
+   box-shadow (clipped at screen edges anyway). Shell pseudo-elements span full document
+   height with complex oklch() calc() — hide entirely. */
+@media (max-width: 1439px) {
+  body {
+    background-image: none;
+  }
+
+  .shell-stage {
+    border: none;
+    background: oklch(97% 0.01 75);
+    box-shadow: none;
+  }
+
+  .shell-stage::before,
+  .shell-stage::after {
+    display: none;
   }
 }
 

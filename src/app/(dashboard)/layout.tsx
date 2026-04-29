@@ -70,10 +70,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     const scheduleUpdate = () => {
       if (frameId !== 0) return;
+      // --shell-focus drives gradient calc() in ::before — not GPU-compositable, triggers
+      // a full repaint on every scroll frame. On mobile the effect is imperceptible; skip.
+      if (window.innerWidth < 1440) return;
       frameId = window.requestAnimationFrame(updateShell);
     };
 
-    updateShell();
+    // Same guard: no point setting initial values on mobile if the listener is disabled.
+    if (window.innerWidth >= 1440) updateShell();
     window.addEventListener('scroll', scheduleUpdate, { passive: true });
     window.addEventListener('resize', scheduleUpdate);
 
@@ -90,9 +94,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <ProtectedRoute>
       <div
         ref={shellRef}
-        className="min-h-screen bg-transparent px-0 pb-0 pt-0 lg:px-4 lg:pb-4 lg:pt-4"
+        className="min-h-[100dvh] bg-transparent px-0 pb-0 pt-0 lg:px-4 lg:pb-4 lg:pt-4"
       >
-        <div className="shell-stage flex min-h-screen flex-col rounded-none lg:min-h-[calc(100vh-2rem)] lg:rounded-[2rem]">
+        <div className="shell-stage flex min-h-[100dvh] flex-col rounded-none lg:min-h-[calc(100vh-2rem)] lg:rounded-[2rem]">
           <Header
             sidebarOpen={sidebarOpen}
             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
@@ -111,7 +115,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               'max-lg:landscape:p-4'
             )}>
               <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,_oklch(var(--background)/0.92),_transparent)]" />
-              <div className="relative z-10 animate-fade-up motion-reduce:animate-none">
+              <div className="relative z-10 animate-fade-in motion-reduce:animate-none">
                 {children}
               </div>
             </main>
@@ -126,7 +130,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             onOpenChange={setMoreSheetOpen}
           />
 
-          <Footer />
+          <Footer className="max-lg:hidden" />
         </div>
       </div>
     </ProtectedRoute>
