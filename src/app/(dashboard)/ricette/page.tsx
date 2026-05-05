@@ -94,6 +94,22 @@ export default function RecipesPage() {
     return subcategories.filter(sub => sub.categoryId === selectedCategoryId);
   }, [subcategories, selectedCategoryId]);
 
+  // Base per i conteggi categoria: solo filtro stagione (non search, non categoria)
+  const recipesForCategoryFilter = useMemo(() => {
+    if (selectedSeason === 'all') return recipes;
+    return recipes.filter(recipe => {
+      if (recipe.seasons) return recipe.seasons.includes(selectedSeason);
+      if (recipe.season) return recipe.season === selectedSeason;
+      return false;
+    });
+  }, [recipes, selectedSeason]);
+
+  // Base per i conteggi sottocategoria: filtro stagione + categoria
+  const recipesForSubcategoryFilter = useMemo(() => {
+    if (selectedCategoryId === 'all') return recipesForCategoryFilter;
+    return recipesForCategoryFilter.filter(r => r.categoryId === selectedCategoryId);
+  }, [recipesForCategoryFilter, selectedCategoryId]);
+
   const recipeCountBySeason = useMemo(() => {
     return ALL_SEASONS.reduce<Record<Season, number>>((counts, season) => {
       counts[season] = recipes.reduce((total, recipe) => {
@@ -112,20 +128,20 @@ export default function RecipesPage() {
   }, [recipes]);
 
   const recipeCountByCategoryId = useMemo(() => {
-    return recipes.reduce<Record<string, number>>((counts, recipe) => {
+    return recipesForCategoryFilter.reduce<Record<string, number>>((counts, recipe) => {
       if (!recipe.categoryId) return counts;
       counts[recipe.categoryId] = (counts[recipe.categoryId] ?? 0) + 1;
       return counts;
     }, {});
-  }, [recipes]);
+  }, [recipesForCategoryFilter]);
 
   const recipeCountBySubcategoryId = useMemo(() => {
-    return recipes.reduce<Record<string, number>>((counts, recipe) => {
+    return recipesForSubcategoryFilter.reduce<Record<string, number>>((counts, recipe) => {
       if (!recipe.subcategoryId) return counts;
       counts[recipe.subcategoryId] = (counts[recipe.subcategoryId] ?? 0) + 1;
       return counts;
     }, {});
-  }, [recipes]);
+  }, [recipesForSubcategoryFilter]);
 
   const selectedCategory = useMemo(
     () => categories.find((category) => category.id === selectedCategoryId),
@@ -361,7 +377,7 @@ export default function RecipesPage() {
                     onChange={(e) => setSelectedCategoryId(e.target.value)}
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
-                    <option value="all">Tutte le categorie ({recipes.length})</option>
+                    <option value="all">Tutte le categorie ({recipesForCategoryFilter.length})</option>
                     {categories.map((cat) => {
                       return (
                         <option key={cat.id} value={cat.id}>

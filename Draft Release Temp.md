@@ -32,6 +32,7 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed recipe filter counts not updating when a season was selected — category and subcategory badges now show the correct number of recipes matching all active filters, not the total across the whole cookbook
 - Fixed AI-generated recipe steps showing raw reference tokens like `[QTY:1]` instead of actual ingredient quantities — step descriptions now always display clean, readable text even when the AI's numbering was inconsistent
 - Fixed the bottom navigation bar appearing transparent on mobile portrait — it now has a solid background so it is always clearly visible while scrolling the recipe list
 - Fixed active cooking sessions not appearing on the "In cucina" page without a hard refresh — the page now updates immediately after starting or finishing a cooking session
@@ -79,6 +80,7 @@
 - Improved the AI chat experience with a more refined welcome state, clearer message bubbles, and a smoother typing indicator
 - Improved in-app toast notifications with a more cohesive visual style that matches the app's warm editorial theme
 
+- Updated the app favicon to a warm terracotta open book design, better reflecting the cookbook aesthetic and color palette
 - Improved recipe cards with a subtle lift on hover, making them feel more responsive and inviting to tap
 - Improved the recipe list with a staggered entrance animation — cards reveal in sequence as the page loads, giving the collection a more editorial feel
 - Improved the bottom navigation bar with a scale-up effect on the active tab icon and a brief press-down feedback when tapping any tab
