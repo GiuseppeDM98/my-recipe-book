@@ -137,11 +137,13 @@ src/
 - **Scroll jank su lista ricette + collapsible scattosi in cooking mode**: rimosso `will-change-transform` statico dalle recipe card (→ `group-hover:will-change-transform`); eliminato `shadow` da `transition-[...]`; collapsible `duration-300` → `duration-200` + `will-change-[grid-template-rows]`. File: `recipe-card.tsx`, `steps-list-collapsible.tsx`, `ingredient-list-collapsible.tsx`
 
 ### Performance fixes (2026-04-29)
-- **Scroll jank in portrait mode (fix sistemico)**: la causa primaria era `background-attachment: fixed` sul body — disabilita il GPU-composited scroll path su iOS Safari e mobile Chrome. Rimosso. Peggiore in portrait perché i documenti sono più alti e la bottom nav fixed (assente in landscape) aggiunge un layer compositor extra
-- Disabilitata animazione `ambientDrift` su `.shell-stage::before` via `@media (max-width: 1439px)`: overhead inutile su mobile
-- Aggiunto `overscroll-behavior: contain` su `html`: previene propagazione rubber-band a container annidati
-- `min-h-screen` → `min-h-[100dvh]` nei container top-level del dashboard layout: `100dvh` si adatta alla barra indirizzi mobile, `100vh` è statico. File: `globals.css`, `(dashboard)/layout.tsx`
-- **Scroll jank residuo — fix sistemico secondo giro (2026-04-29)**: causa principale rimasta erano `backdrop-filter: blur()` su Header (sticky) e BottomNavigation (fixed). Su iOS Safari / mobile Chrome, ogni `backdrop-blur` su un elemento sempre in viewport forza il browser a re-rasterizzare il contenuto sottostante su ogni frame di scroll — costo impossibile da ammortizzare. Rimosso `backdrop-blur-sm` da entrambi; header reso opaco (`bg-background`). Rimossi anche `shell-stage::before` e `::after` su mobile (`display: none` in media query): erano pseudo-elementi con gradienti OKLCH + `calc()` che coprono l'intera altezza del documento — rasterizzazione costosa ad ogni repaint. File: `header.tsx`, `bottom-navigation.tsx`, `globals.css`
+- **Scroll jank in portrait mode (fix sistemico)**: rimosso `background-attachment: fixed` dal body — disabilita il GPU-composited scroll path su iOS Safari e mobile Chrome
+- Disabilitata animazione `ambientDrift` su `.shell-stage::before` via `@media (max-width: 1439px)`; aggiunto `overscroll-behavior: contain`; `min-h-screen` → `min-h-[100dvh]` sui container top-level. File: `globals.css`, `(dashboard)/layout.tsx`
+- **Scroll jank residuo**: rimosso `backdrop-blur-sm` da Header e BottomNavigation (forza re-rasterizzazione ad ogni frame di scroll su iOS/Chrome mobile); rimossi `shell-stage::before/::after` su mobile. File: `header.tsx`, `bottom-navigation.tsx`, `globals.css`
+
+### Fix e polish (2026-05-05)
+- **Conteggi filtri ricette non aggiornati**: i badge categoria/sottocategoria mostravano il totale globale ignorando la stagione attiva. Aggiunto `recipesForCategoryFilter` (post-stagione) e `recipesForSubcategoryFilter` (post-stagione+categoria) come basi intermedie per i `useMemo` dei conteggi. File: `(dashboard)/ricette/page.tsx`
+- **Favicon redesign**: sostituita la favicon con un libro aperto su cerchio terracotta (`#A05C38`), pagine crema (`#FAF8F3`), dorso `#C47D5A`. Colori allineati alla palette OKLCH dell'app. File: `src/app/icon.svg`
 
 ---
 
