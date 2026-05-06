@@ -184,6 +184,20 @@ Turn your meal plan into a ready-to-use shopping list in one tap.
 - **Week navigation**: Browse the shopping list for any week, not just the current one
 - **Persistent check state**: Checked items and custom additions are saved locally per week
 
+### Pantry (Dispensa)
+
+Track what you have at home, manage expiry dates, and see which recipes you can cook right now.
+
+- **Category list**: Items grouped by food type (dairy, vegetables, meat, etc.) in collapsible sections
+- **Expiring strip**: A horizontal scroll strip at the top highlights items that have expired, expire today, or are running low
+- **"Con quello che hai"**: Suggests recipes from your cookbook whose ingredient names match what you currently have in the pantry
+- **Storage locations**: Track whether an item is in the fridge, pantry, or freezer, and filter by location
+- **Stock levels**: Each item has a minimum quantity threshold; a stock bar shows whether you are well-stocked, running low, or out
+- **Expiry tinting**: Overdue items get a whole-card warm tint so nothing slips past unnoticed
+- **Quick actions (mobile)**: Tap an item to open a bottom sheet with consume, edit, and delete actions
+- **Desktop sidebar**: A sticky summary panel shows expiring, low-stock, and per-location counts at a glance
+- **Add in three ways**: Full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
+
 ### Mobile-First Responsive Design
 
 <img width="373" height="829" alt="image" src="https://github.com/user-attachments/assets/0b0bd5b9-97dd-49be-b784-1cc0b0c81eb4" />

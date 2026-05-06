@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Grid3x3, Sparkles, CalendarDays, BarChart3, Users, ShoppingCart } from 'lucide-react';
+import { Grid3x3, Sparkles, CalendarDays, BarChart3, Users, ShoppingCart, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 interface MoreSheetProps {
@@ -12,6 +12,7 @@ interface MoreSheetProps {
 
 export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
   const menuItems = [
+    { label: 'Cotture in corso', icon: Flame, href: '/cotture-in-corso' },
     { label: 'Categorie', icon: Grid3x3, href: '/categorie' },
     { label: 'Assistente AI', icon: Sparkles, href: '/assistente-ai' },
     { label: 'Pianificatore', icon: CalendarDays, href: '/pianificatore' },

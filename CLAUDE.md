@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-04-22
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-05-06
 
 ## Quick Reference
 
@@ -22,6 +22,7 @@ Digital recipe book for home cooks with:
 - weekly shopping list aggregated from the meal plan
 - family-aware AI quantity guidance via saved household profile
 - historical cooking statistics
+- pantry/dispensa tracking with expiry management and stock levels
 
 Privacy-first architecture: every user-owned document is isolated through Firebase ownership rules.
 
@@ -50,6 +51,7 @@ src/
 ├── components/
 │   ├── layout/
 │   ├── meal-planner/
+│   ├── pantry/
 │   ├── recipe/
 │   ├── shopping-list/
 │   └── ui/
@@ -97,31 +99,10 @@ src/
 
 ## Recent Changes (Last 2-3 Months)
 
-### Editorial UI system
-- Introduced a cinematic editorial shell through `shell-stage`, `shell-panel`, warmer OKLCH surfaces, and shared typography across dashboard pages
-- Unified loading, empty, inline status, and toast feedback through shared UI primitives instead of page-by-page placeholders
-- Removed the global auth bootstrap loader; protected routes now rely on page-local states to avoid route-to-route flash
-
-### Planner and shopping flows
-- Added the weekly shopping list at `/lista-spesa`, derived directly from the saved meal plan and local per-week checklist state
-- Expanded planner setup with dietary chips, free-text notes, specific-day planning, and per-meal category preferences/exclusions
-- Added single-slot regeneration with a dedicated note dialog and current-slot context so small changes behave like dish variations instead of full replacements
-- Added post-generation day removal in the planner so an active week can be corrected without rebuilding it
-
-### Planner reliability and save flow
-- Planner AI recipe cards are saveable only when a real `newRecipe` payload exists
-- Save-to-cookbook now normalizes optional recipe fields before writing to Firestore
-- `/api/plan-meals` now enforces stricter parity between `[PIANO]` and `[RICETTE_NUOVE]`, especially for single-slot regeneration, and fails explicitly on partial AI output
-
-### Recipe and cooking UX
-- Recipe filters on `/ricette` are now collapsible with active chips and precomputed counts for smoother interaction
-- The recipe step editor is cleaner on mobile, with controls moved below content and lighter step chrome
-- Cooking mode supports multiple simultaneous timers, sticky completion CTA, section completion feedback, and dynamic step quantity scaling
-
-### Responsive cleanup
-- Planner desktop columns are wider and recipe titles are more legible
-- The mobile-landscape/tablet sidebar drawer is now opaque and easier to read
-- AI Assistant tabs and several dashboard layouts were tightened to avoid small-screen overflow
+### Dispensa (Pantry) — 2026-05-06
+- Added `/dispensa` page: collapsible category list, expiring-items strip, "Con quello che hai" cookable suggestions, position/search/expiry filters, add sheet (3 tabs), mobile quick sheet, notifications sheet, desktop sidebar
+- `pantry_items` Firestore collection with owner-based rules + composite index; pantry categories as hardcoded constants (food taxonomy, distinct from user-defined recipe categories)
+- Bottom nav mobile: swapped "Cotture" for "Dispensa"; Cotture moved to sidebar (desktop) and more sheet (mobile)
 
 ### Design system polish and UX fixes (2026-04)
 - Replaced hardcoded Tailwind `green-*`, `orange-500`, `purple-*` with design system tokens (`accent`, `primary`, `border`) across cooking mode collapsibles, shopping list, progress bar, AI assistant, family profile, and planner AI cards
@@ -189,6 +170,7 @@ subcategories/{id}      # Category children
 cooking_sessions/{id}   # Active cooking progress
 cooking_history/{id}    # Completed cooking events
 meal_plans/{id}         # Weekly planner documents
+pantry_items/{id}       # Pantry items with qty, expiry, stock level
 ```
 
 Composite indexes maintained in repo:
@@ -196,6 +178,7 @@ Composite indexes maintained in repo:
 - `cooking_history`: `(userId ASC, completedAt DESC)`
 - `cooking_sessions`: `(userId ASC, lastUpdatedAt DESC)`
 - `meal_plans`: `(userId ASC, weekStartDate DESC)`
+- `pantry_items`: `(userId ASC, createdAt DESC)`
 - `recipes`: `(userId ASC, createdAt DESC)`
 - `subcategories`: `(categoryId ASC, userId ASC, order ASC)`
 

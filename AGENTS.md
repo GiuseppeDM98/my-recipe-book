@@ -42,6 +42,7 @@
 | Planner save CTA fantasma | Una cella può sembrare salvabile anche quando `newRecipe` è già `null` | Mostrare `Salva nel ricettario` solo se `slot.newRecipe` esiste davvero; badge/label AI da soli non bastano |
 | Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
 | isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
+| YYYY-MM-DD string parsing | `new Date('2026-05-06')` interpretata come UTC mezzanotte → in `Europe/Rome` (+1/+2) risulta nel giorno precedente | Aggiungere sempre il suffisso locale: `new Date(dateStr + 'T00:00:00')` — applicato in `expiryStatus()`, `formatLocalDate`, `getWeekMonday` |
 | React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
 | React Query DevTools | L'icona non appare pur avendo QueryClientProvider | Serve il package separato `@tanstack/react-query-devtools` |
 | React Query + useEffect init | Cache revalidation ri-esegue `useEffect([recipe])` | Usare un ref `sessionInitialized` per guard one-time init |

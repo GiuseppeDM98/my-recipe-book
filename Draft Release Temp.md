@@ -2,6 +2,15 @@
 
 ## ✨ New Features
 
+- Added a Pantry (Dispensa) page to track what you have at home — items are organised by food category, each with quantity, storage location (fridge, pantry, or freezer), and an optional expiry date
+- Added an expiring-items strip at the top of the Pantry page so items that are expired, due today, or running low are always visible at a glance
+- Added a "Con quello che hai" section on the Pantry page that suggests recipes from your cookbook whose ingredients you already have in the pantry
+- Added position filters, a search field, and a "show expiring only" toggle to the Pantry page so you can quickly find what you are looking for
+- Added three ways to add items to the pantry: a full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
+- Added a mobile quick-action sheet on pantry items for marking an item as consumed, adjusting quantity, editing, or deleting
+- Added a Pantry summary sidebar on desktop with counts for expiring items, low-stock items, and total items across the three storage locations
+- Added the Pantry page to the main navigation — it is now the second tab on the mobile bottom bar and appears in the sidebar on desktop
+
 - Added a Weekly Shopping List page that automatically generates your shopping list from the current week's meal plan — ingredients from all recipes are aggregated and organised by section
 - Added the ability to check off items as you shop, with a progress bar showing how many items you have left
 - Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan
