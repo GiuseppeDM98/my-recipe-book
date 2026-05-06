@@ -41,6 +41,7 @@
 
 ## 🐛 Bug Fixes
 
+- Fixed shopping list checked items and custom additions not being saved when switching between devices — your progress is now stored in the cloud and stays in sync across all your devices
 - Fixed recipe filter counts not updating when a season was selected — category and subcategory badges now show the correct number of recipes matching all active filters, not the total across the whole cookbook
 - Fixed AI-generated recipe steps showing raw reference tokens like `[QTY:1]` instead of actual ingredient quantities — step descriptions now always display clean, readable text even when the AI's numbering was inconsistent
 - Fixed the bottom navigation bar appearing transparent on mobile portrait — it now has a solid background so it is always clearly visible while scrolling the recipe list

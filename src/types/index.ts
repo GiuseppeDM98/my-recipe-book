@@ -412,6 +412,9 @@ export interface MealPlan {
   generatedByAI: boolean;
   /** Days included in this plan: 0=Mon … 6=Sun. null/undefined = all 7 days. */
   activeDays?: number[] | null;
+  /** Shopping list state stored here to sync across devices. */
+  shoppingCheckedIds?: string[] | null;
+  shoppingCustomItems?: ShoppingItem[] | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

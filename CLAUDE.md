@@ -99,32 +99,20 @@ src/
 
 ## Recent Changes (Last 2-3 Months)
 
-### Dispensa (Pantry) — 2026-05-06
-- Added `/dispensa` page: collapsible category list, expiring-items strip, "Con quello che hai" cookable suggestions, position/search/expiry filters, add sheet (3 tabs), mobile quick sheet, notifications sheet, desktop sidebar
-- `pantry_items` Firestore collection with owner-based rules + composite index; pantry categories as hardcoded constants (food taxonomy, distinct from user-defined recipe categories)
-- Bottom nav mobile: swapped "Cotture" for "Dispensa"; Cotture moved to sidebar (desktop) and more sheet (mobile)
+### 2026-05-06
+- **Shopping list cross-device sync**: spunte e articoli custom spostati da localStorage a Firestore, embedded su `meal_plans` (`shoppingCheckedIds`, `shoppingCustomItems`). Nessuna collection separata, nessun indice aggiuntivo. Debounce 500ms; fallback localStorage se la settimana non ha un piano; migration automatica da localStorage esistente. File: `useShoppingList.ts`, `meal-plans.ts`, `types/index.ts`
+- **Dispensa (Pantry)**: aggiunta pagina `/dispensa` con lista categorie collassabile, strip articoli in scadenza, suggerimenti "Con quello che hai", filtri posizione/scadenza/ricerca, sheet aggiunta (3 tab), quick sheet mobile, sidebar desktop. Collection `pantry_items` con regole owner-based + indice composito. Bottom nav mobile: Dispensa al posto di Cotture.
 
-### Design system polish and UX fixes (2026-04)
-- Replaced hardcoded Tailwind `green-*`, `orange-500`, `purple-*` with design system tokens (`accent`, `primary`, `border`) across cooking mode collapsibles, shopping list, progress bar, AI assistant, family profile, and planner AI cards
-- Fixed `text-white` and `hover:bg-white/20` in cooking mode — replaced with `text-primary-foreground` and `hover:bg-primary-foreground/20`
-- Fixed active cooking session not appearing on `/cotture-in-corso` without hard refresh: added `queryClient.invalidateQueries` after `createCookingSession` and `deleteCookingSession`
-- Removed loading flash on `/cotture-in-corso` by decoupling the empty-state render from `isLoading`
-- Removed loading flash on AI Assistant tab switches by converting `RecipeTextInput` and `RecipeChatInput` from `next/dynamic` to static imports
-- Fixed Italian accented characters written as ASCII apostrophes (`li'`, `c'e'`, `piu'`, `cio'`) across recipe list, AI assistant, and shopping list pages
+### 2026-05-05
+- **Conteggi filtri ricette**: badge categoria/sottocategoria ora calcolati su subset post-stagione, non sul totale. File: `(dashboard)/ricette/page.tsx`
+- **Favicon**: libro aperto su cerchio terracotta (`#A05C38`), palette allineata all'app. File: `src/app/icon.svg`
 
-### Bug fixes (2026-04-22)
-- **`[QTY:n]` tokens visibili negli step AI**: Claude resetta la numerazione `[ING:n]` per sezione su ricette multi-sezione. `replaceAiQuantityReferences()` ora restituisce `''` invece di `match` per mapping falliti. `renderStepDescription()` aggiunge un cleanup finale per i token residui già in Firestore (backward compat). File: `recipe-parser.ts`, `step-description.ts`
-- **Bottom nav trasparente su mobile portrait**: `bg-background/92` su sfondo crema era percettivamente identico al contenuto sottostante. Cambiato in `bg-background` (100% opaco). File: `bottom-navigation.tsx`
-- **Scroll jank su lista ricette + collapsible scattosi in cooking mode**: rimosso `will-change-transform` statico dalle recipe card (→ `group-hover:will-change-transform`); eliminato `shadow` da `transition-[...]`; collapsible `duration-300` → `duration-200` + `will-change-[grid-template-rows]`. File: `recipe-card.tsx`, `steps-list-collapsible.tsx`, `ingredient-list-collapsible.tsx`
-
-### Performance fixes (2026-04-29)
-- **Scroll jank in portrait mode (fix sistemico)**: rimosso `background-attachment: fixed` dal body — disabilita il GPU-composited scroll path su iOS Safari e mobile Chrome
-- Disabilitata animazione `ambientDrift` su `.shell-stage::before` via `@media (max-width: 1439px)`; aggiunto `overscroll-behavior: contain`; `min-h-screen` → `min-h-[100dvh]` sui container top-level. File: `globals.css`, `(dashboard)/layout.tsx`
-- **Scroll jank residuo**: rimosso `backdrop-blur-sm` da Header e BottomNavigation (forza re-rasterizzazione ad ogni frame di scroll su iOS/Chrome mobile); rimossi `shell-stage::before/::after` su mobile. File: `header.tsx`, `bottom-navigation.tsx`, `globals.css`
-
-### Fix e polish (2026-05-05)
-- **Conteggi filtri ricette non aggiornati**: i badge categoria/sottocategoria mostravano il totale globale ignorando la stagione attiva. Aggiunto `recipesForCategoryFilter` (post-stagione) e `recipesForSubcategoryFilter` (post-stagione+categoria) come basi intermedie per i `useMemo` dei conteggi. File: `(dashboard)/ricette/page.tsx`
-- **Favicon redesign**: sostituita la favicon con un libro aperto su cerchio terracotta (`#A05C38`), pagine crema (`#FAF8F3`), dorso `#C47D5A`. Colori allineati alla palette OKLCH dell'app. File: `src/app/icon.svg`
+### 2026-04
+- **Design tokens**: rimpiazzati `green-*`, `orange-500`, `purple-*` hardcoded con token `accent`/`primary`/`border` in cooking mode, shopping list, AI assistant, family profile, planner AI cards
+- **Performance mobile portrait**: rimosso `background-attachment: fixed` dal body (disabilita GPU-composited scroll su iOS/Chrome); rimosso `backdrop-blur-sm` da Header e BottomNavigation; disabilitata animazione `ambientDrift` su mobile; `min-h-screen` → `min-h-[100dvh]`
+- **Cooking sessions**: `queryClient.invalidateQueries` dopo `createCookingSession`/`deleteCookingSession` (eliminato loading flash e stale cache su `/cotture-in-corso`)
+- **AI Assistant tab switch**: `RecipeTextInput` e `RecipeChatInput` da `next/dynamic` a import statici (eliminato loading flash)
+- **`[QTY:n]` tokens**: `replaceAiQuantityReferences()` restituisce `''` per mapping falliti; `renderStepDescription()` aggiunge cleanup finale per token residui in Firestore (backward compat)
 
 ---
 

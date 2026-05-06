@@ -182,7 +182,7 @@ Turn your meal plan into a ready-to-use shopping list in one tap.
 - **Custom items**: Add anything not in your plan with a name and optional quantity
 - **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
 - **Week navigation**: Browse the shopping list for any week, not just the current one
-- **Persistent check state**: Checked items and custom additions are saved locally per week
+- **Synced check state**: Checked items and custom additions are saved to the cloud and stay in sync across all your devices
 
 ### Pantry (Dispensa)
 

@@ -59,6 +59,7 @@
 | Colori Tailwind raw fuori design system | `green-*`, `orange-*`, `purple-*` usati per stati (completamento, validazione, AI) sono visivamente incoerenti — il token `accent` del progetto è già verde salvia | Per stati di completamento: `text-accent`, `bg-accent/10`, `border-accent/40`; per warning: `text-primary`; mai `purple-*` |
 | Conteggi filtri calcolati sul set completo | `useMemo` di badge categoria/sottocategoria che dipende da `recipes` invece che dal subset upstream: cambiare stagione non aggiorna i conteggi di categoria | Calcolare `recipeCountByCategoryId` su `recipesForCategoryFilter` (post-stagione), `recipeCountBySubcategoryId` su `recipesForSubcategoryFilter` (post-stagione+categoria); i conteggi stagione restano su `recipes` full |
 | Credenziali test invisibili | Si pensa che il pannello login sia sparito, ma la UI è corretta | Le credenziali test nel login compaiono solo con `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`; dopo cambio env riavviare `npm run dev` |
+| `jest.setup.js` vs `.ts` | `@testing-library/jest-dom` v6 usa module augmentation per estendere i matcher Jest; TypeScript ignora i file `.js` → `toBeInTheDocument` e simili risultano tipizzati come inesistenti | Il setup file Jest che fa side-effect import di tipi (`import '@testing-library/jest-dom'`) deve avere estensione `.ts`; aggiornare anche `jest.config.js` (`setupFilesAfterEnv`). Vale per qualsiasi package che estende matcher Jest (es. `jest-extended`) |
 | `next/font` in `'use client'` | Errore runtime — `next/font/google` funziona solo in Server Components | Root layout deve essere server component; estrarre QueryClient+Auth in `src/components/providers.tsx` |
 | Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
 | `container mx-auto` non configurato | `container` di Tailwind si espande senza limiti se non configurato in `tailwind.config.js` | Usare `max-w-*` espliciti (`max-w-4xl`, `max-w-5xl`) invece di `container` |
@@ -314,5 +315,6 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 **Shopping List — Derived View**: lista derivata dal `MealPlan`, nessuna collection Firestore separata.
 - Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato)
 - Slot `newRecipe` (ParsedRecipe) → ingredienti inline, zero Firestore reads aggiuntive
-- Stato effimero (spunti, articoli custom) → localStorage key `shopping_list:{uid}:{weekStartDate}`
+- Stato spunte e articoli custom → campi `shoppingCheckedIds` + `shoppingCustomItems` sul documento `meal_plans` (Firestore, cross-device). Fallback localStorage solo se non esiste un piano per quella settimana.
+- Scritture Firestore debounced 500ms per coalescing di tap rapidi sul checkbox
 - Aggregazione: somma numerica se stessa unità; fallback `" + "` per tutto il resto; nessun fuzzy matching sui nomi
