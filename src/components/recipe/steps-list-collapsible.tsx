@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Ingredient, Step } from '@/types';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, Timer } from 'lucide-react';
 import { renderStepDescription } from '@/lib/utils/step-description';
 import { cn } from '@/lib/utils/cn';
 
@@ -187,7 +187,7 @@ export function StepsListCollapsible({
             <div key={sectionKey} className={cn(
               'space-y-4',
               interactive && sectionComplete
-                ? 'rounded-lg border border-green-400 bg-green-50 p-3 transition-colors duration-300'
+                ? 'rounded-lg border border-accent/40 bg-accent/8 p-3 transition-colors duration-300'
                 : ''
             )}>
               {group.steps.map((step) => {
@@ -207,6 +207,7 @@ export function StepsListCollapsible({
                     {...(interactive ? {
                       role: 'button' as const,
                       tabIndex: 0,
+                      'aria-pressed': isChecked,
                       onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleStep?.(step.id); } },
                     } : {})}
                   >
@@ -216,7 +217,7 @@ export function StepsListCollapsible({
                         checked={isChecked}
                         onChange={() => onToggleStep?.(step.id)}
                         tabIndex={-1}
-                        className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
+                        className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer accent-primary"
                       />
                     )}
                     <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${isChecked && interactive ? 'bg-muted-foreground' : 'bg-primary'} text-primary-foreground font-bold mr-4`}>
@@ -247,17 +248,19 @@ export function StepsListCollapsible({
                           {interactive && onStartTimer ? (
                             isTimerActive?.(step.id) ? (
                               // Timer attivo: mostra countdown inline
-                              <span className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-primary">
-                                ⏱ {formatTimerSeconds(getTimerSecondsLeft?.(step.id) ?? 0)}
+                              <span className="inline-flex items-center gap-1.5 text-sm font-mono font-semibold text-primary">
+                                <Timer className="h-4 w-4" />
+                                {formatTimerSeconds(getTimerSecondsLeft?.(step.id) ?? 0)}
                               </span>
                             ) : (
                               // Idle: bottone per avviare il timer
                               <button
                                 type="button"
-                                className="text-sm text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                                className="inline-flex items-center gap-1.5 text-sm text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
                                 onClick={() => onStartTimer(step.id, step.duration! * 60)}
                               >
-                                ▶ Avvia timer ({step.duration} min)
+                                <Play className="h-3.5 w-3.5" />
+                                Avvia timer ({step.duration} min)
                               </button>
                             )
                           ) : (
@@ -327,13 +330,20 @@ export function StepsListCollapsible({
                       key={step.id}
                       className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-muted/50 p-3 rounded transition-colors' : ''}`}
                       onClick={() => interactive && onToggleStep?.(step.id)}
+                      {...(interactive ? {
+                        role: 'button' as const,
+                        tabIndex: 0,
+                        'aria-pressed': isChecked,
+                        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleStep?.(step.id); } },
+                      } : {})}
                     >
                       {interactive && (
                         <input
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => onToggleStep?.(step.id)}
-                          className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
+                          tabIndex={-1}
+                          className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer accent-primary"
                         />
                       )}
                       <div className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full ${isChecked && interactive ? 'bg-muted-foreground' : 'bg-primary'} text-primary-foreground font-bold mr-4`}>
@@ -363,16 +373,18 @@ export function StepsListCollapsible({
                           <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                             {interactive && onStartTimer ? (
                               isTimerActive?.(step.id) ? (
-                                <span className="inline-flex items-center gap-1 text-sm font-mono font-semibold text-primary">
-                                  ⏱ {formatTimerSeconds(getTimerSecondsLeft?.(step.id) ?? 0)}
+                                <span className="inline-flex items-center gap-1.5 text-sm font-mono font-semibold text-primary">
+                                  <Timer className="h-4 w-4" />
+                                  {formatTimerSeconds(getTimerSecondsLeft?.(step.id) ?? 0)}
                                 </span>
                               ) : (
                                 <button
                                   type="button"
-                                  className="text-sm text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
+                                  className="inline-flex items-center gap-1.5 text-sm text-primary underline underline-offset-2 hover:opacity-70 transition-opacity"
                                   onClick={() => onStartTimer(step.id, step.duration! * 60)}
                                 >
-                                  ▶ Avvia timer ({step.duration} min)
+                                  <Play className="h-3.5 w-3.5" />
+                                  Avvia timer ({step.duration} min)
                                 </button>
                               )
                             ) : (

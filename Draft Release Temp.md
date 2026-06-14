@@ -70,6 +70,8 @@
 - Fixed recipe deletion messaging so it now clearly explains that completed cooking history stays available in Statistics
 - Fixed a browser validation error when a step duration exceeded 999 minutes (e.g. "leave to rise for 24 hours")
 - Fixed the meal planner "reshuffle" button being invisible on phones — the ↺ swap-recipe button on each meal slot is now always visible on mobile, where it previously only appeared on mouse hover (which phones don't have)
+- Fixed the servings selector in cooking mode jumping back to 1 when you cleared the field to type a new number
+- Fixed an error while cooking (for example a failed save) replacing the whole screen — problems now show as a dismissible message and your cooking progress stays in view
 
 ## 🔧 Improvements
 
@@ -167,6 +169,12 @@
 - Improved the category colour palette with warm, earthy tones (terracotta, ochre, olive, sage, cocoa) that match the cookbook aesthetic, replacing the previous bright neon colours
 - Improved the meal planner's legacy "recipes to review" section with a calmer, more editorial heading
 - Improved the desktop layout so the navigation sidebar, header, and footer now stay fixed in place while only the recipe list scrolls — navigation and the theme switcher are always reachable, even with a long list of recipes
+- Improved the cooking screen to feel like the rest of the cookbook — emoji replaced with consistent icons, on-brand warm colours, and a calmer editorial layout
+- Improved the recipe checklists for accessibility — ingredient and step items are now fully keyboard-navigable and announce whether they are checked, in both the cooking screen and recipe view
+- Improved season badges on recipe cards with descriptive labels, so screen readers announce the season instead of just an icon
+- Improved the recipe list error state with a clear "Retry" action instead of a bare error line
+- Improved the "Filter" button on the recipes page so it no longer visually competes with the selected season
+- Added a warm completion message when you finish cooking a recipe
 
 ## 🔒 Security
 

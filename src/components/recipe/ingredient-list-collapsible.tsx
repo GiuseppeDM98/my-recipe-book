@@ -157,6 +157,7 @@ export function IngredientListCollapsible({
                     {...(interactive ? {
                       role: 'button',
                       tabIndex: 0,
+                      'aria-pressed': isChecked,
                       onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleIngredient?.(ingredient.id); } },
                     } : {})}
                   >
@@ -166,7 +167,7 @@ export function IngredientListCollapsible({
                         checked={isChecked}
                         onChange={() => onToggleIngredient?.(ingredient.id)}
                         tabIndex={-1}
-                        className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
+                        className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer accent-primary"
                       />
                     ) : (
                       <span className="flex-shrink-0 mr-3 text-primary">&#10003;</span>
@@ -230,13 +231,20 @@ export function IngredientListCollapsible({
                         key={ingredient.id}
                         className={`flex items-start ${interactive ? 'cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors' : ''}`}
                         onClick={() => interactive && onToggleIngredient?.(ingredient.id)}
+                        {...(interactive ? {
+                          role: 'button' as const,
+                          tabIndex: 0,
+                          'aria-pressed': isChecked,
+                          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleIngredient?.(ingredient.id); } },
+                        } : {})}
                       >
                         {interactive ? (
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => onToggleIngredient?.(ingredient.id)}
-                            className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer"
+                            tabIndex={-1}
+                            className="flex-shrink-0 mr-3 mt-1 w-5 h-5 cursor-pointer accent-primary"
                           />
                         ) : (
                           <span className="flex-shrink-0 mr-3 text-primary">&#10003;</span>

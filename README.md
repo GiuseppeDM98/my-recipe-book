@@ -82,14 +82,14 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 
 
 - **Screen Wake Lock**: Uses nosleep.js to prevent your device from going to sleep while cooking
-- **Interactive Checkboxes**: Check off ingredients and steps as you complete them
+- **Interactive Checkboxes**: Check off ingredients and steps as you complete them — fully keyboard-navigable and announced to screen readers
 - **Progress Tracking**: Animated terracotta progress bar in the sticky footer grows as you check off ingredients and steps
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
 - **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
 - **Persistent Finish CTA**: A "Finish cooking" button in a sticky footer is always visible; it activates automatically when all ingredients and steps are checked
-- **Per-Step Countdown Timers**: Steps with a duration show an "▶ Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
+- **Per-Step Countdown Timers**: Steps with a duration show a "Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
 - **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
 
 ### Active Cooking Sessions Dashboard

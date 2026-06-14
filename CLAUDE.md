@@ -111,11 +111,12 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-06-14 — Dark mode + desktop app-shell scroll
-- **Dark mode (light / dark / system)** via `next-themes`: `NextThemesProvider` come provider più esterno in `providers.tsx` (`attribute="class"`, `defaultTheme="system"`, `enableSystem`); `<html suppressHydrationWarning>`; `darkMode: 'class'` in `tailwind.config.js`. Persistenza + anti-flash gestiti da next-themes
-- **Token `.dark`** in `globals.css`: nessuna modifica ai colori (puntano già a `oklch(var(--token))`), solo override delle stesse CSS var. ⚠️ Le var contengono **solo i componenti OKLCH** (no wrapper `oklch()`, no alpha) così `oklch(var(--x) / a)` inline resta valido. Override `.dark`/`dark:` per le superfici decorative con literal chiari (gradiente `body`, `.shell-stage`, `.shell-panel`, sidebar drawer, `more-sheet`, `status-banner`, auth pages)
-- **`ThemePicker`** (`components/ui/theme-picker.tsx`): Sistema/Chiaro/Scuro, pattern `mounted`, circle-reveal opzionale via View Transitions API. Montato in `Sidebar` e `MoreSheet`
-- **Desktop app-shell scroll** (≥1440px): `.shell-stage` ad altezza viewport fissa, `<main>` scrolla internamente (`lg:overflow-y-auto`). Header/sidebar/footer restano fermi senza `sticky` (che si rompe dentro `overflow:hidden`). Risolve il selettore tema irraggiungibile in fondo a liste lunghe. `--shell-focus` legge `mainRef.scrollTop`. Mobile invariato (scroll finestra)
+### 2026-06-14 — Riallineamento design-system cottura + ricette (post-critique)
+- **`ServingsStepper` condiviso** (`components/recipe/servings-stepper.tsx`): de-duplica i due selettori porzioni (setup + cottura) via prop `size` `'md'`/`'lg'`. Buffer stringa interno → il campo può restare vuoto in digitazione (risolve `parseInt('')||1` che saltava a 1), clamp [1,99] su blur, `aria-label` sui controlli
+- **Modalità cottura** (`ricette/[id]/cooking/page.tsx`): errori su token `destructive`; `sessionError` non è più full-screen ma `StatusBanner` inline dismissibile (la cottura resta visibile); emoji UI → icone lucide (`ChefHat`/`Scale`); CTA a scala `lg`; card setup su `shell-panel` editoriale + kicker; toast di completamento (peak-end)
+- **Liste collassabili** (`steps-list-collapsible`, `ingredient-list-collapsible`): `green-*` raw → `accent`; checkbox `accent-primary`; icone lucide `Play`/`Timer`; parità tastiera (`role`/`tabIndex`/`onKeyDown`/`aria-pressed`) anche sulle righe delle sezioni con titolo, checkbox `tabIndex={-1}`
+- **Pagina ricette** (`ricette/page.tsx`, `recipe-card.tsx`): stato errore → `StatusBanner` con "Riprova" (`refreshRecipes`); toggle "Filtra" in tinta (`bg-primary/10`) invece di riempimento pieno (Regola del Timbro); badge stagione con `aria-label`
+- ⚠️ Contenuto dentro `shell-panel` va in `relative z-10` (overlay `::before`); `next lint` non esiste più in Next 16 → validare con `tsc --noEmit` + `next build --webpack` (vedi AGENTS.md)
 
 ---
 
