@@ -131,7 +131,7 @@ Three ways to get recipes in — all powered by Claude AI:
 **Family Profile for AI Quantities:**
 - **Dedicated profile page**: Save household members and optional notes in a dedicated Family Profile page
 - **More suitable quantities**: The AI can optionally use your household profile when generating or adapting recipes
-- **Applied only where it makes sense**: Family context is available in AI chat, free-text formatting, and the meal planner, but not in pure PDF extraction
+- **Applied only where it makes sense**: Family context is available in AI chat and free-text formatting, but not in pure PDF extraction or the (now AI-free) meal planner
 
 **All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
@@ -157,17 +157,17 @@ Three ways to get recipes in — all powered by Claude AI:
 
 ### Weekly Meal Planner
 
-Plan your meals for the week — AI-assisted or fully manual.
+Plan your meals for the week — generated locally from your own recipes, or fully manual. No AI, no waiting.
 
-- **AI-generated plans**: The AI selects recipes from your cookbook and optionally creates new ones tailored to the season
+- **Shuffle generation**: One tap builds a weekly plan by picking recipes from your cookbook that match the selected season and your per-meal category choices
 - **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
-- **Per-meal control**: Set how many new AI-generated recipes to include for each meal type (breakfast, lunch, dinner)
-- **Category hints**: Tell the AI which category to prefer for each meal type
-- **Edit after generation**: Click any slot to swap the recipe manually at any time
-- **Regenerate with guidance**: Use the refresh action on a slot to ask the AI for a new suggestion, optionally with a specific note such as "no asparagus" or "keep it simpler"
-- **Day-by-day correction**: Remove individual days from an already generated week without rebuilding the whole plan
-- **Save AI recipes**: Newly generated recipes can be saved to your cookbook in one click — with AI-suggested category and seasons pre-filled
-- **Quick navigation**: Green cells link directly to the full recipe page
+- **Per-meal categories**: For each meal (breakfast, lunch, dinner) choose a preferred category and categories to avoid, so the shuffle won't put, say, a dessert at lunch
+- **Reshuffle a slot**: Use the ↺ action on any slot to swap in a different recipe of the same category, without rebuilding the week
+- **Edit anytime**: Click any slot to change the recipe manually
+- **Copy plan**: Duplicate a week you liked into another week (it stops you if that week already has a plan)
+- **Day-by-day correction**: Remove individual days from a generated week without rebuilding the whole plan
+- **Day selector**: Plan only specific days (e.g. weekdays only) instead of the full week
+- **Quick navigation**: Recipe cells link directly to the full recipe page
 - **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
 - **Persistent**: Plans are saved to Firebase and the current week is restored automatically on your next visit
@@ -176,13 +176,27 @@ Plan your meals for the week — AI-assisted or fully manual.
 
 Turn your meal plan into a ready-to-use shopping list in one tap.
 
-- **Auto-generated from your plan**: All ingredients from the week's recipes are aggregated automatically — including AI-generated recipes not yet saved to your cookbook
-- **Smart aggregation**: Matching ingredients from different recipes are combined (e.g., two recipes using 200 g and 150 g of tomatoes → "350 g tomatoes")
+- **Auto-generated from your plan**: All ingredients from the week's recipes are aggregated automatically
+- **Smart aggregation**: The same ingredient is merged across recipes, summing quantities even across compatible units (e.g. 200 g + 1 kg → "1,2 kg", 500 ml + 0,5 l → "1 l") and matching singular/plural or accented spellings (e.g. pomodoro/pomodori)
 - **Checkboxes**: Check off items as you shop; a progress bar shows how many items remain
 - **Custom items**: Add anything not in your plan with a name and optional quantity
 - **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
 - **Week navigation**: Browse the shopping list for any week, not just the current one
-- **Persistent check state**: Checked items and custom additions are saved locally per week
+- **Synced check state**: Checked items and custom additions are saved to the cloud and stay in sync across all your devices
+
+### Pantry (Dispensa)
+
+Track what you have at home, manage expiry dates, and see which recipes you can cook right now.
+
+- **Category list**: Items grouped by food type (dairy, vegetables, meat, etc.) in collapsible sections
+- **Expiring strip**: A horizontal scroll strip at the top highlights items that have expired, expire today, or are running low
+- **"Con quello che hai"**: Suggests recipes from your cookbook whose ingredient names match what you currently have in the pantry
+- **Storage locations**: Track whether an item is in the fridge, pantry, or freezer, and filter by location
+- **Stock levels**: Each item has a minimum quantity threshold; a stock bar shows whether you are well-stocked, running low, or out
+- **Expiry tinting**: Overdue items get a whole-card warm tint so nothing slips past unnoticed
+- **Quick actions (mobile)**: Tap an item to open a bottom sheet with consume, edit, and delete actions
+- **Desktop sidebar**: A sticky summary panel shows expiring, low-stock, and per-location counts at a glance
+- **Add in three ways**: Full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
 
 ### Mobile-First Responsive Design
 
@@ -1167,7 +1181,7 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 5. Add Vercel domain to Firebase authorized domains
 
 **Production auth note**:
-- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/plan-meals` all verify Firebase ID tokens server-side
+- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, and `/api/chat-recipe` all verify Firebase ID tokens server-side
 - `NEXT_PUBLIC_FIREBASE_*` alone are not enough for those endpoints
 - On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64` to avoid multiline private key formatting issues
 

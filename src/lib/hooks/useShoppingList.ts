@@ -1,15 +1,15 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { getMealPlanByWeek } from '@/lib/firebase/meal-plans';
+import { getMealPlanByWeek, updateMealPlanShoppingState } from '@/lib/firebase/meal-plans';
 import { getRecipesByIds } from '@/lib/firebase/firestore';
 import { buildContributions, aggregateIngredients } from '@/lib/utils/ingredient-aggregator';
 import { MealType, ShoppingItem } from '@/types';
 
 // ---------------------------------------------------------------------------
-// localStorage helpers
+// localStorage helpers (fallback when no meal plan exists for the week)
 // ---------------------------------------------------------------------------
 
 function storageKey(userId: string, weekStartDate: string): string {
@@ -62,8 +62,15 @@ export interface UseShoppingListReturn {
  * DATA FLOW:
  * 1. React Query fetches the MealPlan + all referenced recipes (batch, deduped).
  * 2. buildContributions + aggregateIngredients derive the computed ShoppingItem[].
- * 3. localStorage stores checked state and user-added custom items, keyed by
- *    {userId}:{weekStartDate} to prevent cross-week and cross-user contamination.
+ * 3. Checked state and custom items are persisted in the MealPlan Firestore document
+ *    (fields: shoppingCheckedIds, shoppingCustomItems) so they sync across devices.
+ * 4. If no plan exists for the week, localStorage is used as a fallback (rare case).
+ *
+ * MIGRATION: on first load after this change, if Firestore has no shopping state but
+ * localStorage does, the localStorage values are used and immediately migrated to
+ * Firestore on the next state change.
+ *
+ * DEBOUNCE: Firestore writes are debounced 500ms to coalesce rapid checkbox taps.
  *
  * SECTIONS: named sections sort alphabetically; null section ("Senza categoria")
  * is placed last so named groups appear at the top.
@@ -76,11 +83,19 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   // --------------------------------------------------
   // React Query: fetch plan + recipes → computed items
   // --------------------------------------------------
+
+  interface QueryResult {
+    items: ShoppingItem[];
+    planId: string;
+    initialCheckedIds: string[];
+    initialCustomItems: ShoppingItem[];
+  }
+
   const {
-    data: computedItems = [],
+    data,
     isLoading,
     isFetched,
-  } = useQuery({
+  } = useQuery<QueryResult | null>({
     enabled: !!user,
     queryKey: ['shoppingList', user?.uid ?? '', weekStartDate],
     queryFn: async () => {
@@ -94,33 +109,170 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
       const recipesById = await getRecipesByIds(existingIds, user!.uid);
 
       const contributions = buildContributions(plan, recipesById);
-      return aggregateIngredients(contributions);
+      const items = aggregateIngredients(contributions);
+
+      return {
+        items,
+        planId: plan.id,
+        initialCheckedIds: plan.shoppingCheckedIds ?? [],
+        initialCustomItems: plan.shoppingCustomItems ?? [],
+      };
     },
   });
 
   // null means "plan not found"; undefined means "query pending"
-  const hasPlan = isFetched && computedItems !== null;
-  const planItems: ShoppingItem[] = computedItems ?? [];
+  const hasPlan = isFetched && data !== null;
+  const planItems: ShoppingItem[] = data?.items ?? [];
 
   // --------------------------------------------------
-  // localStorage-backed state
+  // State — backed by Firestore (or localStorage fallback)
   // --------------------------------------------------
+
   const [checkedIdsList, setCheckedIdsList] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<ShoppingItem[]>([]);
 
-  // Initialise from localStorage when the key is ready.
+  // Tracks which lsKey the current state belongs to, so we can guard
+  // the persist effect from firing before initialization.
+  const stateKeyRef = useRef<string>('');
+  // Firestore plan ID for the current week (null when no plan exists).
+  const planIdRef = useRef<string | null>(null);
+  // Debounce timer for Firestore writes.
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Always-current snapshot used by flushPendingShoppingState so it never reads
+  // a stale closure when fired from an unmount/visibility handler.
+  const latestStateRef = useRef<{
+    lsKey: string;
+    planId: string | null;
+    checkedIdsList: string[];
+    customItems: ShoppingItem[];
+  }>({ lsKey: '', planId: null, checkedIdsList: [], customItems: [] });
+
+  // Keep the snapshot in sync after every commit.
   useEffect(() => {
-    if (!lsKey) return;
-    const { checkedIds, customItems: saved } = loadPersistedState(lsKey);
-    setCheckedIdsList(checkedIds);
-    setCustomItems(saved);
+    latestStateRef.current = {
+      lsKey,
+      planId: planIdRef.current,
+      checkedIdsList,
+      customItems,
+    };
+  });
+
+  /**
+   * Persist any pending (debounced) shopping state immediately.
+   *
+   * WHY: the debounce delays Firestore writes by 500ms to coalesce rapid taps.
+   * If the component unmounts (navigation) or the tab/app is hidden before the
+   * timer fires, the pending write must not be discarded — otherwise a checkbox
+   * tapped right before leaving is silently lost and reappears unchecked later.
+   * We flush from the latest-state ref because handlers run with stale closures.
+   */
+  const flushPendingShoppingState = useCallback(() => {
+    if (!persistTimerRef.current) return;
+    clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = null;
+
+    const { lsKey: key, planId, checkedIdsList: checked, customItems: custom } =
+      latestStateRef.current;
+    if (!key) return;
+
+    if (planId) {
+      // Fire-and-forget: on unmount/hide we cannot await, but issuing the write
+      // now (instead of cancelling it) is what prevents the lost-check bug.
+      updateMealPlanShoppingState(planId, checked, custom).catch(() => {
+        savePersistedState(key, { checkedIds: checked, customItems: custom });
+      });
+    } else {
+      savePersistedState(key, { checkedIds: checked, customItems: custom });
+    }
+  }, []);
+
+  // Reset local state immediately when the week changes so the UI shows
+  // empty state while the new week's fetch is in-flight.
+  useEffect(() => {
+    setCheckedIdsList([]);
+    setCustomItems([]);
+    stateKeyRef.current = '';
+    planIdRef.current = null;
   }, [lsKey]);
 
-  // Persist whenever checked/custom state changes.
+  // Once the fetch for the current key is complete, initialise state.
+  // Prefers Firestore values; falls back to localStorage (migration path
+  // or no-plan case). Runs once per lsKey thanks to stateKeyRef guard.
   useEffect(() => {
+    if (!lsKey || !isFetched || stateKeyRef.current === lsKey) return;
+    stateKeyRef.current = lsKey;
+
+    if (data) {
+      planIdRef.current = data.planId;
+
+      if (data.initialCheckedIds.length > 0 || data.initialCustomItems.length > 0) {
+        // Firestore has state — use it.
+        setCheckedIdsList(data.initialCheckedIds);
+        setCustomItems(data.initialCustomItems);
+      } else {
+        // Firestore has no shopping state yet — check localStorage for migration.
+        const { checkedIds, customItems: saved } = loadPersistedState(lsKey);
+        setCheckedIdsList(checkedIds);
+        setCustomItems(saved);
+        // The persist effect will write these to Firestore on next state change.
+      }
+    } else {
+      // No plan for this week — use localStorage only.
+      planIdRef.current = null;
+      const { checkedIds, customItems: saved } = loadPersistedState(lsKey);
+      setCheckedIdsList(checkedIds);
+      setCustomItems(saved);
+    }
+  }, [lsKey, isFetched, data]);
+
+  // Persist state changes. The stateKeyRef guard prevents writes before
+  // initialization (e.g. the week-change reset doesn't clobber Firestore).
+  useEffect(() => {
+    if (stateKeyRef.current !== lsKey) return;
     if (!lsKey) return;
-    savePersistedState(lsKey, { checkedIds: checkedIdsList, customItems });
+
+    const planId = planIdRef.current;
+    const snapshot = { checkedIdsList, customItems };
+
+    if (planId) {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = setTimeout(() => {
+        // Mark as no longer pending so a later flush doesn't re-issue this write.
+        persistTimerRef.current = null;
+        updateMealPlanShoppingState(planId, snapshot.checkedIdsList, snapshot.customItems)
+          .catch(() => {
+            // Firestore write failed — fall back to localStorage so state is not lost.
+            savePersistedState(lsKey, {
+              checkedIds: snapshot.checkedIdsList,
+              customItems: snapshot.customItems,
+            });
+          });
+      }, 500);
+    } else {
+      savePersistedState(lsKey, { checkedIds: checkedIdsList, customItems });
+    }
   }, [lsKey, checkedIdsList, customItems]);
+
+  // Flush pending writes when leaving: on unmount (navigation) and when the
+  // page is hidden or unloaded. `visibilitychange` → hidden is the reliable
+  // signal on mobile when the app is backgrounded or closed, where React's
+  // unmount cleanup may never run.
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        flushPendingShoppingState();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', flushPendingShoppingState);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', flushPendingShoppingState);
+      flushPendingShoppingState();
+    };
+  }, [flushPendingShoppingState]);
 
   // --------------------------------------------------
   // Merged items: computed + custom, sorted by section → name

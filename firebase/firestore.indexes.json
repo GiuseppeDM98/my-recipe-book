@@ -48,6 +48,14 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "order", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "pantry_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

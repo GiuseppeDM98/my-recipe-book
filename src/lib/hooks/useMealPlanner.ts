@@ -1,16 +1,16 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { FamilyProfile, MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season, Recipe } from '@/types';
+import { MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season, Recipe } from '@/types';
 import {
   createMealPlan,
   updateMealPlanSlots,
   getMealPlanByWeek,
   updateMealPlan,
 } from '@/lib/firebase/meal-plans';
-import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
+import { buildShuffledSlots, pickReshuffledRecipe } from '@/lib/utils/meal-plan-shuffle';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { recipesQueryKey } from '@/lib/hooks/useRecipes';
@@ -20,12 +20,12 @@ import { recipesQueryKey } from '@/lib/hooks/useRecipes';
  *
  * RESPONSIBILITIES:
  * - Drives the 3-step page flow (setup → generating → calendar)
- * - Calls /api/plan-meals and materializes the response into a MealPlan
+ * - Builds a plan locally by shuffling the user's own recipes (no AI)
  * - Persists every slot change to Firestore immediately
- * - Handles saving AI-generated recipes to the cookbook
+ * - Copies a plan to another week
  *
  * SLOT PERSISTENCE STRATEGY:
- * Every slot update (AI generation, manual pick, clear) triggers a full
+ * Every slot update (shuffle, manual pick, clear, re-roll) triggers a full
  * `updateMealPlanSlots()` write. This keeps the client and Firebase in sync
  * without real-time listeners (no extra read costs).
  *
@@ -41,23 +41,15 @@ interface UseMealPlannerReturn {
   currentPlan: MealPlan | null;
   isGenerating: boolean;
   error: string | null;
-  generatePlan: (
-    config: MealPlanSetupConfig,
-    existingRecipes: Recipe[],
-    categories: { id: string; name: string }[],
-    options?: { useFamilyContext?: boolean; familyProfile?: FamilyProfile | null }
-  ) => Promise<void>;
+  /** Builds a plan locally from the user's recipes. Returns the meal types that
+   *  could not be filled (no matching recipe) so the caller can warn the user. */
+  generateShuffledPlan: (config: MealPlanSetupConfig, recipes: Recipe[]) => Promise<MealType[]>;
   createManualPlan: (config: MealPlanSetupConfig) => Promise<void>;
+  copyPlanToWeek: (targetWeekStartDate: string) => Promise<string>;
   updateSlot: (dayIndex: number, mealType: MealType, recipeId: string, title: string) => Promise<void>;
   clearSlot: (dayIndex: number, mealType: MealType) => Promise<void>;
   saveNewRecipeToCookbook: (slot: MealSlot, categoryName: string, seasons: Season[]) => Promise<string>;
-  regenerateSlot: (
-    dayIndex: number,
-    mealType: MealType,
-    existingRecipes: Recipe[],
-    categories: { id: string; name: string }[],
-    notes?: string
-  ) => Promise<void>;
+  reshuffleSlot: (dayIndex: number, mealType: MealType, recipes: Recipe[]) => Promise<void>;
   removeDay: (dayIndex: number) => Promise<void>;
   regeneratingSlots: Set<string>;
   resetToSetup: () => void;
@@ -106,93 +98,90 @@ export function useMealPlanner(): UseMealPlannerReturn {
   }, [user, loadPlan]);
 
   /**
-   * Call /api/plan-meals, create MealPlan from response, save to Firebase.
+   * Build a plan locally by shuffling the user's own recipes, then save it.
    *
-   * The API returns slot assignments with existingRecipeId or newRecipeMarkdown.
-   * We parse the markdown into ParsedRecipe objects here so that the UI
-   * can display them as NewRecipeReviewCards.
+   * No network/AI call: buildShuffledSlots assigns existing recipes honouring
+   * season and per-meal category preferences. Returns the meal types that could
+   * not be filled (empty candidate pool) so the page can warn the user; their
+   * slots are simply left blank for manual filling.
    */
-  const generatePlan = useCallback(async (
+  const generateShuffledPlan = useCallback(async (
     config: MealPlanSetupConfig,
-    existingRecipes: Recipe[],
-    categories: { id: string; name: string }[],
-    options?: { useFamilyContext?: boolean; familyProfile?: FamilyProfile | null }
-  ) => {
-    if (!user) return;
+    recipes: Recipe[]
+  ): Promise<MealType[]> => {
+    if (!user) return [];
 
-    setIsGenerating(true);
-    setStep('generating');
     setError(null);
+    setIsGenerating(true);
 
     try {
-      // Compact recipe summaries — ingredient names included so Claude can apply dietary filters
-      const recipeSummaries = existingRecipes.map(r => ({
-        id: r.id,
-        title: r.title,
-        categoryId: r.categoryId,
-        seasons: r.seasons ?? (r.season ? [r.season] : []),
-        ingredientCount: r.ingredients.length,
-        ingredientNames: r.ingredients.map(i => i.name),
-      }));
-
-      const response = await fetch('/api/plan-meals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getFirebaseAuthHeader({ forceRefresh: true })),
-        },
-        body: JSON.stringify({
-          config,
-          existingRecipes: recipeSummaries,
-          categories,
-          useFamilyContext: options?.useFamilyContext ?? false,
-          familyProfile: options?.familyProfile ?? null,
-        }),
+      const { slots, unfilledMealTypes } = buildShuffledSlots(recipes, {
+        season: config.season,
+        activeMealTypes: config.activeMealTypes,
+        activeDays: config.activeDays ?? null,
+        mealTypeConfigs: config.mealTypeConfigs ?? null,
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error ?? 'Errore nella generazione del piano');
-      }
-
-      // Slots are already fully parsed server-side — use directly as MealSlot[]
-      // newRecipe is a plain JSON object (ParsedRecipe) when present, null otherwise
-      const slots: MealSlot[] = data.slots as MealSlot[];
-
-      // Persist plan to Firebase
       const planId = await createMealPlan(user.uid, {
         weekStartDate: config.weekStartDate,
         slots,
         activeMealTypes: config.activeMealTypes,
         season: config.season,
-        generatedByAI: true,
+        generatedByAI: false,
         activeDays: config.activeDays ?? null,
       });
 
-      const plan: MealPlan = {
+      setCurrentPlan({
         id: planId,
         userId: user.uid,
         weekStartDate: config.weekStartDate,
         slots,
         activeMealTypes: config.activeMealTypes,
         season: config.season,
-        generatedByAI: true,
+        generatedByAI: false,
         activeDays: config.activeDays ?? null,
         createdAt: null as unknown as import('firebase/firestore').Timestamp,
         updatedAt: null as unknown as import('firebase/firestore').Timestamp,
-      };
-
-      setCurrentPlan(plan);
+      });
       setStep('calendar');
+      return unfilledMealTypes;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
       setError(msg);
-      setStep('setup');
+      return [];
     } finally {
       setIsGenerating(false);
     }
   }, [user]);
+
+  /**
+   * Duplicate the current plan onto another week.
+   *
+   * Blocks (throws) when the target week already has a plan — a week holds at
+   * most one plan, and silently overwriting would destroy existing data. Only
+   * the structure is copied; shopping-list state stays with the source week.
+   *
+   * @returns The new plan's Firestore ID.
+   */
+  const copyPlanToWeek = useCallback(async (targetWeekStartDate: string): Promise<string> => {
+    if (!user || !currentPlan) {
+      throw new Error('Nessun piano da copiare');
+    }
+
+    const existing = await getMealPlanByWeek(user.uid, targetWeekStartDate);
+    if (existing) {
+      throw new Error('Esiste già un piano per quella settimana');
+    }
+
+    return createMealPlan(user.uid, {
+      weekStartDate: targetWeekStartDate,
+      slots: currentPlan.slots,
+      activeMealTypes: currentPlan.activeMealTypes,
+      season: currentPlan.season,
+      generatedByAI: false,
+      activeDays: currentPlan.activeDays ?? null,
+    });
+  }, [user, currentPlan]);
 
   /**
    * Create an empty plan (manual mode) and go directly to the calendar.
@@ -281,100 +270,60 @@ export function useMealPlanner(): UseMealPlannerReturn {
   }, [currentPlan]);
 
   /**
-   * Regenerate a single meal slot using AI without rebuilding the full plan.
+   * Re-roll a single slot locally: pick a different recipe of the same category
+   * that fits the season and is not already used elsewhere in the week.
    *
-   * Reuses the /api/plan-meals pipeline with a single-day, single-meal config
-   * so the prompt logic, parsing, and family context stay consistent.
+   * Throws when no alternative recipe exists so the caller can inform the user.
    */
-  const regenerateSlot = useCallback(async (
+  const reshuffleSlot = useCallback(async (
     dayIndex: number,
     mealType: MealType,
-    existingRecipes: Recipe[],
-    categories: { id: string; name: string }[],
-    notes?: string
+    recipes: Recipe[]
   ) => {
-    if (!user || !currentPlan) return;
+    if (!currentPlan) return;
 
     const slotKey = `${dayIndex}-${mealType}`;
     setRegeneratingSlots(prev => new Set(prev).add(slotKey));
 
     try {
-      const recipeSummaries = existingRecipes.map(r => ({
-        id: r.id,
-        title: r.title,
-        categoryId: r.categoryId,
-        seasons: r.seasons ?? (r.season ? [r.season] : []),
-        ingredientCount: r.ingredients.length,
-        ingredientNames: r.ingredients.map(i => i.name),
-      }));
-
       const currentSlot = currentPlan.slots.find(
-        (slot) => slot.dayIndex === dayIndex && slot.mealType === mealType
+        slot => slot.dayIndex === dayIndex && slot.mealType === mealType
       );
-      const currentExistingRecipe = currentSlot?.existingRecipeId
-        ? existingRecipes.find((recipe) => recipe.id === currentSlot.existingRecipeId)
-        : null;
-      const currentRecipeTitle = currentSlot?.recipeTitle ?? currentExistingRecipe?.title ?? null;
-      const currentRecipeIngredients = currentSlot?.newRecipe
-        ? currentSlot.newRecipe.ingredients.map((ingredient) => ingredient.name)
-        : currentExistingRecipe?.ingredients.map((ingredient) => ingredient.name) ?? [];
-      const currentRecipeSeasonContext = currentSlot?.newRecipe
-        ? currentPlan.season
-        : currentExistingRecipe?.seasons?.join(', ')
-          ?? currentExistingRecipe?.season
-          ?? currentPlan.season;
-
-      const regenerationContext = currentRecipeTitle
-        ? [
-            `STAI RIGENERANDO QUESTO SLOT: "${currentRecipeTitle}".`,
-            currentRecipeIngredients.length > 0
-              ? `Ingredienti principali della ricetta attuale: ${currentRecipeIngredients.join(', ')}.`
-              : null,
-            `Contesto stagionale della ricetta attuale: ${currentRecipeSeasonContext}.`,
-            'Se la richiesta dell\'utente modifica un dettaglio della ricetta attuale, prova prima a creare una variante coerente dello stesso piatto invece di sostituirlo con un piatto totalmente diverso.',
-          ].filter(Boolean).join('\n')
+      const currentRecipeId = currentSlot?.existingRecipeId ?? null;
+      const currentRecipe = currentRecipeId
+        ? recipes.find(recipe => recipe.id === currentRecipeId) ?? null
         : null;
 
-      const slotConfig: MealPlanSetupConfig = {
+      // Recipes already placed this week, so a re-roll does not duplicate them.
+      const usedRecipeIds = new Set(
+        currentPlan.slots
+          .map(slot => slot.existingRecipeId)
+          .filter((id): id is string => !!id)
+      );
+
+      const replacement = pickReshuffledRecipe(recipes, {
         season: currentPlan.season,
-        activeMealTypes: [mealType],
-        activeDays: [dayIndex],
-        excludedCategoryIds: [],
-        newRecipeCount: 1,
-        newRecipePerMeal: { [mealType]: 1 },
-        weekStartDate: currentPlan.weekStartDate,
-        userNotes: [
-          regenerationContext,
-          notes?.trim() ? `RICHIESTA UTENTE PER QUESTO SLOT:\n${notes.trim()}` : null,
-        ].filter(Boolean).join('\n\n') || null,
-      };
-
-      const response = await fetch('/api/plan-meals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await getFirebaseAuthHeader({ forceRefresh: true })),
-        },
-        body: JSON.stringify({ config: slotConfig, existingRecipes: recipeSummaries, categories }),
+        categoryId: currentRecipe?.categoryId ?? null,
+        currentRecipeId,
+        usedRecipeIds,
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.success || !data.slots?.length) {
-        throw new Error(data.error ?? 'Nessun risultato dalla rigenerazione');
+      if (!replacement) {
+        throw new Error('Non ho altre ricette adatte per rimescolare questo slot');
       }
 
-      const newSlotData = data.slots[0] as MealSlot;
-      if (!newSlotData.existingRecipeId && !newSlotData.newRecipe) {
-        throw new Error('L\'AI ha proposto una ricetta non abbastanza strutturata da poter essere salvata. Prova a rigenerare lo slot.');
-      }
-
-      const updatedSlots = [
+      const updatedSlots: MealSlot[] = [
         ...currentPlan.slots.filter(s => !(s.dayIndex === dayIndex && s.mealType === mealType)),
-        newSlotData,
+        {
+          dayIndex,
+          mealType,
+          existingRecipeId: replacement.id,
+          newRecipe: null,
+          recipeTitle: replacement.title,
+        },
       ];
 
-      const updatedPlan = { ...currentPlan, slots: updatedSlots };
-      setCurrentPlan(updatedPlan);
+      setCurrentPlan({ ...currentPlan, slots: updatedSlots });
       await updateMealPlanSlots(currentPlan.id, updatedSlots);
     } finally {
       setRegeneratingSlots(prev => {
@@ -383,7 +332,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         return next;
       });
     }
-  }, [user, currentPlan]);
+  }, [currentPlan]);
 
   /**
    * Remove one active day from an already-created plan.
@@ -500,12 +449,13 @@ export function useMealPlanner(): UseMealPlannerReturn {
     currentPlan,
     isGenerating,
     error,
-    generatePlan,
+    generateShuffledPlan,
     createManualPlan,
+    copyPlanToWeek,
     updateSlot,
     clearSlot,
     saveNewRecipeToCookbook,
-    regenerateSlot,
+    reshuffleSlot,
     removeDay,
     regeneratingSlots,
     resetToSetup,

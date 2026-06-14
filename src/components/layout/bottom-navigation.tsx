@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Book, Flame, PlusCircle, MoreHorizontal } from 'lucide-react';
+import { Book, Archive, PlusCircle, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 interface BottomNavigationProps {
@@ -14,7 +14,7 @@ export function BottomNavigation({ onMoreClick }: BottomNavigationProps) {
 
   const tabs = [
     { label: 'Ricette', icon: Book, href: '/ricette' },
-    { label: 'Cotture', icon: Flame, href: '/cotture-in-corso' },
+    { label: 'Dispensa', icon: Archive, href: '/dispensa' },
     { label: 'Nuova', icon: PlusCircle, href: '/ricette/new' },
     { label: 'Altro', icon: MoreHorizontal, onClick: onMoreClick },
   ];

@@ -13,7 +13,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './config';
-import { MealPlan, MealSlot } from '@/types';
+import { MealPlan, MealSlot, ShoppingItem } from '@/types';
 
 /**
  * Meal Plan CRUD Operations for Firestore (collection: meal_plans)
@@ -164,6 +164,29 @@ export async function updateMealPlan(
   await updateDoc(planRef, {
     ...updates,
     updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Persist shopping list checked state and custom items onto the plan document.
+ *
+ * WHY ON MEAL_PLAN (not a separate collection):
+ * Shopping state is always 1:1 with a week's plan. Embedding it here avoids a
+ * new collection, new Firestore rules, and a new composite index while still
+ * syncing the state across devices.
+ *
+ * NOTE: does not bump updatedAt — shopping state is ephemeral display state,
+ * not a structural plan change.
+ */
+export async function updateMealPlanShoppingState(
+  planId: string,
+  checkedIds: string[],
+  customItems: ShoppingItem[]
+): Promise<void> {
+  const planRef = doc(db, COLLECTION, planId);
+  await updateDoc(planRef, {
+    shoppingCheckedIds: checkedIds,
+    shoppingCustomItems: customItems,
   });
 }
 

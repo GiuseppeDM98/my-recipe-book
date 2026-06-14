@@ -105,7 +105,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
             <button
               onClick={e => { e.stopPropagation(); onRegenerate(); }}
               className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
-              title="Rigenera"
+              title="Rimescola"
             >
               <RefreshCw className="h-3 w-3" />
             </button>
@@ -123,7 +123,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
         ) : (
           <div className="mt-auto pl-8">
             <span className="text-[11px] text-muted-foreground">
-              Rigenera per ottenere una versione salvabile
+              Rimescola o clicca per scegliere una ricetta dal ricettario
             </span>
           </div>
         )}

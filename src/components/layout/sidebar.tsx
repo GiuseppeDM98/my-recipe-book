@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { Book, Grid3x3, Flame, PlusCircle, Sparkles, CalendarDays, BarChart3, Users, ShoppingCart } from 'lucide-react';
+import { Book, Grid3x3, Flame, PlusCircle, Sparkles, CalendarDays, BarChart3, Users, ShoppingCart, Archive } from 'lucide-react';
 
 /**
  * Sidebar - Orientation-based responsive navigation
@@ -28,6 +28,7 @@ const navGroups = [
       { href: '/ricette', label: 'Le mie ricette', icon: Book },
       { href: '/categorie', label: 'Categorie', icon: Grid3x3 },
       { href: '/cotture-in-corso', label: 'Cotture in corso', icon: Flame },
+      { href: '/dispensa', label: 'Dispensa', icon: Archive },
       { href: '/ricette/new', label: 'Nuova ricetta', icon: PlusCircle },
     ],
   },
