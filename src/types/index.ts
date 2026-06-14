@@ -398,9 +398,9 @@ export interface MealSlot {
  * Slots are a flat array. A missing slot = empty meal for that day/type.
  * Flat array is used instead of a nested map for Firestore compatibility.
  *
- * AI vs MANUAL:
- * generatedByAI = true if the plan was created by /api/plan-meals.
- * Users can edit AI plans manually; the flag is only for analytics/display.
+ * generatedByAI:
+ * Legacy flag kept for backward compatibility with plans created by the old AI
+ * generator. New plans (shuffle or manual) are always false.
  */
 export interface MealPlan {
   id: string;
@@ -462,7 +462,7 @@ export interface ShoppingItem {
 
 /**
  * Setup configuration collected before plan generation.
- * Passed verbatim to /api/plan-meals.
+ * Consumed locally by the shuffle generator (buildShuffledSlots).
  */
 export interface MealPlanSetupConfig {
   season: Season;

@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-05-06
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-06-14
 
 ## Quick Reference
 
@@ -18,9 +18,9 @@ Digital recipe book for home cooks with:
 - recipe CRUD and categorization
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation
 - cooking mode with active session tracking and per-step countdown timers
-- weekly meal planning with AI-assisted generation
-- weekly shopping list aggregated from the meal plan
-- family-aware AI quantity guidance via saved household profile
+- weekly meal planning with local "shuffle" generation (no AI) and manual editing
+- weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging)
+- family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels
 
@@ -97,22 +97,14 @@ src/
 
 ---
 
-## Recent Changes (Last 2-3 Months)
+## Recent Changes (Latest)
 
-### 2026-05-06
-- **Shopping list cross-device sync**: spunte e articoli custom spostati da localStorage a Firestore, embedded su `meal_plans` (`shoppingCheckedIds`, `shoppingCustomItems`). Nessuna collection separata, nessun indice aggiuntivo. Debounce 500ms; fallback localStorage se la settimana non ha un piano; migration automatica da localStorage esistente. File: `useShoppingList.ts`, `meal-plans.ts`, `types/index.ts`
-- **Dispensa (Pantry)**: aggiunta pagina `/dispensa` con lista categorie collassabile, strip articoli in scadenza, suggerimenti "Con quello che hai", filtri posizione/scadenza/ricerca, sheet aggiunta (3 tab), quick sheet mobile, sidebar desktop. Collection `pantry_items` con regole owner-based + indice composito. Bottom nav mobile: Dispensa al posto di Cotture.
-
-### 2026-05-05
-- **Conteggi filtri ricette**: badge categoria/sottocategoria ora calcolati su subset post-stagione, non sul totale. File: `(dashboard)/ricette/page.tsx`
-- **Favicon**: libro aperto su cerchio terracotta (`#A05C38`), palette allineata all'app. File: `src/app/icon.svg`
-
-### 2026-04
-- **Design tokens**: rimpiazzati `green-*`, `orange-500`, `purple-*` hardcoded con token `accent`/`primary`/`border` in cooking mode, shopping list, AI assistant, family profile, planner AI cards
-- **Performance mobile portrait**: rimosso `background-attachment: fixed` dal body (disabilita GPU-composited scroll su iOS/Chrome); rimosso `backdrop-blur-sm` da Header e BottomNavigation; disabilitata animazione `ambientDrift` su mobile; `min-h-screen` → `min-h-[100dvh]`
-- **Cooking sessions**: `queryClient.invalidateQueries` dopo `createCookingSession`/`deleteCookingSession` (eliminato loading flash e stale cache su `/cotture-in-corso`)
-- **AI Assistant tab switch**: `RecipeTextInput` e `RecipeChatInput` da `next/dynamic` a import statici (eliminato loading flash)
-- **`[QTY:n]` tokens**: `replaceAiQuantityReferences()` restituisce `''` per mapping falliti; `renderStepDescription()` aggiunge cleanup finale per token residui in Firestore (backward compat)
+### 2026-06-14 — Shopping list & Planner
+- **Shopping list checked-state fix**: la scrittura Firestore debounced (500ms) veniva annullata allo smontaggio → spunte perse e "ricomparse" non spuntate giorni dopo. Aggiunto flush su `unmount` + `visibilitychange(hidden)` + `pagehide` via `latestStateRef`. File: `useShoppingList.ts`
+- **Shopping list aggregation**: accorpa lo stesso ingrediente anche con unità diverse ma compatibili (g↔kg, ml↔l) e con forme singolare/plurale o accentate (chiave canonica). File: `ingredient-aggregator.ts` (+ test)
+- **Planner: AI rimossa → shuffle locale**: eliminata la generazione AI e la route `/api/plan-meals`. Nuovo `meal-plan-shuffle.ts` (`buildShuffledSlots`, `pickReshuffledRecipe`): compone il piano dalle ricette dell'utente per stagione + categorie preferite/escluse per portata; reshuffle locale per singolo slot. Sezione "Categorie per portata" sempre visibile. File: `useMealPlanner.ts`, `MealPlanSetupForm.tsx`, `pianificatore/page.tsx`
+- **Planner: copia piano**: `copyPlanToWeek` + bottone "Copia piano" (Dialog selettore settimana); blocca se la settimana target ha già un piano. File: `useMealPlanner.ts`, `PlannerHeader.tsx`, `pianificatore/page.tsx`
+- **Backward-compat**: piani AI legacy con slot `newRecipe` ancora visualizzabili/salvabili; `family-context` resta su chat/testo libero/extract. Nessuna nuova collection o indice Firestore.
 
 ---
 
@@ -180,9 +172,8 @@ Composite indexes maintained in repo:
 | `POST /api/format-recipe` | Free text → structured recipe formatting |
 | `POST /api/suggest-category` | Category + season suggestion |
 | `POST /api/chat-recipe` | Multi-turn AI recipe generation |
-| `POST /api/plan-meals` | Weekly meal-plan generation and slot regeneration |
 
-All endpoints above require an authenticated Firebase session.
+All endpoints above require an authenticated Firebase session. The weekly meal planner runs entirely client-side (local shuffle) and has no AI endpoint.
 
 ---
 

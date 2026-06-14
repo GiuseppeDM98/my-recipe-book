@@ -35,11 +35,10 @@
 | Dynamic step quantities | Quantita' negli step restano statiche o finiscono disallineate | Usare token `{{qty:ingredientId}}` risolti a runtime |
 | AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
 | Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
-| Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`, `pianificatore`), NON in `Carica PDF` |
-| Planner stagione soft | Il selettore stagione non vincola le ricette esistenti se non filtrate | Filtrare server-side per stagione prima di inviare a Claude (fallback se < 5 ricette) |
-| Planner ingredienti mancanti | Vincoli dietetici ignorati su ricette esistenti | Includere `ingredientNames` nel summary, non solo il conteggio |
-| Planner `type="new"` senza ricetta | Claude può restituire uno slot nuovo nel blocco `[PIANO]` ma omettere la ricetta completa in `[RICETTE_NUOVE]`, rompendo rigenerazione e save flow | In `/api/plan-meals` validare sempre parità tra nuovi slot dichiarati e ricette parseate; se mancano ricette complete, fallire esplicitamente e non salvare slot incoerenti |
-| Planner save CTA fantasma | Una cella può sembrare salvabile anche quando `newRecipe` è già `null` | Mostrare `Salva nel ricettario` solo se `slot.newRecipe` esiste davvero; badge/label AI da soli non bastano |
+| Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`), NON in `Carica PDF` né nel pianificatore (ora locale, senza AI) |
+| Shopping list debounce non-flushed | La scrittura Firestore delle spunte è debounced 500ms; se il componente smonta o la tab va in background entro 500ms il timer veniva annullato senza salvare → spunte "ricompaiono" non spuntate giorni dopo | Flush della scrittura pendente su `unmount` + `visibilitychange(hidden)` + `pagehide`, leggendo da un `latestStateRef` (no stale closure); azzerare il ref del timer quando scatta |
+| Shuffle `preferredCategoryId` hard filter | Impostare una categoria preferita per portata limita lo shuffle a SOLO quella categoria per quel pasto (tutti i pranzi uguali) | Per avere varietà evitando certe portate usare `excludedCategoryIds` (Escludi), non `preferredCategoryId` |
+| Planner per-meal config invisibile | La sezione "Categorie per portata" compare solo nello step *setup* (nuovo piano) e solo con `categories.length > 0` | Se non si vede: esiste già un piano per quella settimana (sei sul calendario → "Nuovo piano") oppure non hai categorie (viene mostrato un hint) |
 | Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
 | isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
 | YYYY-MM-DD string parsing | `new Date('2026-05-06')` interpretata come UTC mezzanotte → in `Europe/Rome` (+1/+2) risulta nel giorno precedente | Aggiungere sempre il suffisso locale: `new Date(dateStr + 'T00:00:00')` — applicato in `expiryStatus()`, `formatLocalDate`, `getWeekMonday` |
@@ -277,9 +276,9 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 
 **File Limit**: upload AI max 4.4MB (limite Vercel). Validare client-side.
 
-**Family Context Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Pianificatore` ✓ · `Carica PDF` ✗ (estrazione pura).
+**Family Context Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Carica PDF` ✗ (estrazione pura) · `Pianificatore` ✗ (ora locale, niente AI).
 
-**Model**: `claude-sonnet-4-6` su tutti gli endpoint AI. Se cambia, aggiornare tutti.
+**Model**: `claude-sonnet-4-6` sugli endpoint AI rimasti (`chat-recipe`, `extract-recipes`, `format-recipe`, `suggest-category`). Se cambia, aggiornare tutti.
 
 ---
 
@@ -295,26 +294,22 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 
 ## 9. Meal Planner Patterns
 
-**Recipe Summaries per AI**: includere `ingredientNames` nel summary inviato a `/api/plan-meals` — senza di essi Claude non può applicare vincoli dietetici su ricette con nomi neutri.
-```ts
-{ id, title, categoryId, seasons: r.seasons ?? (r.season ? [r.season] : []),
-  ingredientCount: r.ingredients.length, ingredientNames: r.ingredients.map(i => i.name) }
-```
+**No AI / shuffle locale**: il pianificatore non chiama più Claude e `/api/plan-meals` non esiste più. La generazione è locale e gratuita via `buildShuffledSlots()` in `meal-plan-shuffle.ts`. `family-context` resta usato SOLO da chat/testo libero/extract, non dal planner.
 
-**Season Filter Server-Side**: filtrare ricette per stagione *prima* di inviare a Claude, non solo via prompt. Fallback a pool completo se < 5 ricette stagionali. Linguaggio hard nel prompt ("GIÀ SOLO") solo quando il filtro è attivo.
+**`buildShuffledSlots(recipes, config)`** (pura, testata): assegna ricette esistenti per ogni `(dayIndex, mealType)` rispettando:
+- stagione (`matchesSeason`: include la stagione, `tutte_stagioni`, o ricetta senza stagione); fallback al pool completo se < 5 ricette stagionali per quella portata
+- `mealTypeConfigs[mealType]`: `excludedCategoryIds` sempre rimosse; `preferredCategoryId` = filtro **secco** (solo quella categoria) se produce almeno una ricetta
+- niente ripetizioni nella settimana finché il pool lo permette; portate senza pool restano slot vuoti e sono riportate in `unfilledMealTypes` (la UI mostra un avviso)
 
-**`MealTypeConfig`**: unifica preferenza + esclusione per portata. Server-side hard filter usa l'**intersezione** delle `excludedCategoryIds` di tutte le portate attive. UI: una categoria non può essere sia preferita che esclusa — `setMealPreferred` la rimuove automaticamente da `excludedCategoryIds`.
+**`pickReshuffledRecipe(...)`**: re-roll locale di un singolo slot — sceglie una ricetta diversa della **stessa categoria**, in stagione, non già usata nella settimana; poi rilassa stagione e infine categoria. Sostituisce la vecchia rigenerazione AI; il pulsante ↺ sullo slot chiama questo.
 
-**Slot Regeneration**: chiave `"dayIndex-mealType"`. Riutilizza `/api/plan-meals` con `activeMealTypes: [mealType], activeDays: [dayIndex], newRecipeCount: 1`.
+**`MealTypeConfig`** (`preferredCategoryId` + `excludedCategoryIds`): UI "Categorie per portata" **sempre visibile** nello step setup (non più sotto "avanzate"), solo se `categories.length > 0`. Una categoria non può essere sia preferita che esclusa (`setMealPreferred` la rimuove da excluded).
 
-**Slot Regeneration — prompt contract**: se Claude usa `type="new"` nel blocco `[PIANO]`, deve sempre fornire la ricetta completa corrispondente in `[RICETTE_NUOVE]`, nello stesso ordine. Per rigenerazione single-slot:
-- prompt più esplicito: una sola riga nel `[PIANO]`, una sola ricetta completa se `type="new"`
-- server-side validation: `expectedNewSlots === parsedNewRecipes.length`
-- client-side safety: non sostituire mai uno slot esistente con un risultato `type="new"` privo di `newRecipe`
+**Copy plan**: `copyPlanToWeek(targetWeek)` riusa `createMealPlan`; **blocca** (throw) se la settimana target ha già un piano. Copia solo `slots`/`activeMealTypes`/`season`/`activeDays`, NON lo stato lista spesa. La data scelta va normalizzata al lunedì (`getWeekMonday`).
+
+**Backward-compat**: i piani AI legacy con slot `newRecipe` (ParsedRecipe inline) restano visualizzabili e salvabili nel ricettario; lo shuffle non genera mai `newRecipe`. Il flag `generatedByAI` resta nel tipo per compat (nuovi piani sempre `false`).
 
 **Shopping List — Derived View**: lista derivata dal `MealPlan`, nessuna collection Firestore separata.
-- Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato)
-- Slot `newRecipe` (ParsedRecipe) → ingredienti inline, zero Firestore reads aggiuntive
-- Stato spunte e articoli custom → campi `shoppingCheckedIds` + `shoppingCustomItems` sul documento `meal_plans` (Firestore, cross-device). Fallback localStorage solo se non esiste un piano per quella settimana.
-- Scritture Firestore debounced 500ms per coalescing di tap rapidi sul checkbox
-- Aggregazione: somma numerica se stessa unità; fallback `" + "` per tutto il resto; nessun fuzzy matching sui nomi
+- Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato); slot `newRecipe` → ingredienti inline, zero read extra
+- Stato spunte e articoli custom → campi `shoppingCheckedIds` + `shoppingCustomItems` sul documento `meal_plans` (Firestore, cross-device). Fallback localStorage solo se non esiste un piano per quella settimana. Scritture debounced 500ms (vedi gotcha *flush* in Quick Reference)
+- Aggregazione (`ingredient-aggregator.ts`): chiave canonica accent-insensitive + singolare/plurale IT conservativi (`canonicalIngredientKey`); quantità sommate per dimensione convertibile (massa→g, volume→ml) e riformattate (g↔kg, ml↔l), fallback `" + "` per unità non convertibili o miste. Nomi ambigui o multi-parola restano separati (non-merge = scelta sicura)

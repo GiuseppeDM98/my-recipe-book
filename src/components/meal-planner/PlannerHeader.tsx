@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 
@@ -10,6 +10,7 @@ interface PlannerHeaderProps {
   onNextWeek: () => void;
   onNewPlan: () => void;
   onDeletePlan: () => void;
+  onCopyPlan?: () => void;
   hasPlan: boolean;
   isGenerating: boolean;
 }
@@ -26,6 +27,7 @@ export function PlannerHeader({
   onNextWeek,
   onNewPlan,
   onDeletePlan,
+  onCopyPlan,
   hasPlan,
   isGenerating,
 }: PlannerHeaderProps) {
@@ -67,6 +69,20 @@ export function PlannerHeader({
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        {hasPlan && onCopyPlan && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCopyPlan}
+            disabled={isGenerating}
+            className="h-8 gap-1.5"
+            aria-label="Copia il piano in un'altra settimana"
+          >
+            <Copy className="h-4 w-4" />
+            Copia piano
+          </Button>
+        )}
+
         {hasPlan && (
           <Button
             variant="destructive"

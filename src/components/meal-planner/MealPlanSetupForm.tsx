@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sparkles, PenLine, X } from 'lucide-react';
+import { Shuffle, PenLine, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Category, MealPlanSetupConfig, MealType, MealTypeConfig, Season } from '@/types';
 import {
@@ -11,18 +11,14 @@ import {
   getCurrentWeekMonday,
 } from '@/lib/constants/seasons';
 import { cn } from '@/lib/utils/cn';
-import { FamilyContextToggle } from '@/components/family/family-context-toggle';
 
 interface MealPlanSetupFormProps {
   categories: Category[];
-  onGenerateWithAI: (config: MealPlanSetupConfig) => void;
+  /** Generate a plan locally by shuffling the user's recipes. */
+  onGenerate: (config: MealPlanSetupConfig) => void;
   onCreateManual: (config: MealPlanSetupConfig) => void;
   isLoading: boolean;
-  isTestAccount: boolean;
   initialWeekStartDate?: string;
-  useFamilyContext: boolean;
-  onUseFamilyContextChange: (checked: boolean) => void;
-  hasValidFamilyProfile: boolean;
 }
 
 const ALL_MEAL_TYPES: { value: MealType; label: string }[] = [
@@ -32,15 +28,6 @@ const ALL_MEAL_TYPES: { value: MealType; label: string }[] = [
 ];
 
 const DAY_CHIPS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-
-const DIETARY_OPTIONS = [
-  { value: 'senza_carne', label: 'Senza carne' },
-  { value: 'senza_pesce', label: 'Senza pesce' },
-  { value: 'vegetariano', label: 'Vegetariano' },
-  { value: 'vegano', label: 'Vegano' },
-  { value: 'senza_glutine', label: 'Senza glutine' },
-  { value: 'ricco_legumi', label: 'Ricco di legumi' },
-];
 
 const MEAL_LABELS: Record<MealType, string> = {
   colazione: 'Colazione', pranzo: 'Pranzo', cena: 'Cena',
@@ -53,26 +40,15 @@ const SEASONS_FOR_PLANNER: Exclude<Season, 'tutte_stagioni'>[] = [
 
 export function MealPlanSetupForm({
   categories,
-  onGenerateWithAI,
+  onGenerate,
   onCreateManual,
   isLoading,
-  isTestAccount,
   initialWeekStartDate,
-  useFamilyContext,
-  onUseFamilyContextChange,
-  hasValidFamilyProfile,
 }: MealPlanSetupFormProps) {
   const [season, setSeason] = useState<Exclude<Season, 'tutte_stagioni'>>(getCurrentSeason());
   const [activeMealTypes, setActiveMealTypes] = useState<MealType[]>(['pranzo', 'cena']);
   const [weekStartDate, setWeekStartDate] = useState(initialWeekStartDate ?? getCurrentWeekMonday());
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [mealTypeConfigs, setMealTypeConfigs] = useState<Partial<Record<MealType, MealTypeConfig>>>({});
-  const [newRecipePerMeal, setNewRecipePerMeal] = useState<Partial<Record<MealType, number>>>({
-    pranzo: 2,
-    cena: 0,
-  });
-  const [userNotes, setUserNotes] = useState('');
-  const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
   const [activeDays, setActiveDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
 
   const isValid = activeMealTypes.length > 0 && activeDays.length > 0;
@@ -82,7 +58,6 @@ export function MealPlanSetupForm({
   }, [initialWeekStartDate]);
 
   function buildConfig(): MealPlanSetupConfig {
-    const totalNewRecipes = Object.values(newRecipePerMeal).reduce((sum, n) => sum + (n ?? 0), 0);
     const hasConfigs = Object.values(mealTypeConfigs).some(
       c => c?.preferredCategoryId || c?.excludedCategoryIds?.length
     );
@@ -90,20 +65,11 @@ export function MealPlanSetupForm({
       season,
       activeMealTypes,
       excludedCategoryIds: [],
-      newRecipeCount: totalNewRecipes,
+      newRecipeCount: 0,
       weekStartDate,
-      newRecipePerMeal: Object.keys(newRecipePerMeal).length > 0 ? newRecipePerMeal : undefined,
-      userNotes: userNotes.trim() || null,
-      dietaryRestrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : null,
       activeDays: activeDays.length < 7 ? activeDays : null,
       mealTypeConfigs: hasConfigs ? mealTypeConfigs : null,
     };
-  }
-
-  function toggleDietaryRestriction(value: string) {
-    setDietaryRestrictions(prev =>
-      prev.includes(value) ? prev.filter(r => r !== value) : [...prev, value]
-    );
   }
 
   function toggleDay(dayIndex: number) {
@@ -119,17 +85,11 @@ export function MealPlanSetupForm({
   function toggleMealType(type: MealType) {
     setActiveMealTypes(prev => {
       if (prev.includes(type)) {
-        setNewRecipePerMeal(m => { const n = { ...m }; delete n[type]; return n; });
         setMealTypeConfigs(m => { const n = { ...m }; delete n[type]; return n; });
         return prev.filter(t => t !== type);
       }
-      setNewRecipePerMeal(m => ({ ...m, [type]: 0 }));
       return [...prev, type];
     });
-  }
-
-  function setMealRecipeCount(type: MealType, count: number) {
-    setNewRecipePerMeal(prev => ({ ...prev, [type]: count }));
   }
 
   function setMealPreferred(type: MealType, categoryId: string) {
@@ -195,28 +155,6 @@ export function MealPlanSetupForm({
         </div>
       </div>
 
-      {/* Dietary restrictions */}
-      <div>
-        <p className="text-sm font-medium text-foreground mb-2">Preferenze dietetiche</p>
-        <div className="flex flex-wrap gap-2">
-          {DIETARY_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => toggleDietaryRestriction(opt.value)}
-              className={cn(
-                'px-3 py-1.5 rounded-full border text-sm font-medium transition-colors',
-                dietaryRestrictions.includes(opt.value)
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background text-foreground border-border hover:bg-accent'
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Day selector */}
       <div>
         <p className="text-sm font-medium text-foreground mb-2">Giorni da pianificare</p>
@@ -263,89 +201,18 @@ export function MealPlanSetupForm({
         )}
       </div>
 
-      {/* Per-meal new recipe sliders */}
-      {activeMealTypes.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-foreground mb-3">
-            Ricette nuove generate dall'AI
-          </p>
-          <div className="space-y-4">
-            {activeMealTypes.map(type => {
-              const count = newRecipePerMeal[type] ?? 0;
-              return (
-                <div key={type}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-foreground">{MEAL_LABELS[type]}</span>
-                    <span className="text-sm font-bold text-primary tabular-nums w-4 text-center">
-                      {count}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={7}
-                    value={count}
-                    onChange={e => setMealRecipeCount(type, parseInt(e.target.value))}
-                    className="w-full accent-primary"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                    <span>0 (solo dal ricettario)</span>
-                    <span>7</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Notes and free-text preferences */}
-      <div>
-        <p className="text-sm font-medium text-foreground mb-1">Note e preferenze</p>
-        <textarea
-          value={userNotes}
-          onChange={e => setUserNotes(e.target.value.slice(0, 500))}
-          placeholder="Es: voglio ricette veloci da preparare, ho già delle zucchine in frigo..."
-          rows={3}
-          className={cn(
-            'w-full text-sm border border-border rounded-md px-3 py-2 resize-none',
-            'bg-background text-foreground placeholder:text-muted-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-primary'
-          )}
-        />
-        {userNotes.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-1 text-right">{userNotes.length}/500</p>
-        )}
-      </div>
-
-      <FamilyContextToggle
-        checked={useFamilyContext}
-        onChange={onUseFamilyContextChange}
-        disabled={isTestAccount || (!hasValidFamilyProfile && !useFamilyContext)}
-        hasValidProfile={hasValidFamilyProfile}
-        compact
-      />
-
-      {/* Advanced options: per-meal category settings */}
+      {/* Per-meal category settings — drive the shuffle so each meal pulls from
+          sensible categories (e.g. no desserts at lunch). Always visible because
+          without them the shuffle would pick any recipe for any meal. */}
       {activeMealTypes.length > 0 && categories.length > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(v => !v)}
-            className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-          >
-            {showAdvanced ? 'Nascondi impostazioni AI avanzate' : 'Mostra impostazioni AI avanzate'}
-          </button>
-
-          {showAdvanced && (
-            <div className="space-y-3 border-t pt-4">
-              <div>
-                <p className="text-sm font-medium text-foreground mb-1">Impostazioni per portata</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Per ogni portata puoi indicare una categoria preferita e le categorie da escludere.
-                </p>
-              </div>
-              {activeMealTypes.map(type => {
+        <div className="space-y-3 border-t pt-4">
+          <div>
+            <p className="text-sm font-medium text-foreground mb-1">Categorie per portata</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              Per ogni pasto scegli la categoria da usare e quelle da evitare: così lo shuffle non mette, ad esempio, un dolce a pranzo.
+            </p>
+          </div>
+          {activeMealTypes.map(type => {
                 const cfg = mealTypeConfigs[type] ?? {};
                 const excluded = cfg.excludedCategoryIds ?? [];
                 const preferredId = cfg.preferredCategoryId ?? '';
@@ -434,25 +301,26 @@ export function MealPlanSetupForm({
                   </div>
                 );
               })}
-            </div>
-          )}
-        </>
+        </div>
+      )}
+
+      {/* No categories yet: explain why the per-meal filter is unavailable
+          instead of silently showing nothing. */}
+      {activeMealTypes.length > 0 && categories.length === 0 && (
+        <p className="text-xs text-muted-foreground border-t pt-4">
+          Crea delle categorie (es. Primi, Secondi, Dolci) per far scegliere allo shuffle la portata giusta per ogni pasto.
+        </p>
       )}
 
       {/* CTAs */}
       <div className="flex flex-col gap-3 pt-2">
-        {isTestAccount && (
-          <p className="text-xs text-muted-foreground bg-accent rounded-md px-3 py-2">
-            L'account di test non può usare la generazione AI. Puoi comunque creare un piano manuale.
-          </p>
-        )}
         <Button
-          onClick={() => onGenerateWithAI(buildConfig())}
-          disabled={!isValid || isLoading || isTestAccount}
+          onClick={() => onGenerate(buildConfig())}
+          disabled={!isValid || isLoading}
           className="w-full gap-2"
         >
-          <Sparkles className="h-4 w-4" />
-          Genera piano con AI
+          <Shuffle className="h-4 w-4" />
+          Genera piano (shuffle)
         </Button>
         <Button
           variant="outline"

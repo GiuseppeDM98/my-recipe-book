@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getMealPlanByWeek, updateMealPlanShoppingState } from '@/lib/firebase/meal-plans';
@@ -138,6 +138,53 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   const planIdRef = useRef<string | null>(null);
   // Debounce timer for Firestore writes.
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Always-current snapshot used by flushPendingShoppingState so it never reads
+  // a stale closure when fired from an unmount/visibility handler.
+  const latestStateRef = useRef<{
+    lsKey: string;
+    planId: string | null;
+    checkedIdsList: string[];
+    customItems: ShoppingItem[];
+  }>({ lsKey: '', planId: null, checkedIdsList: [], customItems: [] });
+
+  // Keep the snapshot in sync after every commit.
+  useEffect(() => {
+    latestStateRef.current = {
+      lsKey,
+      planId: planIdRef.current,
+      checkedIdsList,
+      customItems,
+    };
+  });
+
+  /**
+   * Persist any pending (debounced) shopping state immediately.
+   *
+   * WHY: the debounce delays Firestore writes by 500ms to coalesce rapid taps.
+   * If the component unmounts (navigation) or the tab/app is hidden before the
+   * timer fires, the pending write must not be discarded — otherwise a checkbox
+   * tapped right before leaving is silently lost and reappears unchecked later.
+   * We flush from the latest-state ref because handlers run with stale closures.
+   */
+  const flushPendingShoppingState = useCallback(() => {
+    if (!persistTimerRef.current) return;
+    clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = null;
+
+    const { lsKey: key, planId, checkedIdsList: checked, customItems: custom } =
+      latestStateRef.current;
+    if (!key) return;
+
+    if (planId) {
+      // Fire-and-forget: on unmount/hide we cannot await, but issuing the write
+      // now (instead of cancelling it) is what prevents the lost-check bug.
+      updateMealPlanShoppingState(planId, checked, custom).catch(() => {
+        savePersistedState(key, { checkedIds: checked, customItems: custom });
+      });
+    } else {
+      savePersistedState(key, { checkedIds: checked, customItems: custom });
+    }
+  }, []);
 
   // Reset local state immediately when the week changes so the UI shows
   // empty state while the new week's fetch is in-flight.
@@ -190,6 +237,8 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     if (planId) {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
       persistTimerRef.current = setTimeout(() => {
+        // Mark as no longer pending so a later flush doesn't re-issue this write.
+        persistTimerRef.current = null;
         updateMealPlanShoppingState(planId, snapshot.checkedIdsList, snapshot.customItems)
           .catch(() => {
             // Firestore write failed — fall back to localStorage so state is not lost.
@@ -204,12 +253,26 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     }
   }, [lsKey, checkedIdsList, customItems]);
 
-  // Cleanup debounce timer on unmount.
+  // Flush pending writes when leaving: on unmount (navigation) and when the
+  // page is hidden or unloaded. `visibilitychange` → hidden is the reliable
+  // signal on mobile when the app is backgrounded or closed, where React's
+  // unmount cleanup may never run.
   useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        flushPendingShoppingState();
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', flushPendingShoppingState);
+
     return () => {
-      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', flushPendingShoppingState);
+      flushPendingShoppingState();
     };
-  }, []);
+  }, [flushPendingShoppingState]);
 
   // --------------------------------------------------
   // Merged items: computed + custom, sorted by section → name

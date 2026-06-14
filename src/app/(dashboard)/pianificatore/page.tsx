@@ -13,14 +13,10 @@ import { getUserCategories } from '@/lib/firebase/categories';
 import { deleteMealPlan, getMealPlanByWeek, getUserMealPlans } from '@/lib/firebase/meal-plans';
 import { Button } from '@/components/ui/button';
 import { Category, MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season } from '@/types';
-import { addWeeksToDateString, getCurrentWeekMonday } from '@/lib/constants/seasons';
-import { CalendarDays, Sparkles, PenLine, MousePointerClick, BookMarked, X } from 'lucide-react';
+import { addWeeksToDateString, getCurrentWeekMonday, getWeekMonday } from '@/lib/constants/seasons';
+import { Shuffle, PenLine, MousePointerClick, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useFamilyProfile } from '@/lib/hooks/useFamilyProfile';
-import { validateFamilyContextUsage } from '@/lib/utils/family-context';
-import Link from 'next/link';
 import { EditorialLoader } from '@/components/ui/editorial-loader';
-import { StatusBanner } from '@/components/ui/status-banner';
 import {
   Dialog,
   DialogContent,
@@ -33,17 +29,14 @@ import {
 /**
  * Meal Planner Page
  *
- * UX FLOW (3 steps):
- * 1. SETUP: MealPlanSetupForm — collect season, meal types, exclusions, new recipe count
- * 2. GENERATING: Loading screen while AI builds the plan
- * 3. CALENDAR: WeeklyCalendarGrid — editable 7-day view
+ * UX FLOW:
+ * 1. SETUP: MealPlanSetupForm — season, days, meal types, per-meal categories
+ * 2. CALENDAR: WeeklyCalendarGrid — editable view. Plans are built locally by
+ *    shuffling the user's own recipes (no AI) or filled in manually.
  *
  * ON MOUNT:
  * Loads the plan for the current week from Firebase. If no plan exists yet for
  * that week, the page stays on setup with the week already preselected.
- *
- * TEST ACCOUNT:
- * "Genera con AI" is disabled. Manual mode is still accessible.
  */
 export default function PianificatorePage() {
   const { user } = useAuth();
@@ -53,12 +46,13 @@ export default function PianificatorePage() {
     currentPlan,
     isGenerating,
     error: plannerError,
-    generatePlan,
+    generateShuffledPlan,
     createManualPlan,
+    copyPlanToWeek,
     updateSlot,
     clearSlot,
     saveNewRecipeToCookbook,
-    regenerateSlot,
+    reshuffleSlot,
     removeDay,
     regeneratingSlots,
     resetToSetup,
@@ -70,17 +64,15 @@ export default function PianificatorePage() {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [setupWeekStartDate, setSetupWeekStartDate] = useState(getCurrentWeekMonday());
   const [savedPlans, setSavedPlans] = useState<MealPlan[]>([]);
-  const [useFamilyContext, setUseFamilyContext] = useState(false);
-  const {
-    familyProfile,
-    hasValidProfile,
-  } = useFamilyProfile();
 
   // Recipe picker sheet state
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ dayIndex: number; mealType: MealType } | null>(null);
-  const [regenerateTarget, setRegenerateTarget] = useState<{ dayIndex: number; mealType: MealType } | null>(null);
-  const [regenerateNotes, setRegenerateNotes] = useState('');
+
+  // Copy-plan dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyTargetDate, setCopyTargetDate] = useState('');
+  const [isCopying, setIsCopying] = useState(false);
 
   // AI-generated recipe save states
   const [savingSlotKeys, setSavingSlotKeys] = useState<Set<string>>(new Set());
@@ -88,7 +80,6 @@ export default function PianificatorePage() {
   // Tracks which review cards should be force-opened (triggered from the grid cell button)
   const [expandedSlotKeys, setExpandedSlotKeys] = useState<Set<string>>(new Set());
 
-  const isTestAccount = user?.email === 'test@test.com';
   const viewedWeekStartDate = currentPlan?.weekStartDate ?? setupWeekStartDate;
   const activeDays = currentPlan?.activeDays ?? [0, 1, 2, 3, 4, 5, 6];
 
@@ -154,9 +145,14 @@ export default function PianificatorePage() {
     setPickerOpen(true);
   }
 
-  function handleOpenRegenerateDialog(dayIndex: number, mealType: MealType) {
-    setRegenerateTarget({ dayIndex, mealType });
-    setRegenerateNotes('');
+  async function handleReshuffleSlot(dayIndex: number, mealType: MealType) {
+    try {
+      await reshuffleSlot(dayIndex, mealType, recipes);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : 'Errore nel rimescolare lo slot'
+      );
+    }
   }
 
   const handleSlotSelect = useCallback(async (
@@ -252,32 +248,32 @@ export default function PianificatorePage() {
     await loadPlanForWeek(weekStartDate);
   }
 
-  async function handleConfirmRegenerate(notesOverride?: string) {
-    if (!regenerateTarget) return;
+  function handleOpenCopyDialog() {
+    // Default the target to the week after the one currently viewed.
+    setCopyTargetDate(addWeeksToDateString(viewedWeekStartDate, 1));
+    setCopyDialogOpen(true);
+  }
 
-    const target = regenerateTarget;
-    const notes = notesOverride ?? regenerateNotes;
-    setRegenerateTarget(null);
-    setRegenerateNotes('');
+  async function handleConfirmCopy() {
+    if (!user || !copyTargetDate) return;
+
+    // Plans are week-aligned, so snap the chosen date to its Monday.
+    const targetWeek = getWeekMonday(new Date(copyTargetDate + 'T00:00:00'));
+    setIsCopying(true);
 
     try {
-      await regenerateSlot(
-        target.dayIndex,
-        target.mealType,
-        recipes,
-        categories,
-        notes
-      );
-      if (notes.trim()) {
-        toast.success('Slot rigenerato tenendo conto della tua richiesta');
-      }
+      await copyPlanToWeek(targetWeek);
+      setCopyDialogOpen(false);
+      setSetupWeekStartDate(targetWeek);
+      await loadPlanForWeek(targetWeek);
+      await refreshSavedPlans(user.uid);
+      toast.success('Piano copiato nella settimana selezionata');
     } catch (err: unknown) {
-      console.error('Errore nella rigenerazione dello slot:', err);
       toast.error(
-        err instanceof Error
-          ? err.message
-          : 'Errore nella rigenerazione dello slot'
+        err instanceof Error ? err.message : 'Errore nella copia del piano'
       );
+    } finally {
+      setIsCopying(false);
     }
   }
 
@@ -288,11 +284,6 @@ export default function PianificatorePage() {
   const pickerCurrentSlot = pickerTarget
     ? currentPlan?.slots.find(
         s => s.dayIndex === pickerTarget.dayIndex && s.mealType === pickerTarget.mealType
-      )
-    : undefined;
-  const regenerateCurrentSlot = regenerateTarget
-    ? currentPlan?.slots.find(
-        s => s.dayIndex === regenerateTarget.dayIndex && s.mealType === regenerateTarget.mealType
       )
     : undefined;
 
@@ -316,6 +307,7 @@ export default function PianificatorePage() {
           onNextWeek={handleNextWeek}
           onNewPlan={handleNewPlan}
           onDeletePlan={handleDeletePlan}
+          onCopyPlan={handleOpenCopyDialog}
           hasPlan={currentPlan !== null}
           isGenerating={isGenerating}
         />
@@ -354,8 +346,8 @@ export default function PianificatorePage() {
             <p className="text-sm font-semibold text-foreground">Come usare il pianificatore</p>
             <ul className="space-y-2.5">
               <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span><span className="font-medium text-foreground">Genera con AI</span> — l'AI sceglie ricette dal tuo ricettario e, se vuoi, ne crea di nuove adatte alla stagione.</span>
+                <Shuffle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span><span className="font-medium text-foreground">Genera (shuffle)</span> — compongo la settimana pescando dal tuo ricettario in base a stagione e categorie preferite.</span>
               </li>
               <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                 <PenLine className="h-4 w-4 text-primary shrink-0 mt-0.5" />
@@ -363,51 +355,24 @@ export default function PianificatorePage() {
               </li>
               <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                 <MousePointerClick className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span><span className="font-medium text-foreground">Modifica dopo la generazione</span> — clicca qualsiasi slot per cambiare la ricetta assegnata.</span>
-              </li>
-              <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <BookMarked className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span><span className="font-medium text-foreground">Salva le ricette nuove</span> — le ricette generate dall'AI restano evidenziate nella griglia: salvale nel ricettario con un click.</span>
+                <span><span className="font-medium text-foreground">Modifica quando vuoi</span> — clicca uno slot per cambiare ricetta o usa il tasto rimescola per una proposta diversa.</span>
               </li>
             </ul>
           </div>
 
           <MealPlanSetupForm
             categories={categories}
-            onGenerateWithAI={async (config: MealPlanSetupConfig) => {
-              const validationError = validateFamilyContextUsage(useFamilyContext, familyProfile);
-              if (validationError) {
-                toast.error(validationError);
-                return;
+            onGenerate={async (config: MealPlanSetupConfig) => {
+              const unfilledMealTypes = await generateShuffledPlan(config, recipes);
+              if (unfilledMealTypes.length > 0) {
+                toast('Alcuni pasti sono rimasti vuoti: non avevi ricette adatte. Riempili a mano.', {
+                  icon: 'ℹ️',
+                });
               }
-
-              await generatePlan(config, recipes, categories, {
-                useFamilyContext,
-                familyProfile,
-              });
             }}
             onCreateManual={(config: MealPlanSetupConfig) => createManualPlan(config)}
             isLoading={isGenerating}
-            isTestAccount={isTestAccount}
             initialWeekStartDate={setupWeekStartDate}
-            useFamilyContext={useFamilyContext}
-            onUseFamilyContextChange={setUseFamilyContext}
-            hasValidFamilyProfile={hasValidProfile}
-          />
-          <StatusBanner
-            icon={<CalendarDays className="h-4 w-4" />}
-            title={hasValidProfile ? 'Profilo famiglia pronto' : 'Profilo famiglia non ancora configurato'}
-            description={
-              hasValidProfile
-                ? 'Puoi usarlo per dare al piano AI un contesto piu\' aderente alle abitudini di casa.'
-                : 'Configuralo prima di usare il contesto famiglia nella generazione AI di questa settimana.'
-            }
-            tone={hasValidProfile ? 'success' : 'warning'}
-            action={
-              <Button asChild variant="outline" size="sm">
-                <Link href="/profilo-famiglia">Gestisci profilo</Link>
-              </Button>
-            }
           />
         </div>
       )}
@@ -416,8 +381,8 @@ export default function PianificatorePage() {
       {step === 'generating' && (
         <div className="flex min-h-[50vh] items-center justify-center px-4">
           <EditorialLoader
-            label="L'AI sta pianificando la tua settimana"
-            hint="Bilancio stagione, portate e nuove idee, poi compongo una settimana che resti credibile in cucina."
+            label="Sto componendo la tua settimana"
+            hint="Pesco dal tuo ricettario in base a stagione e categorie, evitando di ripetere gli stessi piatti."
             tone="anticipation"
           />
         </div>
@@ -483,7 +448,7 @@ export default function PianificatorePage() {
                   ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }, 50);
             }}
-            onRegenerateSlot={handleOpenRegenerateDialog}
+            onRegenerateSlot={handleReshuffleSlot}
             regeneratingSlots={regeneratingSlots}
             weekStartDate={currentPlan.weekStartDate}
           />
@@ -532,76 +497,48 @@ export default function PianificatorePage() {
       )}
 
       <Dialog
-        open={regenerateTarget !== null}
+        open={copyDialogOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            setRegenerateTarget(null);
-            setRegenerateNotes('');
-          }
+          if (!open && !isCopying) setCopyDialogOpen(false);
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Vuoi dare un&apos;indicazione all&apos;AI?</DialogTitle>
+            <DialogTitle>Copia il piano in un&apos;altra settimana</DialogTitle>
             <DialogDescription>
-              Puoi rigenerare subito lo slot oppure aggiungere una richiesta specifica, ad esempio ingredienti da evitare o stile del piatto.
+              Uso il lunedì della settimana che indichi. Se quella settimana ha già un piano, non lo sovrascrivo.
             </DialogDescription>
           </DialogHeader>
-          {regenerateCurrentSlot?.recipeTitle ? (
-            <div className="rounded-lg border border-border bg-muted/25 px-3 py-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Ricetta attuale
-              </p>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {regenerateCurrentSlot.recipeTitle}
-              </p>
-            </div>
-          ) : null}
           <div className="space-y-2">
-            <label htmlFor="planner-regenerate-notes" className="text-sm font-medium text-foreground">
-              Richiesta opzionale
+            <label htmlFor="planner-copy-week" className="text-sm font-medium text-foreground">
+              Settimana di destinazione
             </label>
-            <textarea
-              id="planner-regenerate-notes"
-              value={regenerateNotes}
-              onChange={(e) => setRegenerateNotes(e.target.value.slice(0, 220))}
-              placeholder="Es: non suggerirmi ricette con asparagi"
-              rows={4}
-              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            <input
+              id="planner-copy-week"
+              type="date"
+              value={copyTargetDate}
+              onChange={(e) => setCopyTargetDate(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground">
-              Lascia vuoto se vuoi solo una nuova proposta per questo slot.
+              La copia include solo le ricette del piano, non la lista della spesa.
             </p>
           </div>
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setRegenerateTarget(null);
-                setRegenerateNotes('');
-              }}
+              onClick={() => setCopyDialogOpen(false)}
+              disabled={isCopying}
             >
               Annulla
             </Button>
             <Button
               type="button"
-              variant="outline"
-              onClick={() => {
-                handleConfirmRegenerate('');
-              }}
-              disabled={!regenerateTarget || (regenerateTarget ? regeneratingSlots.has(`${regenerateTarget.dayIndex}-${regenerateTarget.mealType}`) : false)}
+              onClick={handleConfirmCopy}
+              disabled={isCopying || !copyTargetDate}
             >
-              Rigenera senza note
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                handleConfirmRegenerate();
-              }}
-              disabled={!regenerateTarget || (regenerateTarget ? regeneratingSlots.has(`${regenerateTarget.dayIndex}-${regenerateTarget.mealType}`) : false)}
-            >
-              Invia nota e rigenera
+              Copia piano
             </Button>
           </DialogFooter>
         </DialogContent>

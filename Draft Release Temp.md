@@ -24,7 +24,7 @@
 - Added recipe search with Italian character support and live filtering
 - Added support for assigning multiple seasons to a single recipe
 - Added a custom Apple home screen icon for iPad and iPhone installs
-- Added the Weekly Meal Planner page with AI-assisted and manual planning modes
+- Added the Weekly Meal Planner page with one-tap shuffle generation (builds a week from your own recipes by season and category, no AI required) and a manual mode
 - Added saved week history in the planner so multiple weekly plans can coexist
 - Added week-to-week planner navigation, including empty weeks that open a pre-filled setup screen
 - Added saved-week shortcuts during planner setup to reopen existing plans faster
@@ -34,14 +34,14 @@
 - Added support for multiple timers running at the same time, so you can track an oven and a resting time simultaneously
 - Added a "Duration (min)" field to the step editor in recipe create and edit, so you can set timers for any step manually
 - Added an "Auto-detect durations" button in recipe edit that scans step text and pre-fills durations automatically, without overwriting values you already set
-- Added dietary preference chips to the meal planner setup — choose from Meat-free, Fish-free, Vegetarian, Vegan, Gluten-free, and Legume-rich to guide recipe selection
-- Added a free-text notes field to the meal planner setup so you can tell the AI things like "I want quick recipes" or "I already have zucchini in the fridge"
-- Added a regenerate button on each occupied meal slot — click ↺ to swap a single recipe without rebuilding the entire week
+- Added a reshuffle button on each occupied meal slot — click ↺ to swap in a different recipe of the same category without rebuilding the entire week
 - Added a day selector to the meal planner so you can plan only specific days (e.g. weekdays only) instead of the full week
+- Added a "Copy plan" action in the planner to duplicate a week you liked into another week (it stops you if that week already has a plan)
 
 ## 🐛 Bug Fixes
 
 - Fixed shopping list checked items and custom additions not being saved when switching between devices — your progress is now stored in the cloud and stays in sync across all your devices
+- Fixed shopping list check-offs occasionally being lost when you closed the app or switched away right after ticking the last item — pending changes are now saved immediately when you leave or background the page, so items no longer reappear unchecked days later
 - Fixed recipe filter counts not updating when a season was selected — category and subcategory badges now show the correct number of recipes matching all active filters, not the total across the whole cookbook
 - Fixed AI-generated recipe steps showing raw reference tokens like `[QTY:1]` instead of actual ingredient quantities — step descriptions now always display clean, readable text even when the AI's numbering was inconsistent
 - Fixed the bottom navigation bar appearing transparent on mobile portrait — it now has a solid background so it is always clearly visible while scrolling the recipe list
@@ -51,7 +51,6 @@
 - Fixed the meal planner sidebar drawer on tablets and mobile landscape so it no longer appears transparent over the page content
 - Fixed meal planner AI recipe cards showing a misleading “Save to cookbook” action when the generated recipe payload was no longer complete
 - Fixed saving AI-generated planner recipes to the cookbook by normalizing optional recipe fields before persistence
-- Fixed planner slot regeneration replacing a valid slot with an inconsistent AI result when the response was only partially structured
 - Fixed the recipe step editor on mobile so step descriptions now use the full available width instead of being squeezed by the move/delete controls
 - Fixed the recipe step editor feeling visually pushed to the right during editing, with a calmer in-card step marker and less intrusive controls
 - Fixed cooking mode pages displaying with excessive padding on all screen sizes — content was pushed in from both the layout and the page itself
@@ -72,11 +71,10 @@
 
 ## 🔧 Improvements
 
-- Improved the meal planner regeneration flow with a dedicated dialog for optional notes to the AI
-- Improved planner regeneration results by giving the AI the current recipe context, so targeted changes are more likely to stay close to the original dish
+- Improved the shopping list so the same ingredient is merged across recipes even when written in different but compatible units (e.g. 200 g + 1 kg → 1,2 kg) or as singular/plural or accented spellings (e.g. pomodoro/pomodori)
 - Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
 - Improved planner loading behavior by removing distracting global loading flashes on protected pages
-- Improved the planner generation state with a more polished editorial animation while the AI prepares the week
+- Improved the planner generation state with a more polished editorial animation while the week is being composed
 - Improved desktop readability in the meal planner so long recipe names are easier to read in the weekly grid
 - Improved the AI Assistant startup path by loading cookbook data only when the chat tab actually needs it
 - Improved recipe page filter performance and planner-related loading responsiveness across the app
@@ -148,7 +146,7 @@
 - Improved compatibility for older recipes that still use a single-season format
 - Improved planner actions by clearly separating "New plan" from "Delete plan"
 - Improved planner recovery when browsing weeks without a saved plan
-- Improved the meal planner advanced settings with unified per-meal category cards — set a preferred category and excluded categories for each meal type in one place instead of two separate sections
+- Improved the planner setup with always-visible per-meal category cards — set a preferred category and categories to avoid for each meal directly in the setup, no longer hidden behind an "advanced" toggle
 - Improved season filtering in the meal planner so the selected season now applies to existing cookbook recipes, not just newly generated ones
 - Improved self-hosted setup with a documented fallback for installations that do not want Google sign-in
 - Improved AI recipe suggestions so they can optionally take your household composition into account for more suitable quantities
