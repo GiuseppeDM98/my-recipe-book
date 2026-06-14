@@ -6,7 +6,10 @@ import { getRecipe, deleteRecipe } from '@/lib/firebase/firestore';
 import { RecipeDetail } from '@/components/recipe/recipe-detail';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { recipesQueryKey } from '@/lib/hooks/useRecipes';
 
@@ -17,6 +20,9 @@ export default function RecipePage() {
   const queryClient = useQueryClient();
 
   const recipeId = id as string;
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     data: recipe,
@@ -30,16 +36,16 @@ export default function RecipePage() {
     queryFn: () => getRecipe(recipeId, user!.uid),
   });
 
-  const handleDelete = async () => {
-    if (window.confirm('Sei sicuro di voler eliminare questa ricetta? Le cotture già concluse resteranno nello storico statistiche.')) {
-      try {
-        await deleteRecipe(recipeId);
-        // Invalidate the list so /ricette reflects the deletion immediately.
-        if (user) queryClient.invalidateQueries({ queryKey: recipesQueryKey(user.uid) });
-        router.push('/ricette');
-      } catch {
-        alert('Errore nell\'eliminazione della ricetta.');
-      }
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteRecipe(recipeId);
+      // Invalidate the list so /ricette reflects the deletion immediately.
+      if (user) queryClient.invalidateQueries({ queryKey: recipesQueryKey(user.uid) });
+      router.push('/ricette');
+    } catch {
+      toast.error('Errore nell\'eliminazione della ricetta.');
+      setIsDeleting(false);
     }
   };
 
@@ -61,7 +67,7 @@ export default function RecipePage() {
         <Button asChild size="sm" className="sm:h-10 sm:px-4 sm:py-2">
           <Link href={`/ricette/${id}/edit`}>Modifica</Link>
         </Button>
-        <Button variant="destructive" size="sm" className="sm:h-10 sm:px-4 sm:py-2" onClick={handleDelete}>
+        <Button variant="destructive" size="sm" className="sm:h-10 sm:px-4 sm:py-2" onClick={() => setDeleteDialogOpen(true)}>
           Elimina
         </Button>
         <Button asChild variant="secondary" size="sm" className="sm:h-10 sm:px-4 sm:py-2">
@@ -69,6 +75,16 @@ export default function RecipePage() {
         </Button>
       </div>
       <RecipeDetail recipe={recipe} />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Eliminare questa ricetta?"
+        description="Le cotture già concluse resteranno nello storico statistiche."
+        confirmLabel="Elimina ricetta"
+        isConfirming={isDeleting}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

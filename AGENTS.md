@@ -65,6 +65,14 @@
 | `max-w-*` senza `mx-auto` | Contenuto rimane allineato a sinistra su desktop wide anche con `max-w` | Aggiungere sempre `mx-auto` insieme a `max-w-*` su pagine con contenuto centrato |
 | Step editor actions inline on mobile | Toolbar `su/giu/elimina` nella stessa riga del contenuto riduce la larghezza utile della textarea e fa sembrare lo step "schiacciato" | Su mobile mettere i controlli in una riga separata sotto il contenuto; da `sm` in su possono stare in alto a destra |
 | Build sandbox `spawn EPERM` | `npx next build --webpack` può fallire nel sandbox anche se il codice è corretto | Se compare `spawn EPERM`, rilanciare la build fuori sandbox; non trattarlo come errore applicativo |
+| Azione nascosta in `group-hover` su touch | `opacity-0 group-hover:opacity-100` su un controllo (es. tasto ↺ rimescola slot) lo rende **invisibile su mobile**: il touch non scatena `hover`, l'azione sembra non esistere | Rendere il controllo sempre visibile sotto `lg` e nascondere solo da desktop: `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100`; aggiungere `aria-label` (un `title=` non basta per screen reader) |
+| `confirm()`/`alert()` nativi | I dialog di sistema del browser sono fuori brand, non stilizzabili né focus-trappabili | Per le conferme distruttive usare `ConfirmDialog` (`components/ui/confirm-dialog.tsx`, controllato, costruito sul `Dialog` Radix); per validazioni/errori usare `react-hot-toast`. Mai `window.confirm`/`window.alert` |
+| `position: sticky` dentro `overflow:hidden` | Un antenato con `overflow:hidden` (es. `.shell-stage`) diventa scroll container e **annulla `sticky`** rispetto allo scroll finestra: l'elemento non si aggancia e scorre via (sintomo: header `sticky top-0` che sparisce scrollando, footer sidebar irraggiungibile) | Non affidarsi a `sticky` dentro `.shell-stage`. Su desktop il dashboard usa **app-shell con scroll interno** (`<main>` con `lg:overflow-y-auto`, shell ad altezza viewport fissa) così header/sidebar/footer restano fermi senza `sticky`. Alternativa: `overflow: clip` (non crea scroll container, preserva `sticky`) |
+| Dark mode — blocco `.dark` | Riscrivere i token con `oklch()` completo (es. `oklch(1 0 0)`) rompe l'alpha inline `oklch(var(--x) / a)` usato ovunque | Nel blocco `.dark` (`globals.css`) sovrascrivere SOLO i componenti OKLCH (`16% 0.012 65`), mai con wrapper/alpha. Le superfici con literal chiari "cotti" in classi arbitrarie (gradiente `body`, `.shell-stage`, `.shell-panel`, sidebar drawer, `more-sheet`, `status-banner` warning, auth pages) richiedono override `.dark`/`dark:` espliciti |
+| next-themes hydration mismatch | next-themes scrive la classe `.dark` su `<html>` lato client → warning/mismatch di idratazione | `suppressHydrationWarning` su `<html>`; i componenti che mostrano lo stato tema (es. `ThemePicker`) usano il pattern `mounted` (`useEffect`) per non divergere tra SSR e CSR |
+| Contenuto dentro `shell-panel` sotto l'overlay | `.shell-panel::before` è `position:absolute; inset:0` (gradiente decorativo): il contenuto in flusso normale finisce **sotto** l'overlay e appare slavato | Avvolgere il contenuto del pannello in `relative z-10` (stesso pattern di `recipe-card`, `EditorialEmptyState`, `StatusBanner`) |
+| Checkbox/`<input type=checkbox>` nativa blu | Senza `accent-color`, la checkbox usa il blu di sistema → rompe la "Regola Anti-Freddo" su palette crema (frequente nelle checklist cottura) | Aggiungere sempre `accent-primary` alla checkbox; per i controlli più toccati area ≥44px e `tabIndex={-1}` se la riga è già `role="button"` (evita doppio tab-stop) |
+| `next lint` rimosso in Next 16 | `npx next lint` interpreta `lint` come directory e fallisce; non esiste config ESLint in repo | Validare con `npx tsc --noEmit` + `npx next build --webpack`; non affidarsi a `next lint` |
 
 ---
 
@@ -80,6 +88,8 @@ className="portrait:flex landscape:hidden"                 // ❌ applica a desk
 - Desktop (≥1440px): sidebar sempre visibile
 - Mobile portrait: bottom navigation
 - Mobile landscape: hamburger + sidebar drawer
+
+**Modello di scroll (desktop ≥1440px) = app-shell**: lo `.shell-stage` è ad altezza viewport fissa (`lg:h-[calc(100vh-2rem)]`) e a scorrere è solo `<main>` (`lg:overflow-y-auto`, riga flex `lg:min-h-0`). Header, sidebar e footer restano fermi (nessun `sticky` — non funzionerebbe dentro `overflow:hidden`, vedi Quick Reference). Il selettore tema vive nel footer della sidebar (lista voci in un wrapper `min-h-0 flex-1 overflow-y-auto`, picker ancorato sotto). Sotto 1440px resta lo scroll-finestra. L'effetto `--shell-focus` legge `mainRef.scrollTop`, non `window.scrollY`.
 
 **Sticky button sopra la bottom nav:**
 ```tsx
@@ -239,17 +249,20 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 
 **Palette OKLCH**: i token CSS contengono solo i parametri (`--background: 97% 0.01 75`), il wrapper `oklch()` è nel `tailwind.config.js`. Questo è lo stesso pattern del vecchio `hsl()`. Tutti i browser moderni supportano `oklch()`.
 
+**Dark mode (light / dark / system)**: gestita da `next-themes` (`darkMode: 'class'`, classe `.dark` su `<html>`, persistenza + anti-flash pre-paint inclusi). Il blocco `.dark` in `globals.css` riscrive gli **stessi token** (solo componenti OKLCH, vedi gotcha) — i componenti che usano `bg-background`/`text-foreground`/`bg-card`/`border-border` ecc. si adattano da soli. NON aggiungere `bg-white dark:bg-black` sparsi: usare i token. Le superfici decorative con literal chiari hardcoded richiedono override `.dark`/`dark:` espliciti. `ThemePicker` (`components/ui/theme-picker.tsx`) è montato in `Sidebar` e `MoreSheet`; il root layout deve avere `suppressHydrationWarning`.
+
 **Delight shared states**: per loading, empty state e feedback cross-app usare i wrapper condivisi:
 - `EditorialLoader` per attese importanti (auth bootstrap, dashboard load, AI generation)
 - `EditorialEmptyState` per primo uso / nessun risultato
 - `StatusBanner` per info/success/warning/error inline
+- `ConfirmDialog` per ogni conferma distruttiva (elimina piano/ricetta/sessione) — controllato, riusa il `Dialog` Radix; mai `window.confirm`/`window.alert`
 Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
 
 **Hot toast styling**: se una pagina usa `react-hot-toast`, il look va definito in `src/components/providers.tsx`; nelle pagine si cambia solo il contenuto del messaggio.
 
 **Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 
-**Category Colors**: usare palette preset, non `input[type=color]` — UX più stabile su mobile, evita colori fuori palette.
+**Category Colors**: usare la palette preset `CATEGORY_COLOR_PRESETS` (`color-palette-picker.tsx`), non `input[type=color]` — UX più stabile su mobile. La palette è composta di toni terrosi on-brand (terracotta, ocra, oliva, salvia, cacao); niente neon blu/viola/teal. Le categorie esistenti mantengono il colore salvato anche se non più tra i preset (nessuna migrazione).
 
 **Layout max-width per tipo di pagina**:
 - Pagine con griglia card (ricette, categorie, cotture): **nessun max-w** — la grid gestisce già la responsività

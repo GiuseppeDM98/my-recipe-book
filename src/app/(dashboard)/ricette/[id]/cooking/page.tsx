@@ -17,10 +17,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { StepsListCollapsible } from '@/components/recipe/steps-list-collapsible';
 import { IngredientListCollapsible } from '@/components/recipe/ingredient-list-collapsible';
-import { ArrowLeft, Plus, Minus, X } from 'lucide-react';
+import { ArrowLeft, X, ChefHat, Scale, AlertTriangle } from 'lucide-react';
 import NoSleep from 'nosleep.js';
 import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
 import { useCountdownTimer } from '@/lib/hooks/useCountdownTimer';
+import { ServingsStepper } from '@/components/recipe/servings-stepper';
+import { StatusBanner } from '@/components/ui/status-banner';
 import toast from 'react-hot-toast';
 
 /**
@@ -89,7 +91,7 @@ export default function CookingModePage() {
 
       timer.start(stepId, durationSeconds, {
         onFinish: () => {
-          toast(`⏰ Timer completato! — ${stepLabel}`, { duration: 6000 });
+          toast(`Timer completato — ${stepLabel}`, { duration: 6000 });
         },
       });
     },
@@ -285,6 +287,9 @@ export default function CookingModePage() {
       });
       await deleteCookingSession(cookingSession.id);
       queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
+      // Celebrate completion (peak-end): the finished dish deserves a warm beat
+      // before we navigate away to the in-progress overview.
+      toast.success('Piatto completato. Bel lavoro in cucina!');
       router.push('/cotture-in-corso');
     } catch (err) {
       console.error('Error finishing cooking session:', err);
@@ -297,20 +302,33 @@ export default function CookingModePage() {
   }
 
   if (recipeError) {
-    return <p className="text-red-500 text-center mt-10">Errore nel caricamento della ricetta.</p>;
+    return <p className="text-destructive text-center mt-10">Errore nel caricamento della ricetta.</p>;
   }
 
   if (!recipe) {
-    return <p className="text-center mt-10">Ricetta non trovata o non autorizzata.</p>;
-  }
-
-  if (sessionError) {
-    return <p className="text-red-500 text-center mt-10">{sessionError}</p>;
+    return <p className="text-muted-foreground text-center mt-10">Ricetta non trovata o non autorizzata.</p>;
   }
 
   const originalServings = recipe.servings || 4;
   const progress = calculateProgress(checkedIngredients, checkedSteps);
   const isComplete = progress >= 1;
+
+  // Session errors stay inline and dismissible so a failed write (servings, finish)
+  // never wipes the active cooking screen out from under the user.
+  const sessionErrorBanner = sessionError ? (
+    <StatusBanner
+      tone="danger"
+      icon={<AlertTriangle className="h-5 w-5" />}
+      title="Qualcosa è andato storto"
+      description={sessionError}
+      action={
+        <Button variant="outline" size="sm" onClick={() => setSessionError(null)}>
+          Ho capito
+        </Button>
+      }
+      className="mb-6"
+    />
+  ) : null;
 
   // === SETUP MODE RENDER ===
   // Pre-cooking configuration: user selects servings before starting.
@@ -329,65 +347,47 @@ export default function CookingModePage() {
             </Button>
           </div>
 
+          {sessionErrorBanner}
+
           <div className="text-center mb-8">
-            <h1 className="font-display text-4xl sm:text-5xl font-semibold italic leading-tight mb-4">{recipe.title}</h1>
-            <p className="text-lg text-muted-foreground">Prepara la tua modalità cottura</p>
+            <p className="editorial-kicker mb-2 text-[0.7rem] font-semibold uppercase text-muted-foreground">Modalità cottura</p>
+            <h1 className="font-display text-4xl sm:text-5xl font-semibold italic leading-tight mb-3">{recipe.title}</h1>
+            <p className="text-lg text-muted-foreground">Pronti a cucinare? Scegli per quante persone.</p>
           </div>
 
-          <div className="bg-card rounded-lg shadow-lg p-6 sm:p-8 border-2 border-primary/20">
-            <h2 className="font-display text-2xl font-semibold mb-6 text-center">Per quante persone cucini?</h2>
+          <div className="shell-panel rounded-[1.8rem] p-6 sm:p-8">
+            <div className="relative z-10">
+              <h2 className="font-display text-2xl font-semibold mb-6 text-center">Per quante persone cucini?</h2>
 
-            <div className="mb-8 p-6 bg-muted/50 rounded-lg">
-              <div className="text-center mb-4">
-                <span className="text-lg text-foreground">
-                  Ricetta originale per <span className="font-bold text-primary">{originalServings}</span> {originalServings === 1 ? 'persona' : 'persone'}
-                </span>
+              <div className="mb-8 p-6 bg-muted/50 rounded-2xl">
+                <div className="text-center mb-4">
+                  <span className="text-lg text-foreground">
+                    Ricetta originale per <span className="font-bold text-primary">{originalServings}</span> {originalServings === 1 ? 'persona' : 'persone'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-center gap-3">
+                  <ServingsStepper value={servings} onChange={handleServingsChange} size="lg" />
+                  <span className="text-lg font-medium">{servings === 1 ? 'persona' : 'persone'}</span>
+                </div>
+
+                {servings !== originalServings && (
+                  <p className="flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground mt-4">
+                    <Scale className="h-4 w-4 text-primary/70" />
+                    Le quantità degli ingredienti saranno adattate automaticamente
+                  </p>
+                )}
               </div>
 
-              <div className="flex items-center justify-center gap-4">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => handleServingsChange(servings - 1)}
-                  disabled={servings <= 1}
-                  className="w-14 h-14 p-0"
-                >
-                  <Minus className="w-6 h-6" />
-                </Button>
-                <input
-                  type="number"
-                  value={servings}
-                  onChange={(e) => handleServingsChange(parseInt(e.target.value) || 1)}
-                  className="w-24 h-14 text-center text-3xl font-bold border-2 border-input rounded-md focus:border-primary focus:outline-none bg-background"
-                  min="1"
-                  max="99"
-                />
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={() => handleServingsChange(servings + 1)}
-                  disabled={servings >= 99}
-                  className="w-14 h-14 p-0"
-                >
-                  <Plus className="w-6 h-6" />
-                </Button>
-                <span className="text-lg font-medium">{servings === 1 ? 'persona' : 'persone'}</span>
-              </div>
-
-              {servings !== originalServings && (
-                <p className="text-center text-sm text-muted-foreground mt-4">
-                  ✨ Le quantità degli ingredienti saranno adattate automaticamente
-                </p>
-              )}
+              <Button
+                onClick={handleStartCooking}
+                size="lg"
+                className="w-full h-14 gap-2 text-lg"
+              >
+                <ChefHat className="h-5 w-5" />
+                Avvia modalità cottura
+              </Button>
             </div>
-
-            <Button
-              onClick={handleStartCooking}
-              size="lg"
-              className="w-full h-16 text-2xl font-bold"
-            >
-              👨‍🍳 Avvia modalità cottura
-            </Button>
           </div>
         </div>
     );
@@ -440,7 +440,12 @@ export default function CookingModePage() {
         </Button>
       </div>
 
-      <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold italic leading-tight mb-6 text-center">{recipe.title}</h1>
+      {sessionErrorBanner}
+
+      <div className="mb-6 text-center">
+        <p className="editorial-kicker mb-2 text-[0.7rem] font-semibold uppercase text-muted-foreground">In cottura</p>
+        <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-semibold italic leading-tight">{recipe.title}</h1>
+      </div>
 
       {/* Servings selector */}
       <div className="mb-8 p-4 bg-muted/50 rounded-lg border border-border">
@@ -450,38 +455,14 @@ export default function CookingModePage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-lg font-medium">Cucino per:</span>
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => handleServingsChange(servings - 1)}
-              disabled={servings <= 1}
-              className="w-12 h-12 p-0"
-            >
-              <Minus className="w-5 h-5" />
-            </Button>
-            <input
-              type="number"
-              value={servings}
-              onChange={(e) => handleServingsChange(parseInt(e.target.value) || 1)}
-              className="w-20 h-12 text-center text-2xl font-bold border-2 border-input rounded-md focus:border-primary focus:outline-none bg-background"
-              min="1"
-              max="99"
-            />
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => handleServingsChange(servings + 1)}
-              disabled={servings >= 99}
-              className="w-12 h-12 p-0"
-            >
-              <Plus className="w-5 h-5" />
-            </Button>
+            <ServingsStepper value={servings} onChange={handleServingsChange} size="md" />
             <span className="text-lg font-medium">{servings === 1 ? 'persona' : 'persone'}</span>
           </div>
         </div>
         {servings !== originalServings && (
-          <p className="text-center text-sm text-muted-foreground mt-3">
-            ✨ Le quantità degli ingredienti sono state adattate automaticamente
+          <p className="flex items-center justify-center gap-1.5 text-center text-sm text-muted-foreground mt-3">
+            <Scale className="h-4 w-4 text-primary/70" />
+            Le quantità degli ingredienti sono state adattate automaticamente
           </p>
         )}
       </div>

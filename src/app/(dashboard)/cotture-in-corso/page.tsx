@@ -6,7 +6,9 @@ import { getRecipe } from '@/lib/firebase/firestore';
 import { CookingSession, Recipe } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
+import { useState } from 'react';
 import { Trash2, ChefHat, ShoppingBasket, ListChecks } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
@@ -40,6 +42,9 @@ export default function CottureInCorsoPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
+
   const {
     data: sessions = [],
     isLoading,
@@ -65,17 +70,19 @@ export default function CottureInCorsoPage() {
     },
   });
 
-  const handleDeleteSession = async (sessionId: string) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questa sessione di cottura?')) {
-      return;
-    }
+  const handleConfirmDeleteSession = async () => {
+    if (!pendingDeleteId) return;
+    setIsDeletingSession(true);
 
     try {
-      await deleteCookingSession(sessionId);
+      await deleteCookingSession(pendingDeleteId);
       // Invalidate to reload the sessions list after deletion.
       queryClient.invalidateQueries({ queryKey: ['cookingSessions', user?.uid ?? ''] });
+      setPendingDeleteId(null);
     } catch (error) {
       console.error('Error deleting cooking session:', error);
+    } finally {
+      setIsDeletingSession(false);
     }
   };
 
@@ -118,7 +125,19 @@ export default function CottureInCorsoPage() {
             </Button>
           }
         />
-      ) : sessions.length > 0 ? (
+      ) : null}
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}
+        title="Eliminare questa sessione di cottura?"
+        description="L'avanzamento salvato per questa cottura verrà perso. Le cotture già concluse restano nello storico."
+        confirmLabel="Elimina sessione"
+        isConfirming={isDeletingSession}
+        onConfirm={handleConfirmDeleteSession}
+      />
+
+      {sessions.length > 0 ? (
         /* === SESSION CARDS === */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sessions.map((session) => {
@@ -132,7 +151,7 @@ export default function CottureInCorsoPage() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDeleteSession(session.id)}
+                    onClick={() => setPendingDeleteId(session.id)}
                     className="mt-4"
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
@@ -200,7 +219,8 @@ export default function CottureInCorsoPage() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => handleDeleteSession(session.id)}
+                    onClick={() => setPendingDeleteId(session.id)}
+                    aria-label={`Elimina la sessione di ${recipe.title}`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

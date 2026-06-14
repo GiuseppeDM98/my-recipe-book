@@ -22,7 +22,7 @@ export default function LoginPage() {
   }, [user, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_oklch(var(--primary)/0.08),_transparent_35%),linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(95%_0.015_75)_100%)] px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_oklch(var(--primary)/0.08),_transparent_35%),linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(95%_0.015_75)_100%)] dark:bg-[radial-gradient(circle_at_top,_oklch(var(--primary)/0.12),_transparent_35%),linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(13%_0.01_60)_100%)] px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
         <div className="space-y-4 text-center">
           <span className="mx-auto flex w-fit items-center gap-2 rounded-full border border-primary/20 bg-background/85 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground shadow-sm">

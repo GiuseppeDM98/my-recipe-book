@@ -16,14 +16,14 @@ interface StatusBannerProps {
 const toneClasses: Record<StatusBannerTone, string> = {
   info: 'border-primary/20 bg-[linear-gradient(135deg,_oklch(var(--primary)/0.07),_oklch(var(--background)/0.98))] text-foreground',
   success: 'border-accent/25 bg-[linear-gradient(135deg,_oklch(var(--accent)/0.12),_oklch(var(--background)/0.98))] text-foreground',
-  warning: 'border-[oklch(70%_0.09_78)]/35 bg-[linear-gradient(135deg,_oklch(95%_0.03_78),_oklch(var(--background)/0.98))] text-foreground',
+  warning: 'border-[oklch(70%_0.09_78)]/35 dark:border-[oklch(55%_0.09_78)]/40 bg-[linear-gradient(135deg,_oklch(95%_0.03_78),_oklch(var(--background)/0.98))] dark:bg-[linear-gradient(135deg,_oklch(38%_0.06_78),_oklch(var(--background)/0.98))] text-foreground',
   danger: 'border-destructive/20 bg-[linear-gradient(135deg,_oklch(var(--destructive)/0.08),_oklch(var(--background)/0.98))] text-foreground',
 };
 
 const iconClasses: Record<StatusBannerTone, string> = {
   info: 'bg-primary/12 text-primary',
   success: 'bg-accent/14 text-accent',
-  warning: 'bg-[oklch(82%_0.07_78)]/30 text-[oklch(48%_0.11_78)]',
+  warning: 'bg-[oklch(82%_0.07_78)]/30 dark:bg-[oklch(45%_0.07_78)]/30 text-[oklch(48%_0.11_78)] dark:text-[oklch(80%_0.1_78)]',
   danger: 'bg-destructive/12 text-destructive',
 };
 

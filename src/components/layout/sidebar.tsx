@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { Book, Grid3x3, Flame, PlusCircle, Sparkles, CalendarDays, BarChart3, Users, ShoppingCart, Archive } from 'lucide-react';
+import { ThemePicker } from '@/components/ui/theme-picker';
 
 /**
  * Sidebar - Orientation-based responsive navigation
@@ -76,6 +77,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside className={cn(
         // ========================================
         // Desktop (≥1440px): Always visible sidebar
+        // Riempie l'altezza della riga (app-shell: shell ad altezza viewport,
+        // main con scroll interno) così il footer della sidebar — incl. il
+        // selettore tema — resta sempre visibile senza scorrere la lista.
         // ========================================
         'lg:w-64 lg:flex-shrink-0 lg:block lg:relative',
         'lg:border-r lg:bg-transparent',
@@ -91,7 +95,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         'max-lg:landscape:fixed max-lg:landscape:inset-y-0 max-lg:landscape:left-0',
         'max-lg:landscape:z-50 max-lg:landscape:w-64',
         'max-lg:landscape:border-r max-lg:landscape:border-border/85',
-        'max-lg:landscape:bg-[linear-gradient(180deg,_oklch(99%_0.01_76)_0%,_oklch(var(--background))_100%)]',
+        'max-lg:landscape:bg-[linear-gradient(180deg,_oklch(99%_0.01_76)_0%,_oklch(var(--background))_100%)] dark:max-lg:landscape:bg-[linear-gradient(180deg,_oklch(20%_0.013_64)_0%,_oklch(var(--background))_100%)]',
         'max-lg:landscape:shadow-[0_26px_60px_-34px_oklch(var(--foreground)/0.35)]',
         'max-lg:landscape:transition-transform max-lg:landscape:duration-300',
 
@@ -100,9 +104,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           : 'max-lg:landscape:-translate-x-full'
       )}>
         <nav
-          className="flex h-full flex-col gap-0 px-3 py-4 lg:border-r lg:border-border/55 lg:bg-[linear-gradient(180deg,_oklch(var(--background)/0.7),_transparent_18%,_oklch(var(--background)/0.42)_100%)] max-lg:landscape:bg-[linear-gradient(180deg,_oklch(99%_0.01_76)_0%,_oklch(var(--background))_100%)]"
+          className="flex h-full flex-col gap-0 px-3 py-4 lg:border-r lg:border-border/55 lg:bg-[linear-gradient(180deg,_oklch(var(--background)/0.7),_transparent_18%,_oklch(var(--background)/0.42)_100%)] max-lg:landscape:bg-[linear-gradient(180deg,_oklch(99%_0.01_76)_0%,_oklch(var(--background))_100%)] dark:max-lg:landscape:bg-[linear-gradient(180deg,_oklch(20%_0.013_64)_0%,_oklch(var(--background))_100%)]"
           aria-label="Navigazione principale"
         >
+          {/* Voci scrollabili: se eccedono l'altezza, scorrono qui dentro
+              lasciando il footer (selettore tema) sempre ancorato in basso. */}
+          <div className="cinematic-scrollbar -mx-1 min-h-0 flex-1 overflow-y-auto px-1">
           {navGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
               {/* Optional section label */}
@@ -151,6 +158,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               })}
             </div>
           ))}
+          </div>
+
+          {/* Selettore tema — ancorato in fondo alla sidebar */}
+          <div className="pt-4">
+            <div className="mx-3 border-t border-border/60 pt-4">
+              <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-accent">
+                Tema
+              </p>
+              <div className="px-2">
+                <ThemePicker />
+              </div>
+            </div>
+          </div>
         </nav>
       </aside>
     </>

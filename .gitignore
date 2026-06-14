@@ -52,3 +52,6 @@ next-env.d.ts
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Impeccable critique snapshots (transient working artifacts; design.json stays tracked)
+.impeccable/critique/

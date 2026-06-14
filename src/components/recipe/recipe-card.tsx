@@ -52,6 +52,8 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
               <span
                 key={season}
                 className="text-lg"
+                role="img"
+                aria-label={`Stagione: ${SEASON_LABELS[season]}`}
                 title={SEASON_LABELS[season]}
               >
                 {SEASON_ICONS[season]}

@@ -12,9 +12,10 @@ import { Subcategory, Season } from '@/types';
 import { matchesSearch } from '@/lib/utils/search';
 import { SEASON_ICONS, SEASON_LABELS, ALL_SEASONS } from '@/lib/constants/seasons';
 import Link from 'next/link';
-import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
+import { StatusBanner } from '@/components/ui/status-banner';
 import { Skeleton } from '@/components/ui/skeleton';
 
 /**
@@ -29,7 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  * Active filters shown as chips so user always knows what is applied.
  */
 export default function RecipesPage() {
-  const { recipes, loading, error } = useRecipes();
+  const { recipes, loading, error, refreshRecipes } = useRecipes();
   const { user } = useAuth();
   const [selectedSeason, setSelectedSeason] = useState<Season | 'all'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
@@ -218,7 +219,19 @@ export default function RecipesPage() {
   }
 
   if (error) {
-    return <p className="text-destructive">Errore nel caricamento delle ricette: {error}</p>;
+    return (
+      <StatusBanner
+        tone="danger"
+        icon={<AlertTriangle className="h-5 w-5" />}
+        title="Impossibile caricare le ricette"
+        description="C'è stato un problema nel recupero del ricettario. Controlla la connessione e riprova."
+        action={
+          <Button onClick={() => refreshRecipes()} variant="outline">
+            Riprova
+          </Button>
+        }
+      />
+    );
   }
 
   return (
@@ -271,16 +284,16 @@ export default function RecipesPage() {
             onClick={() => setFiltersOpen(o => !o)}
             aria-expanded={filtersOpen}
             className={cn(
-              'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+              'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors',
               filtersOpen || activeFilterCount > 0
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-foreground hover:bg-muted/80'
+                ? 'border-primary/30 bg-primary/10 text-primary'
+                : 'border-transparent bg-muted text-foreground hover:bg-muted/80'
             )}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filtra
             {activeFilterCount > 0 && (
-              <span className="ml-1 rounded-full bg-primary-foreground/20 px-1.5 py-0.5 text-xs font-bold leading-none">
+              <span className="ml-1 rounded-full bg-primary/20 px-1.5 py-0.5 text-xs font-bold leading-none text-primary">
                 {activeFilterCount}
               </span>
             )}

@@ -7,6 +7,7 @@
 | Resource | Purpose |
 |----------|---------|
 | [AGENTS.md](AGENTS.md) | Debug-heavy gotchas and implementation patterns |
+| [DESIGN.md](DESIGN.md) | Visual design system spec (tokens, components, do's/don'ts); sidecar `.impeccable/design.json` |
 | [README.md](README.md) | User-facing setup and product overview |
 | [Draft Release Temp.md](Draft Release Temp.md) | User-facing release notes draft |
 
@@ -23,6 +24,7 @@ Digital recipe book for home cooks with:
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels
+- light / dark / system theme (token-driven, system-aware)
 
 Privacy-first architecture: every user-owned document is isolated through Firebase ownership rules.
 
@@ -34,6 +36,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 |-------|------------|
 | Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
 | Typography | Bodoni Moda + Jost via `next/font/google` |
+| Theming | `next-themes` (light / dark / system, `darkMode: 'class'`) |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
 | State | `@tanstack/react-query` |
@@ -95,16 +98,25 @@ src/
 - `extractStepDuration()` is shared between parser and form-side auto-detect
 - AI prompts use `[ING:n]`, `[QTY:n]`, and `[DUR:N]` consistently
 
+### Confirmations and touch
+- Destructive confirmations use the shared `ConfirmDialog` (built on Radix Dialog); never native `confirm()`/`alert()`. Validation/error feedback uses `react-hot-toast`
+- Touch-primary context: don't hide controls behind `group-hover` only (invisible on mobile). Reveal on `lg` only, keep visible below
+- Category swatches come from `CATEGORY_COLOR_PRESETS` (earthy, on-brand)
+
+### Theming and desktop scroll
+- Style with semantic tokens (`bg-background`, `text-foreground`, `bg-card`, `border-border`) so dark mode adapts for free; never `bg-white dark:bg-black`. `.dark` overrides store **OKLCH components only** (no `oklch()` wrapper/alpha) — see AGENTS.md
+- `position: sticky` breaks inside `.shell-stage` (`overflow:hidden`). Desktop (≥1440px) uses an app-shell: fixed-height shell, internal `<main>` scroll — header/sidebar/footer stay put without sticky
+
 ---
 
 ## Recent Changes (Latest)
 
-### 2026-06-14 — Shopping list & Planner
-- **Shopping list checked-state fix**: la scrittura Firestore debounced (500ms) veniva annullata allo smontaggio → spunte perse e "ricomparse" non spuntate giorni dopo. Aggiunto flush su `unmount` + `visibilitychange(hidden)` + `pagehide` via `latestStateRef`. File: `useShoppingList.ts`
-- **Shopping list aggregation**: accorpa lo stesso ingrediente anche con unità diverse ma compatibili (g↔kg, ml↔l) e con forme singolare/plurale o accentate (chiave canonica). File: `ingredient-aggregator.ts` (+ test)
-- **Planner: AI rimossa → shuffle locale**: eliminata la generazione AI e la route `/api/plan-meals`. Nuovo `meal-plan-shuffle.ts` (`buildShuffledSlots`, `pickReshuffledRecipe`): compone il piano dalle ricette dell'utente per stagione + categorie preferite/escluse per portata; reshuffle locale per singolo slot. Sezione "Categorie per portata" sempre visibile. File: `useMealPlanner.ts`, `MealPlanSetupForm.tsx`, `pianificatore/page.tsx`
-- **Planner: copia piano**: `copyPlanToWeek` + bottone "Copia piano" (Dialog selettore settimana); blocca se la settimana target ha già un piano. File: `useMealPlanner.ts`, `PlannerHeader.tsx`, `pianificatore/page.tsx`
-- **Backward-compat**: piani AI legacy con slot `newRecipe` ancora visualizzabili/salvabili; `family-context` resta su chat/testo libero/extract. Nessuna nuova collection o indice Firestore.
+### 2026-06-14 — Riallineamento design-system cottura + ricette (post-critique)
+- **`ServingsStepper` condiviso** (`components/recipe/servings-stepper.tsx`): de-duplica i due selettori porzioni (setup + cottura) via prop `size` `'md'`/`'lg'`. Buffer stringa interno → il campo può restare vuoto in digitazione (risolve `parseInt('')||1` che saltava a 1), clamp [1,99] su blur, `aria-label` sui controlli
+- **Modalità cottura** (`ricette/[id]/cooking/page.tsx`): errori su token `destructive`; `sessionError` non è più full-screen ma `StatusBanner` inline dismissibile (la cottura resta visibile); emoji UI → icone lucide (`ChefHat`/`Scale`); CTA a scala `lg`; card setup su `shell-panel` editoriale + kicker; toast di completamento (peak-end)
+- **Liste collassabili** (`steps-list-collapsible`, `ingredient-list-collapsible`): `green-*` raw → `accent`; checkbox `accent-primary`; icone lucide `Play`/`Timer`; parità tastiera (`role`/`tabIndex`/`onKeyDown`/`aria-pressed`) anche sulle righe delle sezioni con titolo, checkbox `tabIndex={-1}`
+- **Pagina ricette** (`ricette/page.tsx`, `recipe-card.tsx`): stato errore → `StatusBanner` con "Riprova" (`refreshRecipes`); toggle "Filtra" in tinta (`bg-primary/10`) invece di riempimento pieno (Regola del Timbro); badge stagione con `aria-label`
+- ⚠️ Contenuto dentro `shell-panel` va in `relative z-10` (overlay `::before`); `next lint` non esiste più in Next 16 → validare con `tsc --noEmit` + `next build --webpack` (vedi AGENTS.md)
 
 ---
 
@@ -186,7 +198,7 @@ Italian households cooking at home. The app is used during real meal prep, often
 Curated, warm, editorial. It should feel like a private Italian cookbook, not a social food app or a generic SaaS dashboard.
 
 ### Aesthetic direction
-- Light mode only
+- Light / dark / system theme (token-driven; dark is a warm "notturno", not pure black)
 - Warm cream backgrounds, terracotta primary, sage accent
 - Bodoni Moda for editorial emphasis, Jost for body readability
 - Strong text hierarchy, generous touch targets, calm surfaces

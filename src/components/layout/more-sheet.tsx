@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Grid3x3, Sparkles, CalendarDays, BarChart3, Users, ShoppingCart, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { ThemePicker } from '@/components/ui/theme-picker';
 
 interface MoreSheetProps {
   open: boolean;
@@ -27,7 +28,7 @@ export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
         side="bottom"
         showClose={false}
         className={cn(
-          'max-lg:portrait:rounded-t-[1.75rem] border-border/70 bg-[linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(96%_0.012_74)_100%)]',
+          'max-lg:portrait:rounded-t-[1.75rem] border-border/70 bg-[linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(96%_0.012_74)_100%)] dark:bg-[linear-gradient(180deg,_oklch(var(--background))_0%,_oklch(13%_0.01_60)_100%)]',
           'lg:hidden max-lg:landscape:hidden'
         )}
       >
@@ -59,6 +60,14 @@ export function MoreSheet({ open, onOpenChange }: MoreSheetProps) {
               </Link>
             );
           })}
+        </div>
+
+        {/* Selettore tema */}
+        <div className="mt-5 flex items-center justify-between rounded-[1.1rem] px-4 py-3 shell-panel">
+          <span className="relative z-10 text-sm font-medium">Tema</span>
+          <span className="relative z-10">
+            <ThemePicker />
+          </span>
         </div>
       </SheetContent>
     </Sheet>

@@ -117,6 +117,41 @@
     --shell-wash: 0.38;
     --shell-focus: 0;
   }
+
+  /* Dark mode — "Carta e Terracotta" notturno: marrone caldo profondo,
+     non nero puro. Stessa convenzione: le var contengono SOLO i componenti
+     OKLCH (senza wrapper oklch() né alpha), così l'alpha inline resta valido. */
+  .dark {
+    --background: 16% 0.012 65;         /* marrone notte caldo */
+    --foreground: 92% 0.012 78;         /* crema tenue */
+
+    --card: 21% 0.014 62;
+    --card-foreground: 92% 0.012 78;
+
+    --popover: 21% 0.014 62;
+    --popover-foreground: 92% 0.012 78;
+
+    --primary: 60% 0.13 42;             /* terracotta ravvivata su fondo scuro */
+    --primary-foreground: 16% 0.02 60;  /* testo scuro su terracotta chiara */
+
+    --secondary: 27% 0.015 62;
+    --secondary-foreground: 92% 0.012 78;
+
+    --muted: 27% 0.013 62;
+    --muted-foreground: 70% 0.02 72;    /* grigio-bruno tenue */
+
+    --accent: 58% 0.09 148;             /* salvia ravvivata */
+    --accent-foreground: 16% 0.02 60;
+
+    --destructive: 65% 0.20 25;         /* rosso caldo leggibile su scuro */
+    --destructive-foreground: 97% 0.01 75;
+
+    --border: 32% 0.012 62;
+    --input: 32% 0.012 62;
+    --ring: 60% 0.13 42;
+
+    --shell-wash: 0.5;
+  }
 }
 
 @layer base {
@@ -283,6 +318,49 @@
 }
 
 
+/* ─────────────────────────────────────────
+   Dark mode — override dei layer decorativi che "cuociono" valori OKLCH
+   chiari (gradiente body, shell-stage, shell-panel). Regole non-layered
+   così vincono sui rispettivi @layer utilities/base. I token semantici
+   cambiano già da soli; qui copriamo solo le superfici dipinte a mano.
+   ───────────────────────────────────────── */
+.dark body {
+  background-image:
+    radial-gradient(circle at 12% 14%, oklch(var(--primary) / 0.14), transparent 22rem),
+    radial-gradient(circle at 82% 12%, oklch(var(--accent) / 0.10), transparent 18rem),
+    linear-gradient(180deg, oklch(19% 0.013 66) 0%, oklch(var(--background)) 30%, oklch(13% 0.01 60) 100%);
+}
+
+.dark .shell-stage {
+  border-color: oklch(var(--border) / 0.85);
+  background:
+    linear-gradient(180deg, oklch(20% 0.013 64 / 0.94) 0%, oklch(var(--background) / 0.96) 14%, oklch(15% 0.012 58 / 0.98) 100%);
+  box-shadow:
+    0 30px 80px -52px oklch(0% 0 0 / 0.55),
+    inset 0 1px 0 oklch(100% 0 0 / 0.04);
+}
+
+.dark .shell-stage::after {
+  background-image:
+    linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), oklch(var(--border) / 0.35) calc(100% - 1px), transparent 100%),
+    linear-gradient(180deg, oklch(100% 0 0 / 0.03) 0, transparent 140px);
+}
+
+.dark .shell-panel {
+  border-color: oklch(var(--border) / 0.75);
+  background:
+    linear-gradient(180deg, oklch(23% 0.013 64 / 0.92) 0%, oklch(var(--card) / 0.96) 100%);
+  box-shadow:
+    0 20px 55px -42px oklch(0% 0 0 / 0.55),
+    inset 0 1px 0 oklch(100% 0 0 / 0.04);
+}
+
+.dark .shell-panel::before {
+  background:
+    linear-gradient(135deg, oklch(var(--primary) / 0.10), transparent 26%),
+    linear-gradient(315deg, oklch(var(--accent) / 0.08), transparent 22%);
+}
+
 /* On mobile, decorative paint layers add rasterization cost without perceptible benefit.
    shell-stage fills 100% viewport width (no margin), so body gradients are fully hidden
    behind it — remove them. Simplify shell-stage to a solid background; remove border and
@@ -299,6 +377,15 @@
     box-shadow: none;
   }
 
+  /* Stessa semplificazione su mobile, ma in tinta scura: batte
+     `.shell-stage` chiaro per specificità e la `.dark .shell-stage`
+     desktop (gradiente) per ordine sorgente. */
+  .dark .shell-stage {
+    border: none;
+    background: oklch(var(--background));
+    box-shadow: none;
+  }
+
   .shell-stage::before,
   .shell-stage::after {
     display: none;
@@ -311,6 +398,33 @@
   }
 
   .shell-stage::before {
+    animation: none;
+  }
+}
+
+/* ─────────────────────────────────────────
+   Circle reveal del cambio tema (View Transitions API).
+   Le var --vt-* sono impostate da applyThemeWithTransition() sul punto
+   del click; fallback graceful nei browser senza startViewTransition.
+   ───────────────────────────────────────── */
+@keyframes vt-reveal {
+  from { clip-path: circle(0 at var(--vt-cx, 50%) var(--vt-cy, 50%)); }
+  to   { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-cx, 50%) var(--vt-cy, 50%)); }
+}
+
+::view-transition-new(root) {
+  animation: vt-reveal 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  z-index: 9999;
+}
+
+::view-transition-old(root) {
+  animation: none;
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root),
+  ::view-transition-old(root) {
     animation: none;
   }
 }

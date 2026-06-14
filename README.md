@@ -46,7 +46,7 @@ Designed for home cooks who want to digitize their recipe collections without co
 
 > Curated, warm, editorial. Like a quality Italian cookbook — refined but not cold, inspiring but not pretentious.
 
-The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself.
+The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself. A built-in **light / dark / system theme** carries the same warm editorial language into a dark "notturno" palette for low-light kitchens.
 
 Loading states, empty states, and inline feedback follow the same warm editorial language so the app stays coherent even during waiting, first-use, or error moments. The main dashboard shell and high-traffic pages now also share a more cinematic editorial framing, so moving between recipes, AI tools, and detail pages feels like browsing one curated object rather than separate app screens.
 
@@ -82,14 +82,14 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 
 
 - **Screen Wake Lock**: Uses nosleep.js to prevent your device from going to sleep while cooking
-- **Interactive Checkboxes**: Check off ingredients and steps as you complete them
+- **Interactive Checkboxes**: Check off ingredients and steps as you complete them — fully keyboard-navigable and announced to screen readers
 - **Progress Tracking**: Animated terracotta progress bar in the sticky footer grows as you check off ingredients and steps
 - **Persistent Sessions**: Close the app and come back later—your progress is automatically saved
 - **Serving Size Scaling**: Select different serving sizes and ingredient quantities adjust automatically
 - **Dynamic Step Quantities**: When a recipe uses dynamic step references, preparation text scales together with ingredient quantities
 - **Italian Decimal Format**: Properly formatted quantities (e.g., "1,5 kg" instead of "1.5 kg")
 - **Persistent Finish CTA**: A "Finish cooking" button in a sticky footer is always visible; it activates automatically when all ingredients and steps are checked
-- **Per-Step Countdown Timers**: Steps with a duration show an "▶ Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
+- **Per-Step Countdown Timers**: Steps with a duration show a "Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
 - **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
 
 ### Active Cooking Sessions Dashboard
@@ -210,6 +210,7 @@ Track what you have at home, manage expiry dates, and see which recipes you can 
   - **Mobile Portrait**: Bottom navigation bar with 4 main tabs + "More" sheet
   - **Mobile Landscape**: Hamburger menu with slide-out sidebar
 - **Custom 1440px Breakpoint**: Optimized for tablets to use mobile UI (better for cooking)
+- **Light / Dark / System Theme**: Theme switcher in the sidebar (desktop) and "More" sheet (mobile); remembers your choice, follows the OS in System mode, and applies with no flash on reload
 - **Touch-Friendly**: Large tap targets, swipe gestures, and mobile-optimized interactions
 - **Responsive Tables**: Ingredient and step lists adapt gracefully to all screen sizes
 - **Apple Home Screen Icon**: Custom icon when adding the app to iOS/iPad home screen
@@ -459,7 +460,7 @@ The application will start at [http://localhost:3000](http://localhost:3000)
 
 ### Frontend
 
-- **[Next.js 16.1.6](https://nextjs.org/)** - React framework with App Router
+- **[Next.js 16.2.3](https://nextjs.org/)** - React framework with App Router
   - Server and client components
   - File-based routing
   - API routes for backend functionality
@@ -480,6 +481,11 @@ The application will start at [http://localhost:3000](http://localhost:3000)
   - Bodoni Moda (display) + Jost (body) via `next/font/google`
   - Responsive breakpoints (custom 1440px `lg` breakpoint)
   - Mobile-first approach
+
+- **[next-themes](https://github.com/pacocoursey/next-themes)** - Theme management
+  - Light / dark / system modes (`darkMode: 'class'`)
+  - Persisted choice with no flash on reload (pre-paint script)
+  - Token-driven `.dark` palette layered on the same OKLCH variables
 
 ### UI Components
 
