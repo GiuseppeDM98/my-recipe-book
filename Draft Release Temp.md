@@ -2,6 +2,7 @@
 
 ## ✨ New Features
 
+- Added a dark mode — pick Light, Dark, or System (which follows your device) from the new theme switcher in the sidebar on desktop and the "More" menu on mobile; your choice is remembered and the app no longer flashes white when you reload in dark mode
 - Added a Pantry (Dispensa) page to track what you have at home — items are organised by food category, each with quantity, storage location (fridge, pantry, or freezer), and an optional expiry date
 - Added an expiring-items strip at the top of the Pantry page so items that are expired, due today, or running low are always visible at a glance
 - Added a "Con quello che hai" section on the Pantry page that suggests recipes from your cookbook whose ingredients you already have in the pantry
@@ -165,6 +166,7 @@
 - Improved touch targets in the meal planner header — the week navigation arrows and plan action buttons are now larger and easier to tap on phones
 - Improved the category colour palette with warm, earthy tones (terracotta, ochre, olive, sage, cocoa) that match the cookbook aesthetic, replacing the previous bright neon colours
 - Improved the meal planner's legacy "recipes to review" section with a calmer, more editorial heading
+- Improved the desktop layout so the navigation sidebar, header, and footer now stay fixed in place while only the recipe list scrolls — navigation and the theme switcher are always reachable, even with a long list of recipes
 
 ## 🔒 Security
 

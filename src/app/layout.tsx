@@ -23,7 +23,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it" className={`${displayFont.variable} ${bodyFont.variable}`}>
+    <html lang="it" suppressHydrationWarning className={`${displayFont.variable} ${bodyFont.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>

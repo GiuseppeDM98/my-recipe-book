@@ -67,6 +67,9 @@
 | Build sandbox `spawn EPERM` | `npx next build --webpack` può fallire nel sandbox anche se il codice è corretto | Se compare `spawn EPERM`, rilanciare la build fuori sandbox; non trattarlo come errore applicativo |
 | Azione nascosta in `group-hover` su touch | `opacity-0 group-hover:opacity-100` su un controllo (es. tasto ↺ rimescola slot) lo rende **invisibile su mobile**: il touch non scatena `hover`, l'azione sembra non esistere | Rendere il controllo sempre visibile sotto `lg` e nascondere solo da desktop: `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100`; aggiungere `aria-label` (un `title=` non basta per screen reader) |
 | `confirm()`/`alert()` nativi | I dialog di sistema del browser sono fuori brand, non stilizzabili né focus-trappabili | Per le conferme distruttive usare `ConfirmDialog` (`components/ui/confirm-dialog.tsx`, controllato, costruito sul `Dialog` Radix); per validazioni/errori usare `react-hot-toast`. Mai `window.confirm`/`window.alert` |
+| `position: sticky` dentro `overflow:hidden` | Un antenato con `overflow:hidden` (es. `.shell-stage`) diventa scroll container e **annulla `sticky`** rispetto allo scroll finestra: l'elemento non si aggancia e scorre via (sintomo: header `sticky top-0` che sparisce scrollando, footer sidebar irraggiungibile) | Non affidarsi a `sticky` dentro `.shell-stage`. Su desktop il dashboard usa **app-shell con scroll interno** (`<main>` con `lg:overflow-y-auto`, shell ad altezza viewport fissa) così header/sidebar/footer restano fermi senza `sticky`. Alternativa: `overflow: clip` (non crea scroll container, preserva `sticky`) |
+| Dark mode — blocco `.dark` | Riscrivere i token con `oklch()` completo (es. `oklch(1 0 0)`) rompe l'alpha inline `oklch(var(--x) / a)` usato ovunque | Nel blocco `.dark` (`globals.css`) sovrascrivere SOLO i componenti OKLCH (`16% 0.012 65`), mai con wrapper/alpha. Le superfici con literal chiari "cotti" in classi arbitrarie (gradiente `body`, `.shell-stage`, `.shell-panel`, sidebar drawer, `more-sheet`, `status-banner` warning, auth pages) richiedono override `.dark`/`dark:` espliciti |
+| next-themes hydration mismatch | next-themes scrive la classe `.dark` su `<html>` lato client → warning/mismatch di idratazione | `suppressHydrationWarning` su `<html>`; i componenti che mostrano lo stato tema (es. `ThemePicker`) usano il pattern `mounted` (`useEffect`) per non divergere tra SSR e CSR |
 
 ---
 
@@ -82,6 +85,8 @@ className="portrait:flex landscape:hidden"                 // ❌ applica a desk
 - Desktop (≥1440px): sidebar sempre visibile
 - Mobile portrait: bottom navigation
 - Mobile landscape: hamburger + sidebar drawer
+
+**Modello di scroll (desktop ≥1440px) = app-shell**: lo `.shell-stage` è ad altezza viewport fissa (`lg:h-[calc(100vh-2rem)]`) e a scorrere è solo `<main>` (`lg:overflow-y-auto`, riga flex `lg:min-h-0`). Header, sidebar e footer restano fermi (nessun `sticky` — non funzionerebbe dentro `overflow:hidden`, vedi Quick Reference). Il selettore tema vive nel footer della sidebar (lista voci in un wrapper `min-h-0 flex-1 overflow-y-auto`, picker ancorato sotto). Sotto 1440px resta lo scroll-finestra. L'effetto `--shell-focus` legge `mainRef.scrollTop`, non `window.scrollY`.
 
 **Sticky button sopra la bottom nav:**
 ```tsx
@@ -240,6 +245,8 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 **Side-stripe ban**: `border-l-2` o superiore con colore su card/list item è vietato da impeccable guidelines indipendentemente dall'intenzione semantica. Sostituire con badge angolare `absolute top-1.5 left-1.5` (icona + tint) che porta la stessa informazione senza il pattern visivo da AI slop.
 
 **Palette OKLCH**: i token CSS contengono solo i parametri (`--background: 97% 0.01 75`), il wrapper `oklch()` è nel `tailwind.config.js`. Questo è lo stesso pattern del vecchio `hsl()`. Tutti i browser moderni supportano `oklch()`.
+
+**Dark mode (light / dark / system)**: gestita da `next-themes` (`darkMode: 'class'`, classe `.dark` su `<html>`, persistenza + anti-flash pre-paint inclusi). Il blocco `.dark` in `globals.css` riscrive gli **stessi token** (solo componenti OKLCH, vedi gotcha) — i componenti che usano `bg-background`/`text-foreground`/`bg-card`/`border-border` ecc. si adattano da soli. NON aggiungere `bg-white dark:bg-black` sparsi: usare i token. Le superfici decorative con literal chiari hardcoded richiedono override `.dark`/`dark:` espliciti. `ThemePicker` (`components/ui/theme-picker.tsx`) è montato in `Sidebar` e `MoreSheet`; il root layout deve avere `suppressHydrationWarning`.
 
 **Delight shared states**: per loading, empty state e feedback cross-app usare i wrapper condivisi:
 - `EditorialLoader` per attese importanti (auth bootstrap, dashboard load, AI generation)

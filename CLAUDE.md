@@ -24,6 +24,7 @@ Digital recipe book for home cooks with:
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels
+- light / dark / system theme (token-driven, system-aware)
 
 Privacy-first architecture: every user-owned document is isolated through Firebase ownership rules.
 
@@ -35,6 +36,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 |-------|------------|
 | Frontend | Next.js 16.2.3, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
 | Typography | Bodoni Moda + Jost via `next/font/google` |
+| Theming | `next-themes` (light / dark / system, `darkMode: 'class'`) |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
 | AI | Claude Sonnet 4.6 |
 | State | `@tanstack/react-query` |
@@ -101,16 +103,19 @@ src/
 - Touch-primary context: don't hide controls behind `group-hover` only (invisible on mobile). Reveal on `lg` only, keep visible below
 - Category swatches come from `CATEGORY_COLOR_PRESETS` (earthy, on-brand)
 
+### Theming and desktop scroll
+- Style with semantic tokens (`bg-background`, `text-foreground`, `bg-card`, `border-border`) so dark mode adapts for free; never `bg-white dark:bg-black`. `.dark` overrides store **OKLCH components only** (no `oklch()` wrapper/alpha) — see AGENTS.md
+- `position: sticky` breaks inside `.shell-stage` (`overflow:hidden`). Desktop (≥1440px) uses an app-shell: fixed-height shell, internal `<main>` scroll — header/sidebar/footer stay put without sticky
+
 ---
 
 ## Recent Changes (Latest)
 
-### 2026-06-14 — Design system docs & planner UX polish
-- **Design docs**: nuovo `DESIGN.md` (formato Stitch: frontmatter token OKLCH + 6 sezioni, North Star "Carta e Terracotta") e sidecar `.impeccable/design.json`. Snapshot critique/audit in `.impeccable/`
-- **`ConfirmDialog`** (`components/ui/confirm-dialog.tsx`): nuovo componente riusabile sul `Dialog` Radix. Sostituiti **7 dialog nativi** — 3 `confirm()` (elimina piano/ricetta/sessione cottura) e 4 `alert()` (upload PDF non valido/troppo grande, errori salvataggio) ora come `ConfirmDialog`/`toast`
-- **Tocco mobile planner** (`MealSlotCell.tsx`): tasto ↺ "Rimescola" ora sempre visibile sotto 1440px (era `group-hover` → invisibile su touch), hit-area maggiore, `aria-label`; badge slot con testo screen-reader; label unificata "Rimescola"
-- **Touch target ≥44px**: `PlannerHeader` (frecce settimana + azioni) e chip "Piani salvati" → `h-11 lg:h-8` / `h-10 lg:h-8`
-- **Leggibilità & brand**: titoli/azioni slot `text-sm` su mobile (`text-sm lg:text-xs`); heading legacy "Ricette da rivedere" sobrio (rimossa emoji ✨); palette categorie `CATEGORY_COLOR_PRESETS` ridisegnata su toni terrosi (no neon). Nessuna migrazione dati
+### 2026-06-14 — Dark mode + desktop app-shell scroll
+- **Dark mode (light / dark / system)** via `next-themes`: `NextThemesProvider` come provider più esterno in `providers.tsx` (`attribute="class"`, `defaultTheme="system"`, `enableSystem`); `<html suppressHydrationWarning>`; `darkMode: 'class'` in `tailwind.config.js`. Persistenza + anti-flash gestiti da next-themes
+- **Token `.dark`** in `globals.css`: nessuna modifica ai colori (puntano già a `oklch(var(--token))`), solo override delle stesse CSS var. ⚠️ Le var contengono **solo i componenti OKLCH** (no wrapper `oklch()`, no alpha) così `oklch(var(--x) / a)` inline resta valido. Override `.dark`/`dark:` per le superfici decorative con literal chiari (gradiente `body`, `.shell-stage`, `.shell-panel`, sidebar drawer, `more-sheet`, `status-banner`, auth pages)
+- **`ThemePicker`** (`components/ui/theme-picker.tsx`): Sistema/Chiaro/Scuro, pattern `mounted`, circle-reveal opzionale via View Transitions API. Montato in `Sidebar` e `MoreSheet`
+- **Desktop app-shell scroll** (≥1440px): `.shell-stage` ad altezza viewport fissa, `<main>` scrolla internamente (`lg:overflow-y-auto`). Header/sidebar/footer restano fermi senza `sticky` (che si rompe dentro `overflow:hidden`). Risolve il selettore tema irraggiungibile in fondo a liste lunghe. `--shell-focus` legge `mainRef.scrollTop`. Mobile invariato (scroll finestra)
 
 ---
 
@@ -192,7 +197,7 @@ Italian households cooking at home. The app is used during real meal prep, often
 Curated, warm, editorial. It should feel like a private Italian cookbook, not a social food app or a generic SaaS dashboard.
 
 ### Aesthetic direction
-- Light mode only
+- Light / dark / system theme (token-driven; dark is a warm "notturno", not pure black)
 - Warm cream backgrounds, terracotta primary, sage accent
 - Bodoni Moda for editorial emphasis, Jost for body readability
 - Strong text hierarchy, generous touch targets, calm surfaces

@@ -46,7 +46,7 @@ Designed for home cooks who want to digitize their recipe collections without co
 
 > Curated, warm, editorial. Like a quality Italian cookbook — refined but not cold, inspiring but not pretentious.
 
-The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself.
+The interface uses a warm cream palette, Bodoni Moda editorial headings, and terracotta accents. It deliberately avoids generic app aesthetics in favour of a cookbook-inspired design optimized for actual kitchen use — large touch targets, high contrast text, and a calm visual rhythm that doesn't compete with the cooking itself. A built-in **light / dark / system theme** carries the same warm editorial language into a dark "notturno" palette for low-light kitchens.
 
 Loading states, empty states, and inline feedback follow the same warm editorial language so the app stays coherent even during waiting, first-use, or error moments. The main dashboard shell and high-traffic pages now also share a more cinematic editorial framing, so moving between recipes, AI tools, and detail pages feels like browsing one curated object rather than separate app screens.
 
@@ -210,6 +210,7 @@ Track what you have at home, manage expiry dates, and see which recipes you can 
   - **Mobile Portrait**: Bottom navigation bar with 4 main tabs + "More" sheet
   - **Mobile Landscape**: Hamburger menu with slide-out sidebar
 - **Custom 1440px Breakpoint**: Optimized for tablets to use mobile UI (better for cooking)
+- **Light / Dark / System Theme**: Theme switcher in the sidebar (desktop) and "More" sheet (mobile); remembers your choice, follows the OS in System mode, and applies with no flash on reload
 - **Touch-Friendly**: Large tap targets, swipe gestures, and mobile-optimized interactions
 - **Responsive Tables**: Ingredient and step lists adapt gracefully to all screen sizes
 - **Apple Home Screen Icon**: Custom icon when adding the app to iOS/iPad home screen
@@ -480,6 +481,11 @@ The application will start at [http://localhost:3000](http://localhost:3000)
   - Bodoni Moda (display) + Jost (body) via `next/font/google`
   - Responsive breakpoints (custom 1440px `lg` breakpoint)
   - Mobile-first approach
+
+- **[next-themes](https://github.com/pacocoursey/next-themes)** - Theme management
+  - Light / dark / system modes (`darkMode: 'class'`)
+  - Persisted choice with no flash on reload (pre-paint script)
+  - Token-driven `.dark` palette layered on the same OKLCH variables
 
 ### UI Components
 
