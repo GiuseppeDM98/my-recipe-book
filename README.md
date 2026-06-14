@@ -460,7 +460,7 @@ The application will start at [http://localhost:3000](http://localhost:3000)
 
 ### Frontend
 
-- **[Next.js 16.1.6](https://nextjs.org/)** - React framework with App Router
+- **[Next.js 16.2.3](https://nextjs.org/)** - React framework with App Router
   - Server and client components
   - File-based routing
   - API routes for backend functionality
