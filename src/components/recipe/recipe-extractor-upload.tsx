@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, X } from 'lucide-react';
 
@@ -54,7 +55,7 @@ export function RecipeExtractorUpload({ onFileSelected, isLoading, disabled }: R
       if (file.type === 'application/pdf') {
         handleFileSelection(file);
       } else {
-        alert('Per favore carica solo file PDF');
+        toast.error('Per favore carica solo file PDF');
       }
     }
   };
@@ -81,13 +82,9 @@ export function RecipeExtractorUpload({ onFileSelected, isLoading, disabled }: R
     // - Tools tested: iLovePDF (free, reliable), Adobe, Smallpdf
     const maxSize = 4.4 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert(
-        'Il file è troppo grande (max 4.4MB a causa dei limiti di Vercel).\n\n' +
-        'Per ridurre la dimensione del PDF, puoi usare un servizio gratuito come:\n' +
-        '• iLovePDF (https://www.ilovepdf.com/it/comprimere_pdf)\n' +
-        '• Adobe Acrobat Online\n' +
-        '• Smallpdf\n\n' +
-        'Dopo aver compresso il PDF, riprova a caricarlo.'
+      toast.error(
+        'Il file è troppo grande (max 4.4MB). Comprimi il PDF con un servizio gratuito come iLovePDF, Adobe Acrobat Online o Smallpdf, poi riprova.',
+        { duration: 8000 }
       );
       return;
     }

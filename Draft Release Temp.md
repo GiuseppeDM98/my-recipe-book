@@ -68,6 +68,7 @@
 - Fixed weekly planner navigation sometimes opening the wrong week or suggesting a new plan for an already saved week
 - Fixed recipe deletion messaging so it now clearly explains that completed cooking history stays available in Statistics
 - Fixed a browser validation error when a step duration exceeded 999 minutes (e.g. "leave to rise for 24 hours")
+- Fixed the meal planner "reshuffle" button being invisible on phones — the ↺ swap-recipe button on each meal slot is now always visible on mobile, where it previously only appeared on mouse hover (which phones don't have)
 
 ## 🔧 Improvements
 
@@ -157,6 +158,13 @@
 - Improved the meal planner calendar so today's date is visually highlighted, making it easier to orient yourself at a glance
 - Improved cooking mode so completed ingredient and step sections turn green with a checkmark, giving clear visual feedback as you work through a recipe
 - Improved cooking mode so sections collapse automatically with a smooth animation once all their items are checked, reducing visual noise as you progress through the recipe
+
+- Improved delete confirmations across the app (meal plans, recipes, and cooking sessions) — they now use a styled in-app dialog that matches the warm cookbook theme instead of the browser's plain system pop-up
+- Improved error and validation messages (invalid or oversized PDF uploads, recipe save errors) so they appear as in-app toasts instead of browser alert pop-ups
+- Improved the readability of recipe names in the meal planner on mobile — meal slot titles are now larger and easier to read at arm's length while cooking
+- Improved touch targets in the meal planner header — the week navigation arrows and plan action buttons are now larger and easier to tap on phones
+- Improved the category colour palette with warm, earthy tones (terracotta, ochre, olive, sage, cocoa) that match the cookbook aesthetic, replacing the previous bright neon colours
+- Improved the meal planner's legacy "recipes to review" section with a calmer, more editorial heading
 
 ## 🔒 Security
 

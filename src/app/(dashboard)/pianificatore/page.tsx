@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 /**
  * Meal Planner Page
@@ -73,6 +74,10 @@ export default function PianificatorePage() {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyTargetDate, setCopyTargetDate] = useState('');
   const [isCopying, setIsCopying] = useState(false);
+
+  // Delete-plan confirmation state
+  const [deletePlanDialogOpen, setDeletePlanDialogOpen] = useState(false);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
 
   // AI-generated recipe save states
   const [savingSlotKeys, setSavingSlotKeys] = useState<Set<string>>(new Set());
@@ -223,9 +228,14 @@ export default function PianificatorePage() {
     setSavingSlotKeys(new Set());
   }
 
-  async function handleDeletePlan() {
+  function handleDeletePlan() {
     if (!currentPlan || !user) return;
-    if (!confirm('Sei sicuro di voler eliminare questo piano pasti?')) return;
+    setDeletePlanDialogOpen(true);
+  }
+
+  async function handleConfirmDeletePlan() {
+    if (!currentPlan || !user) return;
+    setIsDeletingPlan(true);
 
     try {
       await deleteMealPlan(currentPlan.id);
@@ -236,10 +246,13 @@ export default function PianificatorePage() {
       setSavingSlotKeys(new Set());
       await loadPlanForWeek(currentWeekStartDate);
       await refreshSavedPlans(user.uid);
+      setDeletePlanDialogOpen(false);
       toast.success('Piano eliminato');
     } catch (err) {
       console.error('Errore nell\'eliminazione del piano:', err);
       toast.error('Errore nell\'eliminazione del piano');
+    } finally {
+      setIsDeletingPlan(false);
     }
   }
 
@@ -332,7 +345,7 @@ export default function PianificatorePage() {
                     variant={plan.weekStartDate === viewedWeekStartDate ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => handleOpenSavedPlan(plan.weekStartDate)}
-                    className="h-8"
+                    className="h-10 lg:h-8"
                   >
                     {formatWeekChipLabel(plan.weekStartDate)}
                   </Button>
@@ -456,10 +469,10 @@ export default function PianificatorePage() {
           {/* AI-generated recipes to review and optionally save */}
           {newRecipeSlots.length > 0 && (
             <div className="space-y-3 pt-2">
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                ✨ Ricette generate dall'AI
-                <span className="text-xs font-normal text-muted-foreground">
-                  — salvale nel ricettario quando vuoi
+              <h2 className="font-display text-lg italic text-foreground">
+                Ricette da rivedere
+                <span className="ml-2 font-sans text-xs not-italic font-normal text-muted-foreground">
+                  generate in un piano precedente — salvale nel ricettario quando vuoi
                 </span>
               </h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -543,6 +556,16 @@ export default function PianificatorePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deletePlanDialogOpen}
+        onOpenChange={setDeletePlanDialogOpen}
+        title="Eliminare questo piano pasti?"
+        description="Il piano della settimana verrà rimosso. Le cotture già concluse restano nello storico."
+        confirmLabel="Elimina piano"
+        isConfirming={isDeletingPlan}
+        onConfirm={handleConfirmDeletePlan}
+      />
     </div>
   );
 }

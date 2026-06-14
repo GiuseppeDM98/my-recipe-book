@@ -43,7 +43,7 @@ export function PlannerHeader({
           onClick={onPrevWeek}
           disabled={isGenerating}
           aria-label="Settimana precedente"
-          className="h-8 w-8 p-0"
+          className="h-11 w-11 lg:h-8 lg:w-8 p-0"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -61,7 +61,7 @@ export function PlannerHeader({
           onClick={onNextWeek}
           disabled={isGenerating}
           aria-label="Settimana successiva"
-          className="h-8 w-8 p-0"
+          className="h-11 w-11 lg:h-8 lg:w-8 p-0"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -75,7 +75,7 @@ export function PlannerHeader({
             size="sm"
             onClick={onCopyPlan}
             disabled={isGenerating}
-            className="h-8 gap-1.5"
+            className="h-11 lg:h-8 gap-1.5"
             aria-label="Copia il piano in un'altra settimana"
           >
             <Copy className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function PlannerHeader({
             size="sm"
             onClick={onDeletePlan}
             disabled={isGenerating}
-            className="h-8 gap-1.5"
+            className="h-11 lg:h-8 gap-1.5"
             aria-label="Elimina piano corrente"
           >
             <Trash2 className="h-4 w-4" />
@@ -102,7 +102,7 @@ export function PlannerHeader({
           size="sm"
           onClick={onNewPlan}
           disabled={isGenerating}
-          className="h-8 gap-1"
+          className="h-11 lg:h-8 gap-1"
         >
           <Plus className="h-3.5 w-3.5" />
           Nuovo piano

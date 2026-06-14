@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-14T00:00:00.000Z",
+  "title": "Design System: Il Mio Ricettario",
+  "extensions": {
+    "colorMeta": {
+      "terracotta": {
+        "role": "primary",
+        "displayName": "Terracotta",
+        "canonical": "oklch(52% 0.13 42)",
+        "tonalRamp": [
+          "oklch(26% 0.07 42)",
+          "oklch(35% 0.10 42)",
+          "oklch(43% 0.12 42)",
+          "oklch(52% 0.13 42)",
+          "oklch(59% 0.12 42)",
+          "oklch(67% 0.10 42)",
+          "oklch(78% 0.07 42)",
+          "oklch(93% 0.03 42)"
+        ]
+      },
+      "sage": {
+        "role": "secondary",
+        "displayName": "Salvia",
+        "canonical": "oklch(50% 0.08 148)",
+        "tonalRamp": [
+          "oklch(24% 0.05 148)",
+          "oklch(33% 0.06 148)",
+          "oklch(41% 0.07 148)",
+          "oklch(50% 0.08 148)",
+          "oklch(60% 0.07 148)",
+          "oklch(72% 0.05 148)",
+          "oklch(84% 0.03 148)",
+          "oklch(94% 0.015 148)"
+        ]
+      },
+      "rust-alert": {
+        "role": "tertiary",
+        "displayName": "Ruggine d'Allerta",
+        "canonical": "oklch(58% 0.22 25)",
+        "tonalRamp": [
+          "oklch(30% 0.12 25)",
+          "oklch(39% 0.16 25)",
+          "oklch(48% 0.19 25)",
+          "oklch(58% 0.22 25)",
+          "oklch(67% 0.18 25)",
+          "oklch(77% 0.13 25)",
+          "oklch(87% 0.07 25)",
+          "oklch(95% 0.03 25)"
+        ]
+      },
+      "cream-bg": {
+        "role": "neutral",
+        "displayName": "Crema Panna",
+        "canonical": "oklch(97% 0.01 75)",
+        "tonalRamp": [
+          "oklch(18% 0.03 55)",
+          "oklch(30% 0.04 60)",
+          "oklch(45% 0.04 55)",
+          "oklch(60% 0.03 65)",
+          "oklch(75% 0.025 70)",
+          "oklch(88% 0.02 75)",
+          "oklch(91% 0.02 75)",
+          "oklch(97% 0.01 75)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Inchiostro",
+        "canonical": "oklch(18% 0.03 55)",
+        "tonalRamp": [
+          "oklch(18% 0.03 55)",
+          "oklch(28% 0.04 56)",
+          "oklch(38% 0.04 56)",
+          "oklch(45% 0.04 55)",
+          "oklch(58% 0.035 60)",
+          "oklch(72% 0.03 68)",
+          "oklch(85% 0.02 72)",
+          "oklch(94% 0.012 75)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Bodoni Moda)", "purpose": "Titoli di pagina e momenti editoriali; spesso in corsivo. Solo h1-h4." },
+      "body": { "displayName": "Body (Jost)", "purpose": "Testo corrente, descrizioni, valori, label di UI. 65-75ch in prosa." },
+      "label": { "displayName": "Label / Kicker (Jost)", "purpose": "Etichette brevi maiuscole con tracking 0.24em; solo <=4 parole." }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 1px 2px 0 oklch(var(--foreground) / 0.05)", "purpose": "Sollevamento minimo delle card a riposo (shadow-sm)." },
+      { "name": "panel-editorial", "value": "0 20px 55px -42px oklch(var(--foreground) / 0.3), inset 0 1px 0 oklch(100% 0 0 / 0.6)", "purpose": "Profondita diffusa per shell-panel ed empty state. Solo desktop." },
+      { "name": "stage", "value": "0 30px 80px -52px oklch(var(--foreground) / 0.28), inset 0 1px 0 oklch(100% 0 0 / 0.7)", "purpose": "Cornice esterna di pagina (shell-stage). L'ombra piu ampia. Solo desktop." }
+    ],
+    "motion": [
+      { "name": "ease-out-quart", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Decelerazione naturale senza rimbalzo. Entrate e transizioni di stato." },
+      { "name": "ease-anticipation", "value": "cubic-bezier(0.37, 0, 0.2, 1)", "purpose": "Loader e deriva ambientale dello stage." },
+      { "name": "fade-up", "value": "fadeUp 400ms cubic-bezier(0.25, 1, 0.5, 1) both", "purpose": "Entrata standard al mount: opacita + 6px di translateY." },
+      { "name": "ambient-drift", "value": "ambientDrift 18s cubic-bezier(0.37, 0, 0.2, 1) infinite", "purpose": "Deriva calda dietro shell-stage (solo desktop, off in reduced-motion)." }
+    ],
+    "breakpoints": [
+      { "name": "lg-desktop", "value": "1440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Azione primaria: timbro terracotta su crema. Una sola per schermata.",
+      "html": "<button class=\"ds-btn-primary\">Salva ricetta</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 8px 16px; border: none; border-radius: 6px; background: oklch(52% 0.13 42); color: oklch(97% 0.01 75); font-family: Jost, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: oklch(43% 0.12 42); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px oklch(97% 0.01 75), 0 0 0 4px oklch(52% 0.13 42); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Azione secondaria: bordo taupe su crema, hover salvia tenue.",
+      "html": "<button class=\"ds-btn-outline\">Annulla</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 8px 16px; border: 1px solid oklch(88% 0.02 75); border-radius: 6px; background: oklch(97% 0.01 75); color: oklch(18% 0.03 55); font-family: Jost, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s, color 0.2s; } .ds-btn-outline:hover { background: oklch(50% 0.08 148 / 0.12); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px oklch(97% 0.01 75), 0 0 0 4px oklch(52% 0.13 42); }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Campo di testo: altezza 40px, bordo taupe, focus ring terracotta.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Cerca una ricetta\" />",
+      "css": ".ds-input { display: flex; width: 100%; height: 40px; padding: 8px 12px; border: 1px solid oklch(88% 0.02 75); border-radius: 6px; background: oklch(97% 0.01 75); color: oklch(18% 0.03 55); font-family: Jost, system-ui, sans-serif; font-size: 0.875rem; } .ds-input::placeholder { color: oklch(45% 0.04 55); } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 2px oklch(97% 0.01 75), 0 0 0 4px oklch(52% 0.13 42); }"
+    },
+    {
+      "name": "Recipe Card",
+      "kind": "card",
+      "refersTo": "card-surface",
+      "description": "Contenitore standard: crema, bordo taupe, angoli 8px, ombra minima.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Ragu alla Bolognese</h3><p class=\"ds-card-desc\">Secondo · 4 porzioni · 3 ore</p></div>",
+      "css": ".ds-card { border: 1px solid oklch(88% 0.02 75); border-radius: 8px; background: oklch(97% 0.01 75); color: oklch(18% 0.03 55); padding: 24px; box-shadow: 0 1px 2px 0 oklch(18% 0.03 55 / 0.05); } .ds-card-title { margin: 0; font-family: 'Bodoni Moda', Georgia, serif; font-size: 1.125rem; font-weight: 600; line-height: 1; letter-spacing: -0.01em; } .ds-card-desc { margin: 6px 0 0; font-family: Jost, system-ui, sans-serif; font-size: 0.875rem; color: oklch(45% 0.04 55); }"
+    },
+    {
+      "name": "Editorial Kicker Chip",
+      "kind": "chip",
+      "refersTo": "chip-kicker",
+      "description": "Etichetta editoriale: pillola crema con icona terracotta e label maiuscola tracciata.",
+      "html": "<span class=\"ds-kicker\"><span class=\"ds-kicker-dot\"></span>In dispensa</span>",
+      "css": ".ds-kicker { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid oklch(52% 0.13 42 / 0.15); border-radius: 999px; background: oklch(97% 0.01 75 / 0.9); box-shadow: 0 1px 2px 0 oklch(18% 0.03 55 / 0.05); font-family: Jost, system-ui, sans-serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase; color: oklch(45% 0.04 55); } .ds-kicker-dot { width: 10px; height: 10px; border-radius: 999px; background: oklch(52% 0.13 42 / 0.18); box-shadow: 0 0 0 0.4rem oklch(52% 0.13 42 / 0.05); }"
+    },
+    {
+      "name": "Cinematic Heading",
+      "kind": "custom",
+      "refersTo": "display",
+      "description": "Titolo di pagina firma: Bodoni corsivo con filetto gradiente terracotta-salvia.",
+      "html": "<h1 class=\"ds-cinematic\">Il tuo ricettario</h1>",
+      "css": ".ds-cinematic { font-family: 'Bodoni Moda', Georgia, serif; font-size: 1.875rem; font-weight: 600; font-style: italic; line-height: 1.05; letter-spacing: -0.01em; color: oklch(18% 0.03 55); text-wrap: balance; } .ds-cinematic::after { content: ''; display: block; width: min(8rem, 28vw); height: 1px; margin-top: 0.9rem; background: linear-gradient(90deg, oklch(52% 0.13 42 / 0.55), oklch(50% 0.08 148 / 0.22), transparent); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Carta e Terracotta",
+    "overview": "Questo sistema vuole avere la consistenza fisica di un oggetto ben fatto: la grana di una carta panna pregiata e lo smalto caldo di una ceramica artigianale. Le superfici non devono sembrare pannelli di vetro retroilluminato; devono sembrare avere materia. E un ricettario, non un'app: ogni schermata e una pagina di un cookbook curato, dove il contenuto e la sostanza e la cornice la serve in silenzio. Le primitive (bottoni, input, card) sono shadcn familiari di proposito; la personalita vive nello strato editoriale sopra di esse.",
+    "keyCharacteristics": [
+      "Sfondo crema caldo, mai bianco puro; inchiostro marrone scuro, mai nero.",
+      "Un solo accento terracotta come timbro raro; salvia come seconda voce ancora piu rara.",
+      "Bodoni Moda per i titoli, Jost per il corpo.",
+      "Profondita materica su desktop, piatta su mobile per performance.",
+      "Tocco generoso e contrasto alto: si legge con le mani sporche di farina."
+    ],
+    "rules": [
+      { "name": "La Regola del Timbro", "body": "La terracotta compare su <=10% di qualunque schermata. E un timbro a inchiostro, non una tinta di fondo. La sua rarita e cio che la rende autorevole.", "section": "colors" },
+      { "name": "La Regola Mai-Bianco-Mai-Nero", "body": "Nessuna superficie e #ffffff, nessun testo e #000000. Lo sfondo e sempre crema, l'inchiostro sempre marrone.", "section": "colors" },
+      { "name": "La Regola Anti-Freddo", "body": "Vietato il blu, vietato il grigio neutro freddo. Ogni neutro porta chroma caldo verso hue 75.", "section": "colors" },
+      { "name": "La Regola del Corsivo Editoriale", "body": "Il corsivo e riservato al Bodoni nei titoli e nei momenti editoriali. L'enfasi nel corpo passa dal peso, non dall'inclinazione.", "section": "typography" },
+      { "name": "La Regola Maiuscolo-Solo-Label", "body": "Il maiuscolo con tracking 0.24em e ammesso solo su etichette <=4 parole. Mai una frase in maiuscolo.", "section": "typography" },
+      { "name": "La Regola dell'Ombra Marrone", "body": "Le ombre non sono mai nere: usano marrone trasparente. Un'ombra nera su crema vira al grigio freddo.", "section": "elevation" },
+      { "name": "La Regola Mobile-Piatto", "body": "Sotto 1440px ogni decorazione di profondita si spegne. La materialita e un lusso da desktop.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do mantenere lo sfondo crema e l'inchiostro marrone ovunque.",
+      "Do usare la terracotta come timbro raro (<=10% della schermata).",
+      "Do riservare il Bodoni corsivo ai titoli e ai momenti editoriali.",
+      "Do colorare le ombre in marrone trasparente, mai nero.",
+      "Do spegnere lo strato decorativo di profondita sotto 1440px.",
+      "Do dare tocco generoso e contrasto alto.",
+      "Do etichettare sempre le icone di navigazione."
+    ],
+    "donts": [
+      "Don't usare bianco puro per le superfici o nero puro per il testo.",
+      "Don't introdurre blu o grigi freddi neutri.",
+      "Don't scadere nell'estetica AI/SaaS: gradienti viola-blu, glow neon, glassmorphism decorativo.",
+      "Don't scadere nel food social: foto enormi, like, follower.",
+      "Don't scadere nella delivery app: carrelli, prezzi, badge promozionali.",
+      "Don't annidare card dentro card, ne usare gradient text, ne bordi laterali colorati >1px.",
+      "Don't mettere frasi o paragrafi in MAIUSCOLO.",
+      "Don't far competere terracotta e salvia nello stesso sguardo."
+    ]
+  }
+}

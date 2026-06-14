@@ -65,6 +65,8 @@
 | `max-w-*` senza `mx-auto` | Contenuto rimane allineato a sinistra su desktop wide anche con `max-w` | Aggiungere sempre `mx-auto` insieme a `max-w-*` su pagine con contenuto centrato |
 | Step editor actions inline on mobile | Toolbar `su/giu/elimina` nella stessa riga del contenuto riduce la larghezza utile della textarea e fa sembrare lo step "schiacciato" | Su mobile mettere i controlli in una riga separata sotto il contenuto; da `sm` in su possono stare in alto a destra |
 | Build sandbox `spawn EPERM` | `npx next build --webpack` può fallire nel sandbox anche se il codice è corretto | Se compare `spawn EPERM`, rilanciare la build fuori sandbox; non trattarlo come errore applicativo |
+| Azione nascosta in `group-hover` su touch | `opacity-0 group-hover:opacity-100` su un controllo (es. tasto ↺ rimescola slot) lo rende **invisibile su mobile**: il touch non scatena `hover`, l'azione sembra non esistere | Rendere il controllo sempre visibile sotto `lg` e nascondere solo da desktop: `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100`; aggiungere `aria-label` (un `title=` non basta per screen reader) |
+| `confirm()`/`alert()` nativi | I dialog di sistema del browser sono fuori brand, non stilizzabili né focus-trappabili | Per le conferme distruttive usare `ConfirmDialog` (`components/ui/confirm-dialog.tsx`, controllato, costruito sul `Dialog` Radix); per validazioni/errori usare `react-hot-toast`. Mai `window.confirm`/`window.alert` |
 
 ---
 
@@ -243,13 +245,14 @@ Consistente con `[ING:n]` e `[QTY:n]`.
 - `EditorialLoader` per attese importanti (auth bootstrap, dashboard load, AI generation)
 - `EditorialEmptyState` per primo uso / nessun risultato
 - `StatusBanner` per info/success/warning/error inline
+- `ConfirmDialog` per ogni conferma distruttiva (elimina piano/ricetta/sessione) — controllato, riusa il `Dialog` Radix; mai `window.confirm`/`window.alert`
 Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
 
 **Hot toast styling**: se una pagina usa `react-hot-toast`, il look va definito in `src/components/providers.tsx`; nelle pagine si cambia solo il contenuto del messaggio.
 
 **Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
 
-**Category Colors**: usare palette preset, non `input[type=color]` — UX più stabile su mobile, evita colori fuori palette.
+**Category Colors**: usare la palette preset `CATEGORY_COLOR_PRESETS` (`color-palette-picker.tsx`), non `input[type=color]` — UX più stabile su mobile. La palette è composta di toni terrosi on-brand (terracotta, ocra, oliva, salvia, cacao); niente neon blu/viola/teal. Le categorie esistenti mantengono il colore salvato anche se non più tra i preset (nessuna migrazione).
 
 **Layout max-width per tipo di pagina**:
 - Pagine con griglia card (ricette, categorie, cotture): **nessun max-w** — la grid gestisce già la responsività

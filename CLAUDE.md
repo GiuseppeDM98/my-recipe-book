@@ -7,6 +7,7 @@
 | Resource | Purpose |
 |----------|---------|
 | [AGENTS.md](AGENTS.md) | Debug-heavy gotchas and implementation patterns |
+| [DESIGN.md](DESIGN.md) | Visual design system spec (tokens, components, do's/don'ts); sidecar `.impeccable/design.json` |
 | [README.md](README.md) | User-facing setup and product overview |
 | [Draft Release Temp.md](Draft Release Temp.md) | User-facing release notes draft |
 
@@ -95,16 +96,21 @@ src/
 - `extractStepDuration()` is shared between parser and form-side auto-detect
 - AI prompts use `[ING:n]`, `[QTY:n]`, and `[DUR:N]` consistently
 
+### Confirmations and touch
+- Destructive confirmations use the shared `ConfirmDialog` (built on Radix Dialog); never native `confirm()`/`alert()`. Validation/error feedback uses `react-hot-toast`
+- Touch-primary context: don't hide controls behind `group-hover` only (invisible on mobile). Reveal on `lg` only, keep visible below
+- Category swatches come from `CATEGORY_COLOR_PRESETS` (earthy, on-brand)
+
 ---
 
 ## Recent Changes (Latest)
 
-### 2026-06-14 — Shopping list & Planner
-- **Shopping list checked-state fix**: la scrittura Firestore debounced (500ms) veniva annullata allo smontaggio → spunte perse e "ricomparse" non spuntate giorni dopo. Aggiunto flush su `unmount` + `visibilitychange(hidden)` + `pagehide` via `latestStateRef`. File: `useShoppingList.ts`
-- **Shopping list aggregation**: accorpa lo stesso ingrediente anche con unità diverse ma compatibili (g↔kg, ml↔l) e con forme singolare/plurale o accentate (chiave canonica). File: `ingredient-aggregator.ts` (+ test)
-- **Planner: AI rimossa → shuffle locale**: eliminata la generazione AI e la route `/api/plan-meals`. Nuovo `meal-plan-shuffle.ts` (`buildShuffledSlots`, `pickReshuffledRecipe`): compone il piano dalle ricette dell'utente per stagione + categorie preferite/escluse per portata; reshuffle locale per singolo slot. Sezione "Categorie per portata" sempre visibile. File: `useMealPlanner.ts`, `MealPlanSetupForm.tsx`, `pianificatore/page.tsx`
-- **Planner: copia piano**: `copyPlanToWeek` + bottone "Copia piano" (Dialog selettore settimana); blocca se la settimana target ha già un piano. File: `useMealPlanner.ts`, `PlannerHeader.tsx`, `pianificatore/page.tsx`
-- **Backward-compat**: piani AI legacy con slot `newRecipe` ancora visualizzabili/salvabili; `family-context` resta su chat/testo libero/extract. Nessuna nuova collection o indice Firestore.
+### 2026-06-14 — Design system docs & planner UX polish
+- **Design docs**: nuovo `DESIGN.md` (formato Stitch: frontmatter token OKLCH + 6 sezioni, North Star "Carta e Terracotta") e sidecar `.impeccable/design.json`. Snapshot critique/audit in `.impeccable/`
+- **`ConfirmDialog`** (`components/ui/confirm-dialog.tsx`): nuovo componente riusabile sul `Dialog` Radix. Sostituiti **7 dialog nativi** — 3 `confirm()` (elimina piano/ricetta/sessione cottura) e 4 `alert()` (upload PDF non valido/troppo grande, errori salvataggio) ora come `ConfirmDialog`/`toast`
+- **Tocco mobile planner** (`MealSlotCell.tsx`): tasto ↺ "Rimescola" ora sempre visibile sotto 1440px (era `group-hover` → invisibile su touch), hit-area maggiore, `aria-label`; badge slot con testo screen-reader; label unificata "Rimescola"
+- **Touch target ≥44px**: `PlannerHeader` (frecce settimana + azioni) e chip "Piani salvati" → `h-11 lg:h-8` / `h-10 lg:h-8`
+- **Leggibilità & brand**: titoli/azioni slot `text-sm` su mobile (`text-sm lg:text-xs`); heading legacy "Ricette da rivedere" sobrio (rimossa emoji ✨); palette categorie `CATEGORY_COLOR_PRESETS` ridisegnata su toni terrosi (no neon). Nessuna migrazione dati
 
 ---
 

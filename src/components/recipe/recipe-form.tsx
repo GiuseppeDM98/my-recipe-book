@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { Recipe, Ingredient, Step, Season } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -447,7 +448,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
       router.push(`/ricette/${recipeId}`);
     } catch (error) {
       console.error('Error saving recipe:', error);
-      alert('Errore nel salvataggio della ricetta');
+      toast.error('Errore nel salvataggio della ricetta');
     } finally {
       setLoading(false);
     }

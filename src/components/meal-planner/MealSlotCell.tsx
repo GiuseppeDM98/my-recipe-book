@@ -91,12 +91,13 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
         <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-0.5 rounded-sm bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary leading-none">
           <Sparkles className="h-2.5 w-2.5" />
           AI
+          <span className="sr-only">Ricetta generata dall&apos;AI</span>
         </span>
 
         <div className="flex items-start justify-between gap-1 pl-8">
           <button
             onClick={onClick}
-            className="flex-1 text-left text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
+            className="flex-1 text-left text-sm lg:text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
             title={slot.recipeTitle ?? undefined}
           >
             {slot.recipeTitle}
@@ -104,10 +105,15 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
           {onRegenerate && (
             <button
               onClick={e => { e.stopPropagation(); onRegenerate(); }}
-              className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
+              className={cn(
+                'shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:text-foreground',
+                'h-9 w-9 -mr-1.5 -mt-1 lg:h-7 lg:w-7 lg:m-0',
+                'opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 focus-visible:opacity-100'
+              )}
               title="Rimescola"
+              aria-label="Rimescola questo slot"
             >
-              <RefreshCw className="h-3 w-3" />
+              <RefreshCw className="h-4 w-4 lg:h-3 lg:w-3" />
             </button>
           )}
         </div>
@@ -115,14 +121,14 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
           <div className="flex items-center gap-1 mt-auto pl-8">
             <button
               onClick={e => { e.stopPropagation(); onSaveNewRecipe(); }}
-              className="text-xs text-primary hover:underline font-medium"
+              className="inline-flex min-h-[32px] items-center text-sm lg:text-xs text-primary hover:underline font-medium"
             >
               Salva nel ricettario
             </button>
           </div>
         ) : (
           <div className="mt-auto pl-8">
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs lg:text-[11px] text-muted-foreground">
               Rimescola o clicca per scegliere una ricetta dal ricettario
             </span>
           </div>
@@ -154,12 +160,13 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
       {/* Cookbook badge — top-left corner, identifies source */}
       <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-0.5 rounded-sm bg-secondary px-1 py-0.5 text-[10px] font-medium text-muted-foreground leading-none">
         <BookOpen className="h-2.5 w-2.5" />
+        <span className="sr-only">Dal ricettario</span>
       </span>
 
       <div className="flex items-start justify-between gap-1 pl-8">
         <button
           onClick={onClick}
-          className="flex-1 text-left text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
+          className="flex-1 text-left text-sm lg:text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
           title={slot.recipeTitle ?? undefined}
         >
           {slot.recipeTitle}
@@ -167,10 +174,15 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
         {onRegenerate && (
           <button
             onClick={e => { e.stopPropagation(); onRegenerate(); }}
-            className="opacity-0 group-hover:opacity-100 focus:opacity-100 shrink-0 p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
-            title="Rigenera"
+            className={cn(
+              'shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground transition-opacity hover:text-foreground',
+              'h-9 w-9 -mr-1.5 -mt-1 lg:h-7 lg:w-7 lg:m-0',
+              'opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 focus-visible:opacity-100'
+            )}
+            title="Rimescola"
+            aria-label="Rimescola questo slot"
           >
-            <RefreshCw className="h-3 w-3" />
+            <RefreshCw className="h-4 w-4 lg:h-3 lg:w-3" />
           </button>
         )}
       </div>
@@ -178,7 +190,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
         <div className="mt-auto pl-8">
           <Link
             href={`/ricette/${slot.existingRecipeId}`}
-            className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline font-medium"
+            className="inline-flex min-h-[32px] items-center gap-0.5 text-sm lg:text-xs text-muted-foreground hover:text-foreground hover:underline font-medium"
             onClick={e => e.stopPropagation()}
           >
             Vai alla ricetta

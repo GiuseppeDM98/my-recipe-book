@@ -3,19 +3,28 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
+/**
+ * Earthy, brand-aligned category swatches.
+ *
+ * WHY: the previous palette leaned on neon coral/teal/violet/blue, hues the
+ * "Carta e Terracotta" brand explicitly rejects (no cold blue/purple). These
+ * twelve stay in the warm, natural band (terracotta, ochre, olive, sage,
+ * clay, cocoa) so a category dot still reads as part of the cookbook, while
+ * remaining distinct enough to tell categories apart at a glance.
+ */
 export const CATEGORY_COLOR_PRESETS = [
-  '#FF6B6B',
-  '#F38181',
-  '#FFA07A',
-  '#F9A826',
-  '#FFD166',
-  '#95E1D3',
-  '#4ECDC4',
-  '#2A9D8F',
-  '#4D96FF',
-  '#6C63FF',
-  '#9B5DE5',
-  '#C77DFF',
+  '#C25A3C', // terracotta
+  '#A8442A', // mattone / rust
+  '#D08A2E', // ocra calda
+  '#E0B04A', // miele / senape
+  '#8A8B3D', // oliva
+  '#6E9A6B', // salvia
+  '#3F6B52', // pino / verde bosco
+  '#2F7D6E', // petrolio erbaceo
+  '#B6705F', // argilla rosata
+  '#7D4A5C', // prugna calda
+  '#6F4E37', // cacao / terra
+  '#A98467', // tortora caldo
 ] as const;
 
 interface ColorPalettePickerProps {
