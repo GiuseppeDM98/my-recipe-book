@@ -20,7 +20,7 @@ Digital recipe book for home cooks with:
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation
 - cooking mode with active session tracking and per-step countdown timers
 - weekly meal planning with local "shuffle" generation (no AI) and manual editing
-- weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging)
+- weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging), plus ad-hoc "Voglio preparare questo" additions from any recipe, independent of the weekly plan
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels
@@ -116,13 +116,12 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-07-02 — Ricette multi-categoria + dependency security patches
-- **Multi-categoria** (`types/index.ts`, `lib/utils/recipe-categories.ts`): `Recipe.categoryIds?: string[]` sostituisce il singolo `categoryId` (ora `@deprecated`, dual-read via `getRecipeCategoryIds()`, stesso schema di migrazione lazy di `season` → `seasons[]`); sottocategorie rimosse dal flusso ricette (`subcategoryId` eliminato dal tipo `Recipe`)
-- **Selettore + form** (`category-selector.tsx`, `recipe-form.tsx`): da cascata categoria/sottocategoria a chip multi-select; salvataggio scrive `categoryIds[]` e azzera il legacy `categoryId` con `deleteField()` in edit
-- **Card + liste** (`recipe-card.tsx`, `ricette/page.tsx`): badge categoria multipli (cap 2 + `+N`, tint dal colore salvato via alpha hex); filtro lista resta single-select ma matcha su intersezione; conteggi incrementano ogni categoria di ricette multi-categoria; rimosso interamente il filtro/conteggio sottocategoria
-- **AI + meal planner**: `/api/suggest-category` propone 1-3 nomi categoria (`AISuggestion.categoryNames[]`, rimosso `isNewCategory`); tutti i flussi di salvataggio AI (assistente, pianificatore) risolvono N nomi → `categoryIds` via `Promise.all(createCategoryIfNotExists)`; shuffle/re-roll/filtri del pianificatore matchano su intersezione di categorie
-- **Sicurezza**: `npm audit fix` — 22 → 10 vulnerabilità (rimosse tutte le high/critical); Next.js patchato 16.2.3 → 16.2.10 entro il range `^16.2.3` già dichiarato (nessuna modifica a `package.json`)
-- ⚠️ Leggere sempre le categorie di una ricetta tramite `getRecipeCategoryIds()`, mai `recipe.categoryId` diretto (vedi AGENTS.md)
+### 2026-07-02 — Lista della spesa ad-hoc ("Voglio preparare questo")
+- **Nuovo bottone dettaglio ricetta** (`recipe-detail.tsx`): "Voglio preparare questo" aggiunge SOLO gli ingredienti di quella ricetta a una sezione ad-hoc della lista della spesa, indipendente da settimana/piano; disabilitato se la ricetta non ha ingredienti o l'utente non è autenticato; ri-click sulla stessa ricetta aggiorna il gruppo esistente (nessun duplicato, dedup su `recipeId`)
+- **Nuovo data layer** (`lib/firebase/shopping-adhoc.ts`): `AdHocShoppingRecipe[]` salvato su `users/{uid}.adHocShoppingRecipes` (stesso pattern di `familyProfile` — nessuna nuova collection, regola o indice)
+- **`useShoppingList`**: legge anche la lista ad-hoc globale (query `['adHocShopping', uid]`), con stato locale + persistenza debounced **separata** (proprio timer/ref, stesso pattern flush-non-perso di `AGENTS.md`); nuove entry restituite: `adHocRecipes`, `toggleAdHocItem`, `removeAdHocRecipe`, `removeAdHocItem`; `progress` include anche gli item ad-hoc
+- **UI lista spesa**: nuovo `AdHocRecipeGroup.tsx` (header + "Rimuovi ricetta" via `ConfirmDialog`); `ShoppingItemRow` refattorizzato a props esplicite (`name`/`quantity`/`checked`/`footnote`) invece di un `ShoppingItem` intero, condiviso tra sezioni piano/custom (`ShoppingSection`) e ad-hoc; empty state "vai al pianificatore" ora richiede anche l'assenza di gruppi ad-hoc
+- ⚠️ Ri-cliccare il bottone sulla stessa ricetta **sostituisce** il gruppo (refresh), non somma gli ingredienti — comportamento intenzionale, nessun merge con gli item del piano (vedi AGENTS.md)
 
 ---
 
@@ -161,7 +160,7 @@ Notes:
 ## Database Collections
 
 ```text
-users/{uid}             # User profiles + familyProfile
+users/{uid}             # User profiles + familyProfile + adHocShoppingRecipes
 recipes/{id}            # Recipes
 categories/{id}         # Recipe categories
 subcategories/{id}      # Category children

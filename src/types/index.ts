@@ -29,6 +29,13 @@ export interface User {
   displayName: string | null;
   photoURL: string | null;
   familyProfile?: FamilyProfile | null;
+  /**
+   * "Voglio preparare questo" ad-hoc shopping groups, one per recipe added
+   * from the recipe detail page. Global on the user doc (not tied to a
+   * meal_plan or week) so it syncs across devices and survives regardless
+   * of whether a weekly plan exists. See lib/firebase/shopping-adhoc.ts.
+   */
+  adHocShoppingRecipes?: AdHocShoppingRecipe[] | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -473,6 +480,40 @@ export interface ShoppingItem {
   }>;
   isMerged: boolean;
   isCustom: boolean;
+}
+
+/**
+ * A single ingredient line inside an ad-hoc shopping group ("Voglio preparare questo").
+ *
+ * WHY DENORMALIZED (name/quantity, not an Ingredient reference):
+ * The group must stay valid even if the source recipe is later edited or
+ * deleted, so the values are copied at add-time instead of looked up live.
+ * Quantities are copied as-is — no portion scaling in this iteration.
+ */
+export interface AdHocShoppingItem {
+  id: string;
+  name: string;
+  quantity: string;
+  checked: boolean;
+}
+
+/**
+ * One "Voglio preparare questo" group — all ingredients of a single recipe,
+ * added ad-hoc to the shopping list independent of the weekly meal plan.
+ *
+ * DEDUP: addRecipeToAdHocShoppingList() matches on recipeId; re-adding the
+ * same recipe replaces the group in place instead of creating a duplicate.
+ *
+ * WHY addedAt IS A NUMBER, NOT A FIRESTORE TIMESTAMP:
+ * Timestamp objects are not supported inside a plain array field on a
+ * document write, so Date.now() is used instead.
+ */
+export interface AdHocShoppingRecipe {
+  id: string;
+  recipeId: string | null; // null if the source recipe was deleted/unavailable at add-time
+  recipeTitle: string; // Denormalized for the section header
+  addedAt: number; // Date.now()
+  items: AdHocShoppingItem[];
 }
 
 /**

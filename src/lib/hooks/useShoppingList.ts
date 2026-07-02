@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getMealPlanByWeek, updateMealPlanShoppingState } from '@/lib/firebase/meal-plans';
 import { getRecipesByIds } from '@/lib/firebase/firestore';
+import { getAdHocShoppingList, updateAdHocShoppingList } from '@/lib/firebase/shopping-adhoc';
 import { buildContributions, aggregateIngredients } from '@/lib/utils/ingredient-aggregator';
-import { MealType, ShoppingItem } from '@/types';
+import { AdHocShoppingRecipe, MealType, ShoppingItem } from '@/types';
 
 // ---------------------------------------------------------------------------
 // localStorage helpers (fallback when no meal plan exists for the week)
@@ -54,6 +55,11 @@ export interface UseShoppingListReturn {
   clearChecked: () => void;
   sectionNames: string[];
   progress: { checked: number; total: number };
+  /** "Voglio preparare questo" groups — global, independent of weekStartDate. */
+  adHocRecipes: AdHocShoppingRecipe[];
+  toggleAdHocItem: (groupId: string, itemId: string) => void;
+  removeAdHocRecipe: (groupId: string) => void;
+  removeAdHocItem: (groupId: string, itemId: string) => void;
 }
 
 /**
@@ -125,6 +131,22 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   const planItems: ShoppingItem[] = data?.items ?? [];
 
   // --------------------------------------------------
+  // React Query: ad-hoc groups ("Voglio preparare questo")
+  //
+  // Global on users/{uid}, independent of weekStartDate — unlike the plan
+  // query above this is not re-fetched per week.
+  // --------------------------------------------------
+
+  const {
+    data: adHocQueryData,
+    isFetched: isAdHocFetched,
+  } = useQuery<AdHocShoppingRecipe[]>({
+    enabled: !!user,
+    queryKey: ['adHocShopping', user?.uid ?? ''],
+    queryFn: () => getAdHocShoppingList(user!.uid),
+  });
+
+  // --------------------------------------------------
   // State — backed by Firestore (or localStorage fallback)
   // --------------------------------------------------
 
@@ -185,6 +207,69 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
       savePersistedState(key, { checkedIds: checked, customItems: custom });
     }
   }, []);
+
+  // --------------------------------------------------
+  // Ad-hoc state — SECOND, independent persistence target (users/{uid}).
+  //
+  // Kept fully separate from the plan's checked/custom state above: own local
+  // state, own init guard, own debounce timer/ref, own flush function. It must
+  // not be tied to weekStartDate (adHocInitRef is keyed by uid, not lsKey) and
+  // must not share a debounce timer with the plan writes above, since the two
+  // targets (meal_plans doc vs users doc) are written independently.
+  // --------------------------------------------------
+
+  const [adHocRecipesList, setAdHocRecipesList] = useState<AdHocShoppingRecipe[]>([]);
+  const adHocInitRef = useRef<string>('');
+  const adHocPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestAdHocStateRef = useRef<{ uid: string; recipes: AdHocShoppingRecipe[] }>({
+    uid: '',
+    recipes: [],
+  });
+
+  useEffect(() => {
+    latestAdHocStateRef.current = { uid: user?.uid ?? '', recipes: adHocRecipesList };
+  });
+
+  /** Mirrors flushPendingShoppingState above, for the ad-hoc persistence target. */
+  const flushPendingAdHocState = useCallback(() => {
+    if (!adHocPersistTimerRef.current) return;
+    clearTimeout(adHocPersistTimerRef.current);
+    adHocPersistTimerRef.current = null;
+
+    const { uid, recipes } = latestAdHocStateRef.current;
+    if (!uid) return;
+
+    updateAdHocShoppingList(uid, recipes).catch(() => {
+      // Best-effort — no localStorage fallback here (cross-device sync is the point).
+    });
+  }, []);
+
+  // Reset + re-init once per uid (not per week — ad-hoc groups are global).
+  useEffect(() => {
+    setAdHocRecipesList([]);
+    adHocInitRef.current = '';
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const uid = user?.uid ?? '';
+    if (!uid || !isAdHocFetched || adHocInitRef.current === uid) return;
+    adHocInitRef.current = uid;
+    setAdHocRecipesList(adHocQueryData ?? []);
+  }, [user?.uid, isAdHocFetched, adHocQueryData]);
+
+  // Debounced write, mirroring the plan's persist effect below.
+  useEffect(() => {
+    const uid = user?.uid ?? '';
+    if (!uid || adHocInitRef.current !== uid) return;
+
+    if (adHocPersistTimerRef.current) clearTimeout(adHocPersistTimerRef.current);
+    adHocPersistTimerRef.current = setTimeout(() => {
+      adHocPersistTimerRef.current = null;
+      updateAdHocShoppingList(uid, adHocRecipesList).catch(() => {
+        // Best-effort — no localStorage fallback here (cross-device sync is the point).
+      });
+    }, 500);
+  }, [user?.uid, adHocRecipesList]);
 
   // Reset local state immediately when the week changes so the UI shows
   // empty state while the new week's fetch is in-flight.
@@ -258,21 +343,26 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   // signal on mobile when the app is backgrounded or closed, where React's
   // unmount cleanup may never run.
   useEffect(() => {
+    function flushAll() {
+      flushPendingShoppingState();
+      flushPendingAdHocState();
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === 'hidden') {
-        flushPendingShoppingState();
+        flushAll();
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('pagehide', flushPendingShoppingState);
+    window.addEventListener('pagehide', flushAll);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('pagehide', flushPendingShoppingState);
-      flushPendingShoppingState();
+      window.removeEventListener('pagehide', flushAll);
+      flushAll();
     };
-  }, [flushPendingShoppingState]);
+  }, [flushPendingShoppingState, flushPendingAdHocState]);
 
   // --------------------------------------------------
   // Merged items: computed + custom, sorted by section → name
@@ -309,10 +399,17 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
 
   const checkedIds = useMemo(() => new Set(checkedIdsList), [checkedIdsList]);
 
-  const progress = useMemo(
-    () => ({ checked: checkedIdsList.length, total: items.length }),
-    [checkedIdsList, items.length]
-  );
+  const progress = useMemo(() => {
+    const adHocTotal = adHocRecipesList.reduce((sum, group) => sum + group.items.length, 0);
+    const adHocChecked = adHocRecipesList.reduce(
+      (sum, group) => sum + group.items.filter(item => item.checked).length,
+      0
+    );
+    return {
+      checked: checkedIdsList.length + adHocChecked,
+      total: items.length + adHocTotal,
+    };
+  }, [checkedIdsList, items.length, adHocRecipesList]);
 
   // --------------------------------------------------
   // Actions
@@ -320,6 +417,35 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   function toggleItem(id: string) {
     setCheckedIdsList(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+
+  function toggleAdHocItem(groupId: string, itemId: string) {
+    setAdHocRecipesList(prev =>
+      prev.map(group =>
+        group.id === groupId
+          ? {
+              ...group,
+              items: group.items.map(item =>
+                item.id === itemId ? { ...item, checked: !item.checked } : item
+              ),
+            }
+          : group
+      )
+    );
+  }
+
+  function removeAdHocRecipe(groupId: string) {
+    setAdHocRecipesList(prev => prev.filter(group => group.id !== groupId));
+  }
+
+  function removeAdHocItem(groupId: string, itemId: string) {
+    setAdHocRecipesList(prev =>
+      prev.map(group =>
+        group.id === groupId
+          ? { ...group, items: group.items.filter(item => item.id !== itemId) }
+          : group
+      )
     );
   }
 
@@ -356,5 +482,9 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     clearChecked,
     sectionNames,
     progress,
+    adHocRecipes: adHocRecipesList,
+    toggleAdHocItem,
+    removeAdHocRecipe,
+    removeAdHocItem,
   };
 }

@@ -37,6 +37,7 @@
 | Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`), NON in `Carica PDF` né nel pianificatore (ora locale, senza AI) |
 | Shopping list debounce non-flushed | La scrittura Firestore delle spunte è debounced 500ms; se il componente smonta o la tab va in background entro 500ms il timer veniva annullato senza salvare → spunte "ricompaiono" non spuntate giorni dopo | Flush della scrittura pendente su `unmount` + `visibilitychange(hidden)` + `pagehide`, leggendo da un `latestStateRef` (no stale closure); azzerare il ref del timer quando scatta |
+| Nuovo target di persistenza dimenticato nel flush | `useShoppingList` scrive su due documenti indipendenti (piano su `meal_plans`, ad-hoc su `users/{uid}`): aggiungere un terzo target con un proprio debounce ma dimenticare di richiamarlo dagli handler `unmount`/`visibilitychange`/`pagehide` esistenti riproduce silenziosamente lo stesso bug delle spunte perse, ma solo per il nuovo campo | Ogni nuovo target di persistenza vuole il proprio timer/ref **e** deve essere aggiunto esplicitamente alla funzione di flush condivisa (`flushAll()` in `useShoppingList`) |
 | Shuffle `preferredCategoryId` hard filter | Impostare una categoria preferita per portata limita lo shuffle a SOLO quella categoria per quel pasto (tutti i pranzi uguali) | Per avere varietà evitando certe portate usare `excludedCategoryIds` (Escludi), non `preferredCategoryId` |
 | Planner per-meal config invisibile | La sezione "Categorie per portata" compare solo nello step *setup* (nuovo piano) e solo con `categories.length > 0` | Se non si vede: esiste già un piano per quella settimana (sei sul calendario → "Nuovo piano") oppure non hai categorie (viene mostrato un hint) |
 | Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
@@ -167,6 +168,7 @@ useQuery({ queryKey: ['recipes', user?.uid ?? ''], queryFn: ..., enabled: !!user
 | `['cookingHistory', uid]` | Storico cotture (statistiche) |
 | `['familyProfile', uid]` | Profilo famiglia (staleTime 5min) |
 | `['shoppingList', uid, weekStartDate]` | Lista della spesa (derivata da MealPlan) |
+| `['adHocShopping', uid]` | Gruppi "Voglio preparare questo" (globali, su `users/{uid}`, non per settimana) |
 
 Stale time: 2min globale, 5min per familyProfile.
 
@@ -330,3 +332,10 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 - Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato); slot `newRecipe` → ingredienti inline, zero read extra
 - Stato spunte e articoli custom → campi `shoppingCheckedIds` + `shoppingCustomItems` sul documento `meal_plans` (Firestore, cross-device). Fallback localStorage solo se non esiste un piano per quella settimana. Scritture debounced 500ms (vedi gotcha *flush* in Quick Reference)
 - Aggregazione (`ingredient-aggregator.ts`): chiave canonica accent-insensitive + singolare/plurale IT conservativi (`canonicalIngredientKey`); quantità sommate per dimensione convertibile (massa→g, volume→ml) e riformattate (g↔kg, ml↔l), fallback `" + "` per unità non convertibili o miste. Nomi ambigui o multi-parola restano separati (non-merge = scelta sicura)
+
+**Ad-hoc Shopping List ("Voglio preparare questo")**: meccanismo separato dalla vista derivata dal piano sopra — un bottone sul dettaglio ricetta (`recipe-detail.tsx`) aggiunge i soli ingredienti di quella ricetta a un gruppo ad-hoc, salvato globalmente su `users/{uid}.adHocShoppingRecipes` (`lib/firebase/shopping-adhoc.ts`, stesso pattern di `familyProfile` — nessuna nuova collection/regola/indice), **non** legato a `weekStartDate`.
+- **Dedup su `recipeId`**: ri-aggiungere la stessa ricetta **sostituisce** il gruppo esistente (refresh ingredienti), non lo somma né lo duplica — comportamento intenzionale, non un bug
+- **Checked state globale**: vive in `AdHocShoppingItem.checked`, cross-settimana; mai riusare `shoppingCheckedIds` del piano (che è per-settimana) per gli item ad-hoc
+- `useShoppingList` legge la query `['adHocShopping', uid]` e persiste con un **secondo timer/ref di debounce indipendente** da quello del piano (vedi gotcha "Nuovo target di persistenza dimenticato nel flush" in Quick Reference)
+- **Nessun merge cross-blocco**: stesso ingrediente in ad-hoc e nel piano restano sezioni separate, per scelta esplicita
+- `ShoppingItemRow` prende props esplicite (`name`/`quantity`/`checked`/`footnote`/`onToggle`/`onRemove`) invece di un `ShoppingItem` intero, così serve sia le righe piano/custom (`ShoppingSection`) sia quelle ad-hoc (`AdHocRecipeGroup`) senza ramificare su `isCustom`

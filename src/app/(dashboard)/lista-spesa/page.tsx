@@ -29,6 +29,10 @@ export default function ListaSpesaPage() {
     clearChecked,
     sectionNames,
     progress,
+    adHocRecipes,
+    toggleAdHocItem,
+    removeAdHocRecipe,
+    removeAdHocItem,
   } = useShoppingList(weekStartDate);
 
   function goToPrevWeek() {
@@ -114,6 +118,10 @@ export default function ListaSpesaPage() {
           onToggle={toggleItem}
           onRemove={removeCustomItem}
           onAddCustom={addCustomItem}
+          adHocRecipes={adHocRecipes}
+          onToggleAdHocItem={toggleAdHocItem}
+          onRemoveAdHocRecipe={removeAdHocRecipe}
+          onRemoveAdHocItem={removeAdHocItem}
         />
       )}
     </div>

@@ -183,6 +183,7 @@ Turn your meal plan into a ready-to-use shopping list in one tap.
 - **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
 - **Week navigation**: Browse the shopping list for any week, not just the current one
 - **Synced check state**: Checked items and custom additions are saved to the cloud and stay in sync across all your devices
+- **"Voglio preparare questo"**: Add a single recipe's ingredients straight from its detail page, independent of your weekly plan — shows up as its own section, even on weeks without a saved plan, and tapping it again on the same recipe refreshes that section instead of duplicating it
 
 ### Pantry (Dispensa)
 
@@ -1341,7 +1342,10 @@ interface User {
   email: string;
   displayName: string | null;
   photoURL: string | null;
+  familyProfile?: FamilyProfile | null;        // Household members, used for AI quantity guidance
+  adHocShoppingRecipes?: AdHocShoppingRecipe[] | null; // "Voglio preparare questo" groups, global across weeks
   createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 ```
 
