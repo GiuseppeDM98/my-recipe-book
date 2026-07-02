@@ -41,6 +41,9 @@
 - Added a reshuffle button on each occupied meal slot — click ↺ to swap in a different recipe of the same category without rebuilding the entire week
 - Added a day selector to the meal planner so you can plan only specific days (e.g. weekdays only) instead of the full week
 - Added a "Copy plan" action in the planner to duplicate a week you liked into another week (it stops you if that week already has a plan)
+- Added a "Voglio preparare questo" button on the recipe detail page that adds just that recipe's ingredients to a dedicated section of your shopping list, independent of your weekly meal plan — handy for a one-off dish you want to make outside your usual planning
+- Added the ability to check off, remove individual ingredients from, or remove an entire ad-hoc recipe addition in the shopping list — these sections appear even on weeks without a saved meal plan, and stay in sync across your devices
+- Added automatic refresh for ad-hoc recipe additions: tapping "Voglio preparare questo" again on a recipe you already added updates its ingredient list in place instead of creating a duplicate section
 
 ## 🐛 Bug Fixes
 

@@ -1,9 +1,14 @@
 'use client';
 
+import { ShoppingBasket } from 'lucide-react';
 import { Recipe } from '@/types';
 import { IngredientListCollapsible } from './ingredient-list-collapsible';
 import { StepsListCollapsible } from './steps-list-collapsible';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useAddToAdHocShoppingList } from '@/lib/hooks/useAddToAdHocShoppingList';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -11,6 +16,9 @@ interface RecipeDetailProps {
 
 export function RecipeDetail({ recipe }: RecipeDetailProps) {
   const originalServings = recipe.servings || 4;
+  const { user } = useAuth();
+  const addToAdHocShoppingList = useAddToAdHocShoppingList();
+  const hasIngredients = recipe.ingredients.length > 0;
 
   /**
    * Determine which seasons to display.
@@ -26,6 +34,23 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
   return (
     <div className="max-w-5xl mx-auto">
       <div className="shell-panel rounded-[2rem] px-5 py-6 sm:px-8 sm:py-8">
+        <div className="mb-6 flex justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!hasIngredients || !user || addToAdHocShoppingList.isPending}
+            onClick={() => addToAdHocShoppingList.mutate(recipe)}
+            className="w-full sm:w-auto"
+          >
+            {addToAdHocShoppingList.isPending ? (
+              <Spinner size="sm" className="mr-2" />
+            ) : (
+              <ShoppingBasket className="mr-2 h-4 w-4" />
+            )}
+            Voglio preparare questo
+          </Button>
+        </div>
+
         <div className="cinematic-heading">
           <h1 className="mb-4 font-display text-3xl font-semibold italic leading-tight sm:text-4xl lg:text-5xl">{recipe.title}</h1>
           {recipe.description && (

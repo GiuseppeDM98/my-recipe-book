@@ -15,6 +15,16 @@ interface ShoppingSectionProps {
   defaultExpanded?: boolean;
 }
 
+const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+
+function footnoteFor(item: ShoppingItem): string | undefined {
+  if (item.isCustom) return 'Aggiunto manualmente';
+  const sourceLabel = item.recipeSource
+    .map(s => `${s.recipeTitle} (${DAY_LABELS[s.dayIndex] ?? s.dayIndex})`)
+    .join(', ');
+  return sourceLabel || undefined;
+}
+
 export function ShoppingSection({
   title,
   items,
@@ -70,8 +80,10 @@ export function ShoppingSection({
             {items.map(item => (
               <ShoppingItemRow
                 key={item.id}
-                item={item}
+                name={item.name}
+                quantity={item.displayQuantity}
                 checked={checkedIds.has(item.id)}
+                footnote={footnoteFor(item)}
                 onToggle={() => onToggle(item.id)}
                 onRemove={item.isCustom ? () => onRemove(item.id) : undefined}
               />
