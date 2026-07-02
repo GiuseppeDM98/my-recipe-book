@@ -1,4 +1,5 @@
 import { MealSlot, MealType, MealTypeConfig, Recipe, Season } from '@/types';
+import { getRecipeCategoryIds } from './recipe-categories';
 
 /**
  * Local (no-AI) meal-plan generator.
@@ -70,27 +71,31 @@ export function buildShuffledSlots(recipes: Recipe[], config: ShuffleConfig): Sh
 /**
  * Picks a replacement recipe for a single slot during a manual re-roll.
  *
- * Prefers a different recipe of the same category that fits the season and is
- * not already used elsewhere in the week, then relaxes the season and finally
- * the category so the user always gets a fresh suggestion when one exists.
- * Returns null only when no other recipe is available at all.
+ * Prefers a different recipe sharing at least one category with the current
+ * one that fits the season and is not already used elsewhere in the week,
+ * then relaxes the season and finally the category so the user always gets a
+ * fresh suggestion when one exists. Returns null only when no other recipe is
+ * available at all.
  */
 export function pickReshuffledRecipe(
   recipes: Recipe[],
   params: {
     season: Season;
-    categoryId: string | null;
+    categoryIds: string[];
     currentRecipeId: string | null;
     usedRecipeIds: Set<string>;
   }
 ): Recipe | null {
-  const { season, categoryId, currentRecipeId, usedRecipeIds } = params;
+  const { season, categoryIds, currentRecipeId, usedRecipeIds } = params;
 
   const isCandidate = (recipe: Recipe) =>
     recipe.id !== currentRecipeId && !usedRecipeIds.has(recipe.id);
-  const inCategory = (recipe: Recipe) => (categoryId ? recipe.categoryId === categoryId : true);
+  const inCategory = (recipe: Recipe) =>
+    categoryIds.length > 0
+      ? getRecipeCategoryIds(recipe).some(id => categoryIds.includes(id))
+      : true;
 
-  // 1. Same category + season, 2. same category any season, 3. any unused recipe.
+  // 1. Shares a category + season, 2. shares a category any season, 3. any unused recipe.
   const tiers = [
     recipes.filter(r => isCandidate(r) && inCategory(r) && matchesSeason(r, season)),
     recipes.filter(r => isCandidate(r) && inCategory(r)),
@@ -124,14 +129,14 @@ function buildCandidatePool(
   mealConfig: MealTypeConfig | null
 ): Recipe[] {
   const excluded = new Set(mealConfig?.excludedCategoryIds ?? []);
-  const allowed = recipes.filter(r => !excluded.has(r.categoryId ?? ''));
+  const allowed = recipes.filter(r => !getRecipeCategoryIds(r).some(id => excluded.has(id)));
 
   const seasonal = allowed.filter(r => matchesSeason(r, season));
   const base = seasonal.length >= MIN_SEASONAL_POOL ? seasonal : allowed;
 
   const preferredId = mealConfig?.preferredCategoryId ?? null;
   if (preferredId) {
-    const preferredOnly = base.filter(r => r.categoryId === preferredId);
+    const preferredOnly = base.filter(r => getRecipeCategoryIds(r).includes(preferredId));
     if (preferredOnly.length > 0) return preferredOnly;
   }
 

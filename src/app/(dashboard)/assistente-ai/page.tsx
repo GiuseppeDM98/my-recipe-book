@@ -338,22 +338,26 @@ export default function RecipeExtractorPage() {
    * Saves individual recipe with category creation if needed.
    *
    * @param recipe - Parsed recipe data
-   * @param categoryName - Creates category if missing
+   * @param categoryNames - Names to resolve/create as categories (a recipe can have several)
    * @param seasons - Season tags array for recipe (supports multiple seasons)
    * @param index - Recipe index for state tracking
    *
    * Side effects: Firebase recipe write, potential category creation, category list refresh
    */
-  const handleSaveRecipe = async (recipe: ParsedRecipe, categoryName: string, seasons: Season[], index: number) => {
+  const handleSaveRecipe = async (recipe: ParsedRecipe, categoryNames: string[], seasons: Season[], index: number) => {
     if (!user) return;
 
     setSavingStates(prev => new Map(prev).set(index, true));
 
     try {
-      let categoryId = '';
-      if (categoryName && categoryName.trim()) {
-        categoryId = await createCategoryIfNotExists(user.uid, categoryName.trim());
-      }
+      const categoryIds = (
+        await Promise.all(
+          categoryNames
+            .map(name => name.trim())
+            .filter(Boolean)
+            .map(name => createCategoryIfNotExists(user.uid, name))
+        )
+      ).filter(Boolean);
 
       const recipeData = {
         title: recipe.title,
@@ -375,7 +379,7 @@ export default function RecipeExtractorPage() {
           : { type: 'manual' as const, name: 'Formattata con AI da testo' },
         notes: recipe.notes || '',
         images: [],
-        ...(categoryId ? { categoryId } : {}),
+        ...(categoryIds.length ? { categoryIds } : {}),
         ...(seasons.length > 0 ? { seasons } : {}),
       };
 
@@ -422,9 +426,9 @@ export default function RecipeExtractorPage() {
     for (let i = 0; i < extractedRecipes.length; i++) {
       if (!savedStates.has(i)) {
         const recipe = extractedRecipes[i];
-        const categoryName = recipe.aiSuggestion?.categoryName || '';
+        const categoryNames = recipe.aiSuggestion?.categoryNames ?? [];
         const seasons: Season[] = recipe.aiSuggestion?.season ? [recipe.aiSuggestion.season] : ['tutte_stagioni'];
-        await handleSaveRecipe(recipe, categoryName, seasons, i);
+        await handleSaveRecipe(recipe, categoryNames, seasons, i);
       }
     }
 
@@ -603,7 +607,7 @@ export default function RecipeExtractorPage() {
               key={index}
               recipe={recipe}
               index={index}
-              onSave={(r, categoryName, season) => handleSaveRecipe(r, categoryName, season, index)}
+              onSave={(r, categoryNames, season) => handleSaveRecipe(r, categoryNames, season, index)}
               isSaving={savingStates.get(index)}
               isSaved={savedStates.has(index)}
             />

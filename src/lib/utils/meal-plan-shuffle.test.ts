@@ -24,7 +24,7 @@ function makeRecipe(overrides: Partial<Recipe> = {}): Recipe {
 
 /** Builds `count` all-season recipes in the given category. */
 function makeRecipes(count: number, categoryId: string, seasons: Season[] = ['tutte_stagioni']): Recipe[] {
-  return Array.from({ length: count }, () => makeRecipe({ categoryId, seasons }));
+  return Array.from({ length: count }, () => makeRecipe({ categoryIds: [categoryId], seasons }));
 }
 
 describe('buildShuffledSlots', () => {
@@ -67,7 +67,7 @@ describe('buildShuffledSlots', () => {
       mealTypeConfigs: { pranzo: { preferredCategoryId: 'cat-a' } },
     });
 
-    const catAIds = new Set(recipes.filter(r => r.categoryId === 'cat-a').map(r => r.id));
+    const catAIds = new Set(recipes.filter(r => r.categoryIds?.includes('cat-a')).map(r => r.id));
     expect(slots.every(s => catAIds.has(s.existingRecipeId!))).toBe(true);
   });
 
@@ -81,7 +81,7 @@ describe('buildShuffledSlots', () => {
       mealTypeConfigs: { pranzo: { excludedCategoryIds: ['cat-b'] } },
     });
 
-    const catBIds = new Set(recipes.filter(r => r.categoryId === 'cat-b').map(r => r.id));
+    const catBIds = new Set(recipes.filter(r => r.categoryIds?.includes('cat-b')).map(r => r.id));
     expect(slots.some(s => catBIds.has(s.existingRecipeId!))).toBe(false);
   });
 
@@ -133,14 +133,14 @@ describe('pickReshuffledRecipe', () => {
 
     const picked = pickReshuffledRecipe(recipes, {
       season: 'estate',
-      categoryId: 'cat-a',
+      categoryIds: ['cat-a'],
       currentRecipeId: current.id,
       usedRecipeIds: new Set([current.id]),
     });
 
     expect(picked).not.toBeNull();
     expect(picked!.id).not.toBe(current.id);
-    expect(picked!.categoryId).toBe('cat-a');
+    expect(picked!.categoryIds).toEqual(['cat-a']);
   });
 
   it('excludes recipes already used in the week', () => {
@@ -149,7 +149,7 @@ describe('pickReshuffledRecipe', () => {
 
     const picked = pickReshuffledRecipe(recipes, {
       season: 'estate',
-      categoryId: 'cat-a',
+      categoryIds: ['cat-a'],
       currentRecipeId: current.id,
       usedRecipeIds: new Set([current.id, used.id]),
     });
@@ -162,7 +162,7 @@ describe('pickReshuffledRecipe', () => {
 
     const picked = pickReshuffledRecipe(recipes, {
       season: 'estate',
-      categoryId: 'cat-a',
+      categoryIds: ['cat-a'],
       currentRecipeId: recipes[0].id,
       usedRecipeIds: new Set([recipes[0].id]),
     });

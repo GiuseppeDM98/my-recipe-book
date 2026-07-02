@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ParsedRecipe } from '@/lib/utils/recipe-parser';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, Check, Clock, Users, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, Clock, Users, Sparkles, X } from 'lucide-react';
 import { Season } from '@/types';
 import { Input } from '@/components/ui/input';
 import { SeasonSelector } from './season-selector';
@@ -16,20 +16,20 @@ import { SeasonSelector } from './season-selector';
  *
  * FEATURES:
  * - Collapsible preview (summary + full content)
- * - Edit AI suggestions (category, season)
+ * - Edit AI suggestions (categories, season)
  * - Dual grouping: Groups ingredients AND steps by section
  * - Save button with loading/saved states
  *
  * AI SUGGESTIONS:
- * - Claude suggests category + season based on recipe content
- * - User can modify before saving
- * - isNewCategory flag: true if category doesn't exist yet
+ * - Claude suggests 1-3 categories + season based on recipe content
+ * - User can add/remove categories before saving; each name is resolved
+ *   (matched or created) via createCategoryIfNotExists on save
  */
 
 interface ExtractedRecipePreviewProps {
   recipe: ParsedRecipe;
   index: number;
-  onSave: (recipe: ParsedRecipe, categoryName: string, seasons: Season[]) => void; // Changed from single season to array
+  onSave: (recipe: ParsedRecipe, categoryNames: string[], seasons: Season[]) => void;
   isSaving?: boolean;
   isSaved?: boolean;
 }
@@ -42,9 +42,28 @@ export function ExtractedRecipePreview({
   isSaved,
 }: ExtractedRecipePreviewProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(
-    recipe.aiSuggestion?.categoryName || ''
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    recipe.aiSuggestion?.categoryNames ?? []
   );
+  const [categoryInput, setCategoryInput] = useState('');
+
+  const addCategory = (rawName: string) => {
+    const name = rawName.trim();
+    if (!name || selectedCategories.includes(name)) return;
+    setSelectedCategories(prev => [...prev, name]);
+    setCategoryInput('');
+  };
+
+  const removeCategory = (name: string) => {
+    setSelectedCategories(prev => prev.filter(c => c !== name));
+  };
+
+  const handleCategoryInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addCategory(categoryInput);
+    }
+  };
 
   /**
    * Initialize with AI suggestion (single season) as array.
@@ -117,29 +136,52 @@ export function ExtractedRecipePreview({
 
           {/* AI Suggestions */}
           {recipe.aiSuggestion && (
-            <div className="mt-4 space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-2 text-sm font-medium text-blue-900">
+            <div className="mt-4 space-y-3 p-4 bg-accent/8 border border-accent/30 rounded-lg">
+              <div className="flex items-center gap-2 text-sm font-medium text-accent">
                 <Sparkles className="w-4 h-4" />
                 <span>Suggerimenti AI</span>
               </div>
 
-              {/* Category */}
+              {/* Categories (multi) */}
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1">
-                  Categoria
+                  Categorie
                 </label>
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  {selectedCategories.map(name => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium"
+                    >
+                      {name}
+                      <button
+                        type="button"
+                        onClick={() => removeCategory(name)}
+                        aria-label={`Rimuovi categoria ${name}`}
+                        className="hover:text-primary/70"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
                 <div className="flex items-center gap-2">
                   <Input
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    value={categoryInput}
+                    onChange={(e) => setCategoryInput(e.target.value)}
+                    onKeyDown={handleCategoryInputKeyDown}
                     className="flex-1"
-                    placeholder="Nome categoria"
+                    placeholder="Aggiungi categoria e premi Invio"
                   />
-                  {recipe.aiSuggestion.isNewCategory && (
-                    <span className="text-xs bg-accent/12 text-accent px-2 py-1 rounded">
-                      Nuova
-                    </span>
-                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addCategory(categoryInput)}
+                    disabled={!categoryInput.trim()}
+                  >
+                    Aggiungi
+                  </Button>
                 </div>
               </div>
 
@@ -175,7 +217,7 @@ export function ExtractedRecipePreview({
           </Button>
           <Button
             type="button"
-            onClick={() => onSave(recipe, selectedCategory, selectedSeasons)}
+            onClick={() => onSave(recipe, selectedCategories, selectedSeasons)}
             disabled={isSaving || isSaved}
             size="sm"
           >

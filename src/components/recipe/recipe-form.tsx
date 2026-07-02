@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { deleteField } from 'firebase/firestore';
 import { Recipe, Ingredient, Step, Season } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createRecipe, updateRecipe } from '@/lib/firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
 import { recipesQueryKey } from '@/lib/hooks/useRecipes';
 import { extractStepDuration } from '@/lib/utils/recipe-parser';
+import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { v4 as uuidv4 } from 'uuid';
@@ -64,8 +66,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   const [cookTime, setCookTime] = useState(recipe?.cookTime || 0);
   const [ingredientSections, setIngredientSections] = useState<IngredientSection[]>([]);
   const [steps, setSteps] = useState<Step[]>(recipe?.steps || []);
-  const [categoryId, setCategoryId] = useState(recipe?.categoryId || '');
-  const [subcategoryId, setSubcategoryId] = useState(recipe?.subcategoryId || '');
+  const [categoryIds, setCategoryIds] = useState<string[]>(
+    getRecipeCategoryIds(recipe ?? {}),
+  );
 
   /**
    * Lazy migration from single 'season' to 'seasons' array.
@@ -420,8 +423,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         totalTime: (prepTime || 0) + (cookTime || 0),
         ingredients: flatIngredients,
         steps,
-        categoryId: categoryId || '',
-        subcategoryId: subcategoryId || '',
+        categoryIds,
         difficulty: recipe?.difficulty || 'facile',
         tags: recipe?.tags || [],
         techniqueIds: recipe?.techniqueIds || [],
@@ -435,7 +437,10 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
       if (mode === 'create') {
         recipeId = await createRecipe(user.uid, recipeData);
       } else if (recipeId) {
-        await updateRecipe(recipeId, recipeData);
+        // Clear the legacy single categoryId on edit so reads never see stale
+        // drift between it and the new categoryIds array (dual-read fallback
+        // in getRecipeCategoryIds only applies to un-migrated recipes).
+        await updateRecipe(recipeId, { ...recipeData, categoryId: deleteField() } as unknown as Partial<Recipe>);
       }
 
       // Invalidate the recipes list so the next visit to /ricette shows fresh data,
@@ -480,10 +485,8 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
       </div>
 
       <CategorySelector
-        selectedCategoryId={categoryId}
-        selectedSubcategoryId={subcategoryId}
-        onCategoryChange={setCategoryId}
-        onSubcategoryChange={setSubcategoryId}
+        selectedCategoryIds={categoryIds}
+        onChange={setCategoryIds}
       />
 
       <SeasonSelector

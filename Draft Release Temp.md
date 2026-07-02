@@ -2,6 +2,9 @@
 
 ## ✨ New Features
 
+- Added support for assigning multiple categories to a single recipe (e.g. "Primi" + "Vegetariano") — pick as many as you like from the new tap-to-select category picker when creating or editing a recipe
+- Added multi-category badges on recipe cards, showing up to two categories with a "+N" indicator when a recipe has more
+- Improved AI category suggestions (PDF upload, free text, and Chat AI) to propose up to three relevant categories per recipe instead of just one, with the ability to add or remove suggested categories before saving
 - Added a dark mode — pick Light, Dark, or System (which follows your device) from the new theme switcher in the sidebar on desktop and the "More" menu on mobile; your choice is remembered and the app no longer flashes white when you reload in dark mode
 - Added a Pantry (Dispensa) page to track what you have at home — items are organised by food category, each with quantity, storage location (fridge, pantry, or freezer), and an optional expiry date
 - Added an expiring-items strip at the top of the Pantry page so items that are expired, due today, or running low are always visible at a glance
@@ -176,8 +179,13 @@
 - Improved the "Filter" button on the recipes page so it no longer visually competes with the selected season
 - Added a warm completion message when you finish cooking a recipe
 
+## ⚠️ Breaking Changes
+
+- Removed subcategory selection from the recipe create/edit form — recipes are now organized by one or more categories only. Existing subcategory assignments on recipes no longer apply; the Categories/Subcategories management page itself is unaffected
+
 ## 🔒 Security
 
+- Applied further dependency security patches via npm audit (Next.js, and other transitive packages), resolving several high and critical severity advisories
 - Test account credentials are no longer shown on the login page by default — they must be explicitly enabled for development environments
 - Updated the app to a patched Next.js release to address current framework security advisories
 - Added server-side authentication checks to all AI-powered endpoints to block unauthenticated access

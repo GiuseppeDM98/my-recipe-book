@@ -41,7 +41,7 @@ function createCategorizationPrompt(recipeTitle: string, ingredients: string[], 
     .map(([season, items]) => `${season}: ${items.join(', ')}`)
     .join('\n');
 
-  return `Analizza questa ricetta italiana e fornisci suggerimenti per categoria e stagionalità.
+  return `Analizza questa ricetta italiana e fornisci suggerimenti per categorie e stagionalità.
 
 **Ricetta:** ${recipeTitle}
 **Ingredienti principali:** ${ingredients.join(', ')}
@@ -56,17 +56,16 @@ ${seasonalInfo}
 reduces response size for faster/cheaper API calls. However, some LLMs still
 wrap in code blocks, so we handle both cases defensively.)
 {
-  "category": "nome_categoria",
-  "season": "primavera|estate|autunno|inverno|tutte_stagioni",
-  "isNewCategory": true/false
+  "categories": ["nome_categoria_1", "nome_categoria_2"],
+  "season": "primavera|estate|autunno|inverno|tutte_stagioni"
 }
 
-**Regole per la categoria:**
-- Se la ricetta corrisponde a una categoria esistente, usa ESATTAMENTE quel nome
-- Se non corrisponde a nessuna categoria esistente, proponi un nuovo nome appropriato (es: "Primi piatti", "Dolci", "Secondi piatti", "Antipasti", "Contorni", ecc.)
-- Imposta "isNewCategory" a true solo se proponi una categoria nuova
-  (The isNewCategory flag tells frontend whether to create new category in Firebase
-  or use existing categoryId. This prevents duplicate category creation.)
+**Regole per le categorie:**
+- Una ricetta può appartenere a più categorie (es. "Primi piatti" + "Vegetariano"): proponi da 1 a 3 nomi, in ordine di pertinenza
+- Se la ricetta corrisponde a categorie esistenti, usa ESATTAMENTE quei nomi
+- Se non corrisponde a nessuna categoria esistente, proponi nomi nuovi appropriati (es: "Primi piatti", "Dolci", "Secondi piatti", "Antipasti", "Contorni", ecc.)
+  (Duplicate creation is already prevented downstream by createCategoryIfNotExists,
+  which matches existing categories by name — no separate "is new" flag needed.)
 
 **Regole per la stagione:**
 - Analizza gli ingredienti principali e determina la stagione più appropriata
@@ -88,7 +87,7 @@ Rispondi SOLO con il JSON, nient'altro.`;
  *
  * Error handling: JSON parsing with markdown wrapper removal (defensive).
  *
- * Returns: Structured suggestion object with categoryName, season, and isNewCategory flag.
+ * Returns: Structured suggestion object with categoryNames (1-3) and season.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -152,9 +151,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       suggestion: {
-        categoryName: suggestion.category,
+        categoryNames: Array.isArray(suggestion.categories) ? suggestion.categories : [],
         season: suggestion.season,
-        isNewCategory: suggestion.isNewCategory
       }
     });
   } catch (error: any) {

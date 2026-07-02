@@ -11,6 +11,7 @@ import {
 import { createRecipe } from '@/lib/firebase/firestore';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
 import { buildShuffledSlots, pickReshuffledRecipe } from '@/lib/utils/meal-plan-shuffle';
+import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { recipesQueryKey } from '@/lib/hooks/useRecipes';
@@ -48,7 +49,7 @@ interface UseMealPlannerReturn {
   copyPlanToWeek: (targetWeekStartDate: string) => Promise<string>;
   updateSlot: (dayIndex: number, mealType: MealType, recipeId: string, title: string) => Promise<void>;
   clearSlot: (dayIndex: number, mealType: MealType) => Promise<void>;
-  saveNewRecipeToCookbook: (slot: MealSlot, categoryName: string, seasons: Season[]) => Promise<string>;
+  saveNewRecipeToCookbook: (slot: MealSlot, categoryNames: string[], seasons: Season[]) => Promise<string>;
   reshuffleSlot: (dayIndex: number, mealType: MealType, recipes: Recipe[]) => Promise<void>;
   removeDay: (dayIndex: number) => Promise<void>;
   regeneratingSlots: Set<string>;
@@ -303,7 +304,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
 
       const replacement = pickReshuffledRecipe(recipes, {
         season: currentPlan.season,
-        categoryId: currentRecipe?.categoryId ?? null,
+        categoryIds: currentRecipe ? getRecipeCategoryIds(currentRecipe) : [],
         currentRecipeId,
         usedRecipeIds,
       });
@@ -377,18 +378,17 @@ export function useMealPlanner(): UseMealPlannerReturn {
    */
   const saveNewRecipeToCookbook = useCallback(async (
     slot: MealSlot,
-    categoryName: string,
+    categoryNames: string[],
     seasons: Season[]
   ): Promise<string> => {
     if (!user || !currentPlan || !slot.newRecipe) {
       throw new Error('Dati mancanti per il salvataggio');
     }
 
-    // Resolve or create the category
-    let categoryId: string | null = null;
-    if (categoryName) {
-      categoryId = await createCategoryIfNotExists(user.uid, categoryName);
-    }
+    // Resolve or create each category
+    const categoryIds = (
+      await Promise.all(categoryNames.map(name => createCategoryIfNotExists(user.uid, name)))
+    ).filter(Boolean);
 
     const recipe = slot.newRecipe;
     const newRecipeData: Omit<Recipe, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
@@ -409,7 +409,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         name: 'Generata con Pianificatore AI',
       },
       aiSuggested: true,
-      ...(categoryId ? { categoryId } : {}),
+      ...(categoryIds.length ? { categoryIds } : {}),
       ...(seasons.length > 0 ? { seasons } : {}),
     };
 

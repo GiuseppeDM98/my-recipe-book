@@ -1,24 +1,30 @@
 'use client';
 
-import { Recipe, Category, Subcategory } from '@/types';
+import { Recipe, Category } from '@/types';
 import Link from 'next/link';
 import { Clock, Users } from 'lucide-react';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
 import { cn } from '@/lib/utils/cn';
+import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
+
+// Cap visible category badges so 3+ categories don't overflow the card on mobile.
+const MAX_VISIBLE_CATEGORY_BADGES = 2;
 
 interface RecipeCardProps {
   recipe: Recipe;
   categories?: Category[];
-  subcategories?: Subcategory[];
   /** Stagger index: delays the entrance animation by index × 50ms (max 350ms) */
   index?: number;
 }
 
-export function RecipeCard({ recipe, categories = [], subcategories = [], index = 0 }: RecipeCardProps) {
+export function RecipeCard({ recipe, categories = [], index = 0 }: RecipeCardProps) {
   // Cap stagger delay at 350ms so late cards don't feel laggy on large collections
   const delay = `${Math.min(index * 50, 350)}ms`;
-  const category = categories.find(cat => cat.id === recipe.categoryId);
-  const subcategory = subcategories.find(sub => sub.id === recipe.subcategoryId);
+  const recipeCategories = getRecipeCategoryIds(recipe)
+    .map(id => categories.find(cat => cat.id === id))
+    .filter((cat): cat is Category => Boolean(cat));
+  const visibleCategories = recipeCategories.slice(0, MAX_VISIBLE_CATEGORY_BADGES);
+  const hiddenCategoryCount = recipeCategories.length - visibleCategories.length;
 
   /**
    * Determine which seasons to display.
@@ -62,21 +68,27 @@ export function RecipeCard({ recipe, categories = [], subcategories = [], index 
           </div>
         )}
 
-        {/* Category badge */}
-        {category && (
-          <div className="relative z-10 mb-3">
-            <span
-              className="editorial-kicker inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase"
-              style={{ color: category.color }}
-            >
-              {category.icon && <span>{category.icon}</span>}
-              {category.name}
-              {subcategory && (
-                <span className="text-muted-foreground font-normal normal-case tracking-normal">
-                  {' '}· {subcategory.name}
-                </span>
-              )}
-            </span>
+        {/* Category badges — cap at 2 visible + "+N" so 3+ categories don't overflow on mobile */}
+        {visibleCategories.length > 0 && (
+          <div className="relative z-10 mb-3 flex flex-wrap items-center gap-1.5">
+            {visibleCategories.map(category => (
+              <span
+                key={category.id}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.68rem] font-semibold uppercase tracking-wide"
+                style={{
+                  color: category.color,
+                  backgroundColor: category.color ? `${category.color}1a` : undefined,
+                }}
+              >
+                {category.icon && <span>{category.icon}</span>}
+                {category.name}
+              </span>
+            ))}
+            {hiddenCategoryCount > 0 && (
+              <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[0.68rem] font-semibold text-muted-foreground">
+                +{hiddenCategoryCount}
+              </span>
+            )}
           </div>
         )}
 
