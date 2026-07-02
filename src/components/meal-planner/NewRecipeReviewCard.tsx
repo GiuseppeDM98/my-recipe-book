@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils/cn';
 interface NewRecipeReviewCardProps {
   slot: MealSlot;
   categories: Category[];
-  onSave: (slot: MealSlot, categoryName: string, seasons: Season[]) => Promise<void>;
+  onSave: (slot: MealSlot, categoryNames: string[], seasons: Season[]) => Promise<void>;
   isSaving: boolean;
   isSaved: boolean;
   /** When true, the save panel opens automatically (e.g. triggered from the grid cell button). */
@@ -42,12 +42,20 @@ export function NewRecipeReviewCard({
   const [expanded, setExpanded] = useState(forceExpanded);
   useEffect(() => { if (forceExpanded) setExpanded(true); }, [forceExpanded]);
   // Pre-populate with AI suggestions when available
-  const [selectedCategory, setSelectedCategory] = useState(slot.suggestedCategoryName ?? '');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    slot.suggestedCategoryName ? [slot.suggestedCategoryName] : []
+  );
   const [selectedSeasons, setSelectedSeasons] = useState<Season[]>(slot.suggestedSeasons ?? []);
 
   if (!slot.newRecipe) return null;
 
   const recipe = slot.newRecipe;
+
+  function toggleCategory(name: string) {
+    setSelectedCategories(prev =>
+      prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]
+    );
+  }
 
   function toggleSeason(s: Season) {
     setSelectedSeasons(prev =>
@@ -56,7 +64,7 @@ export function NewRecipeReviewCard({
   }
 
   async function handleSave() {
-    await onSave(slot, selectedCategory, selectedSeasons);
+    await onSave(slot, selectedCategories, selectedSeasons);
   }
 
   const slotLabel = `${DAY_LABELS[slot.dayIndex]} — ${MEAL_LABELS[slot.mealType]}`;
@@ -116,26 +124,30 @@ export function NewRecipeReviewCard({
       {/* Save panel (expandable) */}
       {expanded && !isSaved && (
         <div className="mt-3 space-y-3 border-t border-border pt-3">
-          {/* Category */}
+          {/* Categories (multi) */}
           <div>
             <label className="text-xs font-medium text-foreground block mb-1">
-              Categoria <span className="text-muted-foreground font-normal">(opzionale)</span>
+              Categorie <span className="text-muted-foreground font-normal">(opzionale)</span>
             </label>
-            <select
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-              className={cn(
-                'w-full text-sm border border-border rounded-lg px-3 py-2',
-                'bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
-              )}
-            >
-              <option value="">Nessuna categoria</option>
+            <div className="flex flex-wrap gap-1.5">
               {categories.map(c => (
-                <option key={c.id} value={c.name}>
-                  {c.icon} {c.name}
-                </option>
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleCategory(c.name)}
+                  aria-pressed={selectedCategories.includes(c.name)}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 rounded-full border text-xs transition-colors',
+                    selectedCategories.includes(c.name)
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-foreground border-border hover:bg-accent'
+                  )}
+                >
+                  {c.icon && <span>{c.icon}</span>}
+                  <span>{c.name}</span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {/* Seasons */}

@@ -5,7 +5,7 @@
 Designed for home cooks who want to digitize their recipe collections without compromising on simplicity and speed.
 
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
-![Next.js](https://img.shields.io/badge/Next.js-16.2.3-black)
+![Next.js](https://img.shields.io/badge/Next.js-16.2.10-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)
 ![Firebase](https://img.shields.io/badge/Firebase-10.7-orange)
 
@@ -61,10 +61,10 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 - **Manual Step Reordering**: Move preparation steps up or down while editing a recipe
 - **Mobile-Friendly Step Editor**: Step numbers and controls stay compact while editing, so descriptions keep their full readable width on phones
 - **Rich Metadata**: Track servings, prep time, cook time, difficulty level, and seasonal availability
-- **Smart Categorization**: Organize recipes with customizable categories and subcategories, each with emoji and curated preset colors
+- **Smart Categorization**: Organize recipes with multiple customizable categories per recipe (e.g., "Primi" + "Vegetariano"), each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)
 - **Multiple Seasons**: Assign multiple seasons to recipes (e.g., Pasta e Fagioli for both autumn and winter)
-- **Advanced Filtering**: Filter recipes by category, subcategory, and season via a collapsible panel; active filters appear as removable chips with live count updates
+- **Advanced Filtering**: Filter recipes by category and season via a collapsible panel; active filters appear as removable chips with live count updates
 
 <img width="1884" height="777" alt="image" src="https://github.com/user-attachments/assets/fa9cc1bd-f032-408a-9233-a1dd9e700dd8" />
 
@@ -136,7 +136,7 @@ Three ways to get recipes in — all powered by Claude AI:
 **All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
 - **Dynamic Quantity References for AI Recipes**: Newly AI-generated recipes can link step quantities to ingredient scaling automatically
-- **Intelligent Categorization**: AI suggests appropriate categories (using existing ones or proposing new ones)
+- **Intelligent Categorization**: AI suggests 1-3 appropriate categories per recipe (using existing ones or proposing new ones), editable before saving
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
 - **Smart Normalization**: Converts times to minutes, capitalizes section headers, standardizes formatting
 - **Editable Preview**: Review and modify all recipes before saving
@@ -460,7 +460,7 @@ The application will start at [http://localhost:3000](http://localhost:3000)
 
 ### Frontend
 
-- **[Next.js 16.2.3](https://nextjs.org/)** - React framework with App Router
+- **[Next.js 16.2.10](https://nextjs.org/)** - React framework with App Router
   - Server and client components
   - File-based routing
   - API routes for backend functionality
@@ -986,13 +986,13 @@ export default function RecipesPage() {
 ```typescript
 // ✅ Good
 const recipe = {
-  categoryId: selectedCategory?.id || null,
+  categoryIds: selectedCategoryIds, // always an array, even if empty
   prepTime: prepTimeValue || null
 };
 
 // ❌ Bad - undefined fields won't be saved
 const recipe = {
-  categoryId: selectedCategory?.id,
+  categoryIds: selectedCategoryIds.length ? selectedCategoryIds : undefined,
   prepTime: prepTimeValue
 };
 ```
@@ -1367,8 +1367,7 @@ interface Recipe {
   cookTime: number | null;     // Minutes
   difficulty: string | null;   // "Facile", "Media", "Difficile"
 
-  categoryId: string | null;
-  subcategoryId: string | null;
+  categoryIds: string[];       // A recipe can belong to multiple categories
   season: Season | null;       // Seasonal classification
 
   aiSuggested: boolean;        // True if AI-suggested during extraction
@@ -1434,7 +1433,7 @@ interface Category {
 
 ### subcategories/{id}
 
-Optional subcategories nested under categories.
+Optional subcategories nested under categories, managed from the Categories page. They no longer apply to recipes — recipes are organized by one or more `categoryIds` only.
 
 ```typescript
 interface Subcategory {
@@ -1584,7 +1583,7 @@ Body:
 
 ### POST /api/suggest-category
 
-AI suggests category and season for a recipe.
+AI suggests 1-3 categories and a season for a recipe.
 
 **Endpoint**: `POST /api/suggest-category`
 
@@ -1611,9 +1610,8 @@ AI suggests category and season for a recipe.
 {
   "success": true,
   "suggestion": {
-    "categoryName": "Primi Piatti",
-    "season": "autunno",
-    "isNewCategory": false
+    "categoryNames": ["Primi Piatti"],
+    "season": "autunno"
   }
 }
 ```
@@ -1628,9 +1626,8 @@ AI suggests category and season for a recipe.
 **Logic**:
 1. **Category Suggestion**:
    - Analyzes recipe title and ingredients
-   - Matches against user's existing categories
-   - If no match, proposes new category name
-   - Sets `isNewCategory: true` if proposing new category
+   - Proposes 1-3 category names, in order of relevance (a recipe can belong to several categories)
+   - Matches against user's existing categories by exact name; new names are created on save via `createCategoryIfNotExists` (idempotent, no duplicate risk)
 
 2. **Season Detection**:
    - Analyzes ingredients against Italian seasonal database

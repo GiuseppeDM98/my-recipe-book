@@ -186,12 +186,12 @@ export default function PianificatorePage() {
     return `${slot.dayIndex}-${slot.mealType}`;
   }
 
-  async function handleSaveNewRecipe(slot: MealSlot, categoryName: string, seasons: Season[]) {
+  async function handleSaveNewRecipe(slot: MealSlot, categoryNames: string[], seasons: Season[]) {
     const key = slotKey(slot);
     setSavingSlotKeys(prev => new Set(prev).add(key));
 
     try {
-      await saveNewRecipeToCookbook(slot, categoryName, seasons);
+      await saveNewRecipeToCookbook(slot, categoryNames, seasons);
       setSavedSlotKeys(prev => new Set(prev).add(key));
       toast.success('Ricetta salvata nel ricettario!');
     } catch (err: unknown) {

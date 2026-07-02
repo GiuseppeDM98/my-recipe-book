@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Category, MealSlot, MealType, Recipe, Season } from '@/types';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
 import { matchesSearch } from '@/lib/utils/search';
+import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
 import { cn } from '@/lib/utils/cn';
 
 interface RecipePickerSheetProps {
@@ -86,7 +87,7 @@ export function RecipePickerSheet({
       }
 
       // Category filter
-      if (categoryFilter !== 'tutti' && recipe.categoryId !== categoryFilter) return false;
+      if (categoryFilter !== 'tutti' && !getRecipeCategoryIds(recipe).includes(categoryFilter)) return false;
 
       return true;
     });
@@ -196,7 +197,9 @@ export function RecipePickerSheet({
             </p>
           ) : (
             filtered.map(recipe => {
-              const category = recipe.categoryId ? categoryMap.get(recipe.categoryId) : undefined;
+              const recipeCategories = getRecipeCategoryIds(recipe)
+                .map(id => categoryMap.get(id))
+                .filter((c): c is Category => Boolean(c));
               const isCurrentlySelected = currentSlot?.existingRecipeId === recipe.id;
 
               return (
@@ -211,9 +214,9 @@ export function RecipePickerSheet({
                   )}
                 >
                   <p className="text-sm font-medium line-clamp-1">{recipe.title}</p>
-                  {category && (
+                  {recipeCategories.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {category.icon} {category.name}
+                      {recipeCategories.map(c => `${c.icon ?? ''} ${c.name}`.trim()).join(' · ')}
                     </p>
                   )}
                 </button>

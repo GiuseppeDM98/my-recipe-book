@@ -148,8 +148,26 @@ export interface Recipe {
   userId: string;
   title: string;
   description?: string;
+
+  /**
+   * @deprecated Use `categoryIds` array instead. Read-only fallback for recipes
+   * created before the multi-category migration; new writes never set this field
+   * (cleared via `deleteField()` on edit). Use `getRecipeCategoryIds()` to read
+   * a recipe's categories — never read this field directly.
+   */
   categoryId?: string;
-  subcategoryId?: string;
+
+  /**
+   * CATEGORY IDS (multi-category, replaces single 'categoryId'):
+   * - Array of category IDs (a recipe can belong to multiple categories)
+   * - Migration: old recipes only have 'categoryId'; migrated lazily on first edit
+   * - Empty array or undefined = no category
+   *
+   * BACKWARD COMPATIBILITY:
+   * Always read via `getRecipeCategoryIds()` (src/lib/utils/recipe-categories.ts),
+   * which falls back to the legacy `categoryId` for unmigrated recipes.
+   */
+  categoryIds?: string[];
 
   /**
    * SEASONS FIELD (migrated from single 'season'):
@@ -293,22 +311,19 @@ export interface CookingHistoryEntry {
  *
  * TWO-PHASE EXTRACTION WORKFLOW:
  * 1. PDF → /api/extract-recipes → ParsedRecipe[] (with embedded aiSuggestion)
- * 2. User reviews → Can modify category/season before saving
+ * 2. User reviews → Can modify categories/season before saving
  *
- * DUPLICATE PREVENTION:
- * - isNewCategory = false: Category exists → use existing categoryId
- * - isNewCategory = true: Category doesn't exist → create new category in Firebase
- *
- * WHY THIS FLAG:
- * Prevents creating duplicate categories if user already has "Primi piatti"
- * and AI suggests "Primi piatti" again.
+ * MULTI-CATEGORY:
+ * categoryNames holds 1-3 suggested category names (a recipe can belong to
+ * several categories, e.g. "Primi" + "Vegetariano"). Names are matched against
+ * existing categories or created via `createCategoryIfNotExists()`, which is
+ * already idempotent by name — no separate "is new" flag is needed.
  *
  * See: api/suggest-category/route.ts for categorization logic
  */
 export interface AISuggestion {
-  categoryName: string; // Suggested category name (matches existing category or proposes new one)
+  categoryNames: string[]; // 1-3 suggested category names
   season: Season;
-  isNewCategory: boolean; // true if category doesn't exist (prevents duplicate category creation)
 }
 
 /**
