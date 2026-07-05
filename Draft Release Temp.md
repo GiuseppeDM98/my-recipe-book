@@ -182,6 +182,9 @@
 - Improved the "Filter" button on the recipes page so it no longer visually competes with the selected season
 - Added a warm completion message when you finish cooking a recipe
 
+- Improved AI recipe extraction from photographed and scanned PDFs by moving to a newer, more capable model with higher-resolution image understanding, for more accurate results
+- Improved recipe extraction and free-text formatting so that ingredients which never appear in the preparation steps are left out — a stray ingredient mistakenly listed in the source no longer clutters your saved recipe, with a safeguard that keeps every ingredient when the steps are too brief to be sure
+
 ## ⚠️ Breaking Changes
 
 - Removed subcategory selection from the recipe create/edit form — recipes are now organized by one or more categories only. Existing subcategory assignments on recipes no longer apply; the Categories/Subcategories management page itself is unaffected
@@ -210,3 +213,4 @@
 - Added the composite indexes and rules needed for planner history, cooking history, and ordered dashboard queries
 - Updated dependency manifests and lockfiles to keep the verified Next.js version aligned across the project
 - Migrated all data hooks and pages to React Query for consistent caching and deduplication of Firestore reads
+- Upgraded the AI model to Claude Sonnet 5 across all recipe endpoints (PDF extraction, free-text formatting, category suggestion, and chat), centralized the model string in a single shared constant, and updated the Anthropic SDK to support per-request reasoning-effort control

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
 import { buildFamilyContextPrompt, validateFamilyContextUsage } from '@/lib/utils/family-context';
+import { AI_MODEL } from '@/lib/utils/constants';
 import { FamilyProfile } from '@/types';
 
 /**
@@ -146,6 +147,13 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 - Esempio SBAGLIATO: "**Fase 1:** cuocere a 180°C"
 - Esempio CORRETTO: "Fase 1: cuocere a 180°C"
 
+### 11. COERENZA INGREDIENTI ↔ PROCEDIMENTO
+- Prima di finalizzare, verifica che ogni ingrediente elencato venga effettivamente usato o menzionato in almeno uno step del procedimento
+- Se un ingrediente NON compare mai in nessuno step, OMETTILO dalla lista ingredienti: è quasi certamente un refuso della fonte (ingrediente orfano)
+- ECCEZIONE FONDAMENTALE (fail-safe): NON omettere nulla quando il procedimento è sintetico o generico — ad esempio se contiene frasi come "aggiungere i restanti ingredienti", "unire il tutto", "incorporare gli altri ingredienti", "aggiustare di sale/spezie" o simili. In questi casi MANTIENI sempre tutti gli ingredienti
+- In caso di dubbio, MANTIENI l'ingrediente. Rimuovi solo quando il procedimento è completo e dettagliato ma l'ingrediente resta chiaramente inutilizzato
+- Lo scopo è eliminare refusi della fonte, NON semplificare o riscrivere la ricetta
+
 ---`;
 
 /**
@@ -241,8 +249,9 @@ async function suggestCategoryAndSeason(
     const prompt = createCategorizationPrompt(recipeTitle, ingredients, userCategories);
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 500,
+      model: AI_MODEL,
+      max_tokens: 700,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -372,8 +381,13 @@ export async function POST(request: NextRequest) {
 
     // Call Claude API with native PDF support
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: AI_MODEL,
       max_tokens: 16000,
+      // Adaptive thinking at low effort: light reasoning helps the ingredient/
+      // procedure coherence check and section-name fidelity, while effort 'low'
+      // keeps latency and token cost close to a no-thinking run.
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low' },
       system: 'Sei un esperto estrattore di ricette culinarie. Il tuo compito è preservare fedelmente la struttura, i nomi delle sezioni e tutti i dettagli esattamente come appaiono nel documento originale.',
       messages: [
         {
@@ -407,7 +421,7 @@ export async function POST(request: NextRequest) {
       extractedRecipes: extractedText,
       userCategories: userCategories, // Pass back for client-side processing
       metadata: {
-        model: 'claude-sonnet-4-6',
+        model: AI_MODEL,
         fileSize: file.size,
       },
     });

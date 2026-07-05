@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-07-02
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-07-05
 
 ## Quick Reference
 
@@ -38,7 +38,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 | Typography | Bodoni Moda + Jost via `next/font/google` |
 | Theming | `next-themes` (light / dark / system, `darkMode: 'class'`) |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
-| AI | Claude Sonnet 4.6 |
+| AI | Claude Sonnet 5 (costante `AI_MODEL`) |
 | State | `@tanstack/react-query` |
 
 ---
@@ -103,6 +103,12 @@ src/
 - `extractStepDuration()` is shared between parser and form-side auto-detect
 - AI prompts use `[ING:n]`, `[QTY:n]`, and `[DUR:N]` consistently
 
+### AI model and prompts
+- Model string is centralized in `AI_MODEL` (`lib/utils/constants.ts`) — change it there, then update tech-stack docs; never hardcode a model literal in a route
+- On Sonnet 5, `temperature`/`top_p`/`top_k`/`budget_tokens` return **400** — never set them
+- Thinking per endpoint: `extract`/`format` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled`; `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
+- `EXTRACTION_PROMPT` and `FORMAT_RECIPE_PROMPT` drop ingredients never used in the procedure (conservative fail-safe: keep everything if the procedure is terse). Keep the rule mirrored in both prompts
+
 ### Confirmations and touch
 - Destructive confirmations use the shared `ConfirmDialog` (built on Radix Dialog); never native `confirm()`/`alert()`. Validation/error feedback uses `react-hot-toast`
 - Touch-primary context: don't hide controls behind `group-hover` only (invisible on mobile). Reveal on `lg` only, keep visible below
@@ -116,12 +122,11 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-07-02 — Lista della spesa ad-hoc ("Voglio preparare questo")
-- **Nuovo bottone dettaglio ricetta** (`recipe-detail.tsx`): "Voglio preparare questo" aggiunge SOLO gli ingredienti di quella ricetta a una sezione ad-hoc della lista della spesa, indipendente da settimana/piano; disabilitato se la ricetta non ha ingredienti o l'utente non è autenticato; ri-click sulla stessa ricetta aggiorna il gruppo esistente (nessun duplicato, dedup su `recipeId`)
-- **Nuovo data layer** (`lib/firebase/shopping-adhoc.ts`): `AdHocShoppingRecipe[]` salvato su `users/{uid}.adHocShoppingRecipes` (stesso pattern di `familyProfile` — nessuna nuova collection, regola o indice)
-- **`useShoppingList`**: legge anche la lista ad-hoc globale (query `['adHocShopping', uid]`), con stato locale + persistenza debounced **separata** (proprio timer/ref, stesso pattern flush-non-perso di `AGENTS.md`); nuove entry restituite: `adHocRecipes`, `toggleAdHocItem`, `removeAdHocRecipe`, `removeAdHocItem`; `progress` include anche gli item ad-hoc
-- **UI lista spesa**: nuovo `AdHocRecipeGroup.tsx` (header + "Rimuovi ricetta" via `ConfirmDialog`); `ShoppingItemRow` refattorizzato a props esplicite (`name`/`quantity`/`checked`/`footnote`) invece di un `ShoppingItem` intero, condiviso tra sezioni piano/custom (`ShoppingSection`) e ad-hoc; empty state "vai al pianificatore" ora richiede anche l'assenza di gruppi ad-hoc
-- ⚠️ Ri-cliccare il bottone sulla stessa ricetta **sostituisce** il gruppo (refresh), non somma gli ingredienti — comportamento intenzionale, nessun merge con gli item del piano (vedi AGENTS.md)
+### 2026-07-05 — Upgrade Claude Sonnet 5 + pulizia ingredienti orfani
+- **Modello → Claude Sonnet 5** su tutti gli endpoint AI, centralizzato nella costante `AI_MODEL` (`lib/utils/constants.ts`) al posto di 8 literal hardcoded. Migrazione pulita: nessun `temperature`/`top_p`/`top_k`/prefill (romperebbero con 400). SDK `@anthropic-ai/sdk` bumpato a 0.110.0 per abilitare `output_config.effort`
+- **Thinking per endpoint**: `extract-recipes`/`format-recipe` usano `thinking: adaptive` + `output_config.effort: 'low'` (ragionamento leggero per la coerenza ingredienti↔procedimento, costo/latenza vicini al no-thinking); `suggest-category` `disabled`; `chat-recipe` adaptive default. `max_tokens` alzati per il nuovo tokenizer (~+30%): format/chat 4000→6000, suggest 500→700
+- **Ingredienti orfani**: `EXTRACTION_PROMPT` (§11) e `FORMAT_RECIPE_PROMPT` (§9) ora **omettono** gli ingredienti mai usati/menzionati in nessuno step (refusi della fonte, es. arancia candita nelle sfogliatelle). Regola **conservativa fail-safe**: mantiene tutto se il procedimento è sintetico ("aggiungere i restanti ingredienti", ecc.)
+- **Prompt caching valutato e scartato**: uso sporadico → la cache scade prima del riuso (TTL 5 min), sarebbe costo netto (premio scrittura 1,25×) non risparmio
 
 ---
 

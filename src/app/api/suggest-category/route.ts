@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
+import { AI_MODEL } from '@/lib/utils/constants';
 
 /**
  * AI-Powered Category and Season Suggestion API
@@ -122,8 +123,10 @@ export async function POST(request: NextRequest) {
     const prompt = createCategorizationPrompt(recipeTitle, ingredients, userCategories || []);
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 500,
+      model: AI_MODEL,
+      max_tokens: 700,
+      // Deterministic JSON classification: disable adaptive thinking (Sonnet 5 default on).
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',

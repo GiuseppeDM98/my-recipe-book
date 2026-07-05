@@ -135,6 +135,7 @@ Three ways to get recipes in — all powered by Claude AI:
 
 **All modes share:**
 - **Structure Preservation**: Maintains the original organization of ingredients and steps
+- **Ingredient/Step Coherence**: Drops ingredients that never appear in the preparation steps (likely source typos), with a conservative safeguard that keeps every ingredient when the steps are too brief to be sure
 - **Dynamic Quantity References for AI Recipes**: Newly AI-generated recipes can link step quantities to ingredient scaling automatically
 - **Intelligent Categorization**: AI suggests 1-3 appropriate categories per recipe (using existing ones or proposing new ones), editable before saving
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
@@ -143,7 +144,7 @@ Three ways to get recipes in — all powered by Claude AI:
 - **Transparency**: Recipes and categories suggested by AI are clearly marked with badges
 
 **Technical Details**:
-- Powered by Claude Sonnet 4.6 (200K token context window)
+- Powered by Claude Sonnet 5 (1M token context window)
 - Native PDF support with base64 encoding
 - Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat)
 - AI-generated recipes include `[DUR:N]` tokens on timed steps; the parser converts them to `step.duration` automatically
@@ -520,8 +521,8 @@ The application will start at [http://localhost:3000](http://localhost:3000)
   - Automatic scaling
 
 - **[Anthropic Claude API](https://www.anthropic.com/api)** - AI-powered features
-  - Claude Sonnet 4.6 model
-  - 200K token context window
+  - Claude Sonnet 5 model
+  - 1M token context window
   - Native PDF support
   - Vision capabilities for document analysis
 
@@ -878,7 +879,7 @@ POST /api/extract-recipes
     ↓
 Server reads file, converts to base64
     ↓
-Claude API call (Sonnet 4.6)
+Claude API call (Sonnet 5)
     ↓
 Markdown response
     ↓
@@ -1571,8 +1572,8 @@ Body:
 - `500`: Internal server error
 
 **Implementation Details**:
-- **Model**: Claude Sonnet 4.6
-- **Context Window**: 200,000 tokens
+- **Model**: Claude Sonnet 5
+- **Context Window**: 1,000,000 tokens
 - **Max Output**: 16,000 tokens
 - **Vision**: Native PDF support (base64 encoding)
 - **Prompt**: Italian-language extraction with detailed instructions
