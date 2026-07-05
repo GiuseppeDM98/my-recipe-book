@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
 import { resolveFamilyContextInput } from '@/lib/api/family-context';
+import { AI_MODEL } from '@/lib/utils/constants';
 
 /**
  * AI Recipe Chat API
@@ -223,8 +224,11 @@ export async function POST(request: NextRequest) {
     const anthropic = new Anthropic({ apiKey });
 
     const claudeResponse = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      // Adaptive thinking is left on (Sonnet 5 default) here: recipe generation
+      // benefits from reasoning, unlike the deterministic extraction endpoints.
+      model: AI_MODEL,
+      // Headroom for the Sonnet 5 tokenizer (~30% more tokens for equivalent text).
+      max_tokens: 6000,
       system: CHAT_SYSTEM_PROMPT,
       messages: [
         ...safeHistory,
@@ -247,7 +251,7 @@ export async function POST(request: NextRequest) {
       // (including recipe blocks) for accurate multi-turn context
       rawContent: fullText,
       metadata: {
-        model: 'claude-sonnet-4-6',
+        model: AI_MODEL,
         source: 'chat',
       },
     });

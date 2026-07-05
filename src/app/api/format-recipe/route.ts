@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
 import { resolveFamilyContextInput } from '@/lib/api/family-context';
+import { AI_MODEL } from '@/lib/utils/constants';
 
 /**
  * Free-text Recipe Formatting API
@@ -119,6 +120,12 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 - Esempio SBAGLIATO: "**Fase 1:** cuocere a 180°C"
 - Esempio CORRETTO: "Fase 1: cuocere a 180°C"
 
+### 9. COERENZA INGREDIENTI ↔ PROCEDIMENTO
+- Ogni ingrediente elencato deve essere effettivamente usato o menzionato in almeno uno step del procedimento
+- Se un ingrediente indicato dall'utente non compare in nessuno step, prova PRIMA a collocarlo in modo sensato nel procedimento (coerentemente con la regola 3 di espansione dei passaggi vaghi)
+- Se davvero non riesci a collocarlo e resta chiaramente inutilizzato, OMETTILO dalla lista ingredienti (ingrediente orfano / refuso)
+- ECCEZIONE FONDAMENTALE (fail-safe): NON omettere nulla quando il procedimento è sintetico o generico — ad esempio "aggiungere i restanti ingredienti", "unire il tutto", "aggiustare di sale/spezie" o simili. In caso di dubbio, MANTIENI sempre l'ingrediente
+
 Rispondi SOLO con la ricetta formattata, senza introduzioni o spiegazioni.`;
 
 /**
@@ -179,8 +186,14 @@ export async function POST(request: NextRequest) {
 
     // Call Claude with the user's free-form recipe text
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4000,
+      model: AI_MODEL,
+      // Headroom for the Sonnet 5 tokenizer (~30% more tokens for equivalent text).
+      max_tokens: 6000,
+      // Adaptive thinking at low effort: light reasoning helps the ingredient/
+      // procedure coherence check and the sensible expansion of vague steps, while
+      // effort 'low' keeps latency and token cost close to a no-thinking run.
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low' },
       system: 'Sei un esperto culinario italiano. Il tuo compito è prendere testo grezzo di una ricetta e formattarlo in modo preciso, completo e professionale, rispettando la tradizione culinaria italiana.',
       messages: [
         {
@@ -201,7 +214,7 @@ export async function POST(request: NextRequest) {
       extractedRecipes: formattedText,
       userCategories,
       metadata: {
-        model: 'claude-sonnet-4-6',
+        model: AI_MODEL,
         source: 'text',
       },
     });

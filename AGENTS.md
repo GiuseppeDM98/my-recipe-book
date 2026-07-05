@@ -34,6 +34,8 @@
 | Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
 | Dynamic step quantities | Quantita' negli step restano statiche o finiscono disallineate | Usare token `{{qty:ingredientId}}` risolti a runtime |
 | AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
+| Parametri Sonnet 5 → 400 | `temperature`/`top_p`/`top_k`/`budget_tokens` (o prefill sull'ultimo turno assistant) danno **400** su Sonnet 5, con errore poco esplicito lato route (500 generico) | Non impostarli mai; per controllare la profondità usare `thinking: {type:'adaptive'}` + `output_config.effort`. `effort` richiede `@anthropic-ai/sdk >= ~0.100` |
+| AI model literal drift | Cambiare modello dimenticando uno degli endpoint → route su versioni diverse | Il modello è la costante `AI_MODEL` (`lib/utils/constants.ts`): cambiarlo lì soltanto, mai literal per-route |
 | Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
 | Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`), NON in `Carica PDF` né nel pianificatore (ora locale, senza AI) |
 | Shopping list debounce non-flushed | La scrittura Firestore delle spunte è debounced 500ms; se il componente smonta o la tab va in background entro 500ms il timer veniva annullato senza salvare → spunte "ricompaiono" non spuntate giorni dopo | Flush della scrittura pendente su `unmount` + `visibilitychange(hidden)` + `pagehide`, leggendo da un `latestStateRef` (no stale closure); azzerare il ref del timer quando scatta |
@@ -222,6 +224,8 @@ interface Step { id; order; description; section?: string | null; sectionOrder?:
 
 **Step Duration**: `duration?: number | null` — `null` = nessun timer. Form: `max={9999}`. `extractStepDuration()` esportata da `recipe-parser.ts` (usata sia dal parser che dall'auto-detect).
 
+**Ingredienti orfani (estrazione/formattazione)**: `EXTRACTION_PROMPT` e `FORMAT_RECIPE_PROMPT` includono la regola "COERENZA INGREDIENTI ↔ PROCEDIMENTO" che fa **omettere** all'AI gli ingredienti mai usati/menzionati in nessuno step (refusi della fonte, es. arancia candita nelle sfogliatelle). Regola **conservativa fail-safe**: NON rimuove nulla se il procedimento è sintetico/generico ("aggiungere i restanti ingredienti", "unire il tutto", ecc.). Da mantenere in **entrambi** i prompt (convenzione mirror). `chat-recipe` non ha la regola (genera ricette nuove, non estrae).
+
 **AI Duration Token**: su tutti i prompt AI nella sezione PROCEDIMENTO:
 ```
 Se uno step ha UN SOLO tempo chiaramente identificabile, aggiungi [DUR:N] alla fine (N = minuti interi).
@@ -297,7 +301,7 @@ fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 
 **Family Context Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Carica PDF` ✗ (estrazione pura) · `Pianificatore` ✗ (ora locale, niente AI).
 
-**Model**: `claude-sonnet-4-6` sugli endpoint AI rimasti (`chat-recipe`, `extract-recipes`, `format-recipe`, `suggest-category`). Se cambia, aggiornare tutti.
+**Model**: `claude-sonnet-5` sugli endpoint AI (`chat-recipe`, `extract-recipes`, `format-recipe`, `suggest-category`). La stringa è centralizzata nella costante `AI_MODEL` (`src/lib/utils/constants.ts`): per cambiare modello si modifica **solo lì** (+ tech stack in README/CLAUDE.md/AGENTS.md). Config thinking per endpoint: `extract-recipes` e `format-recipe` usano `thinking: { type: 'adaptive' }` + `output_config: { effort: 'low' }` (ragionamento leggero per la coerenza ingredienti↔procedimento, costo/latenza vicini al no-thinking); `suggest-category` usa `thinking: { type: 'disabled' }` (classifica JSON banale, serve latenza minima); `chat-recipe` lascia adaptive default. `output_config.effort` richiede `@anthropic-ai/sdk >= ~0.100` (nel repo `^0.110.0`). Nessun `temperature`/`top_p`/`top_k`/prefill (romperebbero con 400 su Sonnet 5).
 
 ---
 
