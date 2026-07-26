@@ -52,30 +52,51 @@ function createCategorizationPrompt(recipeTitle: string, ingredients: string[], 
 **Ingredienti stagionali italiani di riferimento:**
 ${seasonalInfo}
 
-**Rispondi SOLO con un JSON in questo formato esatto (senza markdown, senza backticks):**
-(We request pure JSON without markdown because it's easier to parse reliably,
-reduces response size for faster/cheaper API calls. However, some LLMs still
-wrap in code blocks, so we handle both cases defensively.)
-{
-  "categories": ["nome_categoria_1", "nome_categoria_2"],
-  "season": "primavera|estate|autunno|inverno|tutte_stagioni"
-}
-
 **Regole per le categorie:**
 - Una ricetta può appartenere a più categorie (es. "Primi piatti" + "Vegetariano"): proponi da 1 a 3 nomi, in ordine di pertinenza
 - Se la ricetta corrisponde a categorie esistenti, usa ESATTAMENTE quei nomi
 - Se non corrisponde a nessuna categoria esistente, proponi nomi nuovi appropriati (es: "Primi piatti", "Dolci", "Secondi piatti", "Antipasti", "Contorni", ecc.)
-  (Duplicate creation is already prevented downstream by createCategoryIfNotExists,
-  which matches existing categories by name — no separate "is new" flag needed.)
 
 **Regole per la stagione:**
 - Analizza gli ingredienti principali e determina la stagione più appropriata
 - Se la ricetta contiene ingredienti specifici di una stagione, usa quella stagione
 - Se la ricetta usa ingredienti disponibili tutto l'anno o di stagioni diverse, usa "tutte_stagioni"
-- Considera la tradizione culinaria italiana (es: "pasta al forno" è più invernale, "pasta fredda" è estiva)
-
-Rispondi SOLO con il JSON, nient'altro.`;
+- Considera la tradizione culinaria italiana (es: "pasta al forno" è più invernale, "pasta fredda" è estiva)`;
 }
+
+/**
+ * Response schema, enforced by the API rather than by parsing.
+ *
+ * This replaces a hand-rolled "strip the backticks and hope" step: the prompt used to ask
+ * for bare JSON and the handler stripped markdown fences defensively, because models wrap
+ * JSON in code blocks regardless of instructions. With a schema the shape is guaranteed,
+ * so both the instruction and the stripping become dead weight.
+ *
+ * Duplicate categories are prevented downstream by createCategoryIfNotExists, which
+ * matches on name — nothing here needs to flag a category as new.
+ *
+ * WARNING: structured outputs reject array length constraints — `minItems`/`maxItems` on
+ * an array return a 400 for the whole request ("property 'maxItems' is not supported"),
+ * which fails the call rather than degrading it. The same goes for numeric bounds
+ * (`minimum`/`maximum`) and string lengths (`minLength`/`maxLength`). Constraints like
+ * "1 to 3 categories" belong in the prompt; the schema enforces shape and types only.
+ */
+const CATEGORY_SUGGESTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    categories: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Da 1 a 3 nomi di categoria, in ordine di pertinenza.',
+    },
+    season: {
+      type: 'string',
+      enum: ['primavera', 'estate', 'autunno', 'inverno', 'tutte_stagioni'],
+    },
+  },
+  required: ['categories', 'season'],
+  additionalProperties: false,
+} as const;
 
 /**
  * POST /api/suggest-category
@@ -127,6 +148,9 @@ export async function POST(request: NextRequest) {
       max_tokens: 700,
       // Deterministic JSON classification: disable adaptive thinking (Sonnet 5 default on).
       thinking: { type: 'disabled' },
+      output_config: {
+        format: { type: 'json_schema', schema: CATEGORY_SUGGESTION_SCHEMA },
+      },
       messages: [
         {
           role: 'user',
@@ -141,20 +165,20 @@ export async function POST(request: NextRequest) {
       .join('\n')
       .trim();
 
-    // Parse JSON response, removing any potential markdown formatting.
-    // Claude sometimes wraps JSON in markdown code blocks (```json...```)
-    // despite instructions. This defensive parsing handles both plain and wrapped responses.
-    let jsonText = responseText;
-    if (jsonText.includes('```')) {
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    }
+    // The schema guarantees the shape, so no fence-stripping is needed here.
+    const suggestion = JSON.parse(responseText);
 
-    const suggestion = JSON.parse(jsonText);
+    // The "at most 3" part is enforced here rather than in the schema, which rejects
+    // array length constraints outright (see CATEGORY_SUGGESTION_SCHEMA). Truncating a
+    // too-long list is the graceful failure; a 400 on the whole request is not.
+    const categoryNames = Array.isArray(suggestion.categories)
+      ? suggestion.categories.filter((name: unknown) => typeof name === 'string' && name.trim()).slice(0, 3)
+      : [];
 
     return NextResponse.json({
       success: true,
       suggestion: {
-        categoryNames: Array.isArray(suggestion.categories) ? suggestion.categories : [],
+        categoryNames,
         season: suggestion.season,
       }
     });

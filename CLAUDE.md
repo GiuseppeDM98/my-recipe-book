@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-07-05
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-07-26
 
 ## Quick Reference
 
@@ -17,11 +17,12 @@
 
 Digital recipe book for home cooks with:
 - recipe CRUD with multi-category tagging (a recipe can belong to several categories at once)
-- AI-assisted PDF extraction, free-text formatting, and chat recipe generation
+- AI-assisted PDF extraction, free-text formatting, and chat recipe generation (chat supports opt-in web search and photo attachments)
 - cooking mode with active session tracking and per-step countdown timers
 - weekly meal planning with local "shuffle" generation (no AI) and manual editing
 - weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging), plus ad-hoc "Voglio preparare questo" additions from any recipe, independent of the weekly plan
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
+- estimated kcal per serving, AI-estimated or entered by hand, with daily totals in the planner
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels
 - light / dark / system theme (token-driven, system-aware)
@@ -96,7 +97,13 @@ src/
 ### Recipe categories
 - Recipes support multiple categories via `categoryIds?: string[]`; the legacy single `categoryId` is `@deprecated` (read-only fallback)
 - Always read a recipe's categories through `getRecipeCategoryIds()` (`lib/utils/recipe-categories.ts`), never `recipe.categoryId` directly
-- Subcategories no longer apply to recipes (removed from the recipe form/selector); the Subcategories management page under Categorie is unaffected
+- Subcategories have been removed entirely (type, Firebase helpers, UI, Firestore rule and index). Existing `subcategories` documents are inert leftovers
+
+### Calories
+- `caloriesPerServing?: number` is **per serving**, never a recipe total: `servings` is editable and cooking mode scales it at runtime
+- Always an estimate (AI or manual), never a measured value. A `null` estimate must not be persisted
+- Daily planner totals come from `computeWeekCalories()` (`lib/utils/meal-plan-calories.ts`); partial days render with `≥`
+- Not shown in the shopping list — per-serving figures don't aggregate into anything a shopper acts on
 
 ### Recipe text and timers
 - Recipe text persisted in Firebase should remain plain text
@@ -108,6 +115,12 @@ src/
 - On Sonnet 5, `temperature`/`top_p`/`top_k`/`budget_tokens` return **400** — never set them
 - Thinking per endpoint: `extract`/`format` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled`; `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
 - `EXTRACTION_PROMPT` and `FORMAT_RECIPE_PROMPT` drop ingredients never used in the procedure (conservative fail-safe: keep everything if the procedure is terse). Keep the rule mirrored in both prompts
+
+### Web search and photos (chat only)
+- Both are **opt-in per message** and live only on `chat-recipe`: `extract`/`format` promise fidelity to the source, so a second source of truth there would silently substitute a different recipe
+- Web search uses `web_search_20260209` (no beta header); never declare `code_execution` alongside it
+- Server-tool responses can return `stop_reason: 'pause_turn'` — always go through `createMessageWithToolLoop()` (`lib/api/claude-tool-loop.ts`)
+- Photos are **not** kept in the conversation history (only a text marker); the model's own description carries forward
 
 ### Confirmations and touch
 - Destructive confirmations use the shared `ConfirmDialog` (built on Radix Dialog); never native `confirm()`/`alert()`. Validation/error feedback uses `react-hot-toast`
@@ -121,6 +134,13 @@ src/
 ---
 
 ## Recent Changes (Latest)
+
+### 2026-07-26 — kcal, ricerca web + foto in chat, rimozione sottocategorie, portate nel piano
+- **kcal per porzione**: nuovo campo `caloriesPerServing?: number` su `Recipe` e su entrambi i `ParsedRecipe`, più la route `POST /api/estimate-calories` (json_schema, `thinking: adaptive` + `effort: 'low'`). Una sola route serve tutti i flussi (PDF, testo libero, chat, ricette esistenti): l'estrazione resta fedele alla fonte e la stima è un passaggio separato, come `suggest-category`. Stima **per porzione** e non totale perché `servings` è modificabile e la cottura lo scala a runtime. Guardie server: `servings >= 1`, valori fuori da 20–3000 kcal → `null` (l'errore tipico del modello è saltare la divisione). Campo manuale nel form (stringa, per distinguere vuoto da `0`; in modifica il vuoto diventa `deleteField()`), pulsante "Stima calorie" nel dettaglio, kcal su card/dettaglio/anteprima e **totali giornalieri** nel pianificatore via `meal-plan-calories.ts` (i giorni parziali si mostrano con `≥`). Esclusa dalla lista spesa per scelta
+- **Ricerca web e foto nella chat**, entrambe opt-in e solo su `chat-recipe`: `extract`/`format` hanno un contratto di fedeltà alla fonte, una seconda fonte di verità produrrebbe una sostituzione silenziosa. Web search `web_search_20260209` (nessun beta header, `code_execution` **non** dichiarato). Nuovo `claude-tool-loop.ts` per riprendere su `stop_reason: 'pause_turn'`: senza, `[/RICETTE]` non chiude e **le ricette spariscono senza errore**. `claude-blocks.ts` estrae testo e fonti gestendo il caso in cui `content` è un *oggetto errore* invece di un array (arriva su HTTP 200). Foto ridimensionate client-side (`image-resize.ts`, `imageOrientation: 'from-image'` — le foto da telefono arrivano ruotate), budget 3 foto / 3 MB validato **due volte** (client e server), e **non** persistite nella history (solo un marcatore testuale: 3 foto × 20 turni sarebbero ~280k token)
+- **Sottocategorie rimosse del tutto**: erano già staccate dal flusso ricette ma la pagina Categorie continuava a permetterne la creazione. Via ~230 righe di UI, 5 funzioni Firebase, il cascade-delete, il tipo, la regola e l'indice Firestore. I documenti già in `subcategories` restano inerti (nessuna query li legge)
+- **Portate e giorni su un piano avviato**: `addMealType`/`removeMealType`/`addDay` in `useMealPlanner` + nuova `PlanStructureCard`. Prima aggiungere "colazione" a una settimana avviata richiedeva di eliminare il piano. `removeMealType` cancella **anche gli slot**: `buildContributions` itera tutti gli slot senza filtrare per `activeMealTypes`, quindi uno slot orfano continuerebbe a contribuire alla lista della spesa. `MEAL_LABELS`/`SELECTABLE_MEAL_TYPES` centralizzati (erano 4 copie divergenti)
+- **Structured outputs su `suggest-category`** al posto del fence-stripping manuale, e rimozione di `suggestCategoryAndSeason`/`createCategorizationPrompt` (123 righe morte in `extract-recipes`)
 
 ### 2026-07-05 — Upgrade Claude Sonnet 5 + pulizia ingredienti orfani
 - **Modello → Claude Sonnet 5** su tutti gli endpoint AI, centralizzato nella costante `AI_MODEL` (`lib/utils/constants.ts`) al posto di 8 literal hardcoded. Migrazione pulita: nessun `temperature`/`top_p`/`top_k`/prefill (romperebbero con 400). SDK `@anthropic-ai/sdk` bumpato a 0.110.0 per abilitare `output_config.effort`
@@ -168,7 +188,6 @@ Notes:
 users/{uid}             # User profiles + familyProfile + adHocShoppingRecipes
 recipes/{id}            # Recipes
 categories/{id}         # Recipe categories
-subcategories/{id}      # Category children
 cooking_sessions/{id}   # Active cooking progress
 cooking_history/{id}    # Completed cooking events
 meal_plans/{id}         # Weekly planner documents
@@ -182,7 +201,6 @@ Composite indexes maintained in repo:
 - `meal_plans`: `(userId ASC, weekStartDate DESC)`
 - `pantry_items`: `(userId ASC, createdAt DESC)`
 - `recipes`: `(userId ASC, createdAt DESC)`
-- `subcategories`: `(categoryId ASC, userId ASC, order ASC)`
 
 ---
 
@@ -193,7 +211,8 @@ Composite indexes maintained in repo:
 | `POST /api/extract-recipes` | PDF → structured recipe extraction |
 | `POST /api/format-recipe` | Free text → structured recipe formatting |
 | `POST /api/suggest-category` | Category (1-3 names) + season suggestion |
-| `POST /api/chat-recipe` | Multi-turn AI recipe generation |
+| `POST /api/chat-recipe` | Multi-turn AI recipe generation (opt-in web search + vision) |
+| `POST /api/estimate-calories` | Ingredients → estimated kcal per serving |
 
 All endpoints above require an authenticated Firebase session. The weekly meal planner runs entirely client-side (local shuffle) and has no AI endpoint.
 

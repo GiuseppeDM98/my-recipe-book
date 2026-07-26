@@ -34,14 +34,6 @@ service cloud.firestore {
       allow update, delete: if isOwner(resource.data.userId);
     }
 
-    // Subcategories
-    match /subcategories/{subcategoryId} {
-      allow read: if isOwner(resource.data.userId);
-      allow create: if isAuthenticated()
-                    && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data.userId);
-    }
-
     // Techniques
     match /techniques/{techniqueId} {
       allow read: if isOwner(resource.data.userId);

@@ -41,15 +41,6 @@
       ]
     },
     {
-      "collectionGroup": "subcategories",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "categoryId", "order": "ASCENDING" },
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "order", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "pantry_items",
       "queryScope": "COLLECTION",
       "fields": [

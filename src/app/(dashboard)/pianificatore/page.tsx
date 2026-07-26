@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useRecipes } from '@/lib/hooks/useRecipes';
 import { useMealPlanner } from '@/lib/hooks/useMealPlanner';
@@ -9,12 +10,14 @@ import { WeeklyCalendarGrid } from '@/components/meal-planner/WeeklyCalendarGrid
 import { PlannerHeader } from '@/components/meal-planner/PlannerHeader';
 import { RecipePickerSheet } from '@/components/meal-planner/RecipePickerSheet';
 import { NewRecipeReviewCard } from '@/components/meal-planner/NewRecipeReviewCard';
+import { PlanStructureCard } from '@/components/meal-planner/PlanStructureCard';
 import { getUserCategories } from '@/lib/firebase/categories';
 import { deleteMealPlan, getMealPlanByWeek, getUserMealPlans } from '@/lib/firebase/meal-plans';
 import { Button } from '@/components/ui/button';
 import { Category, MealPlan, MealPlanSetupConfig, MealSlot, MealType, Season } from '@/types';
 import { addWeeksToDateString, getCurrentWeekMonday, getWeekMonday } from '@/lib/constants/seasons';
-import { Shuffle, PenLine, MousePointerClick, X } from 'lucide-react';
+import { MEAL_LABELS } from '@/lib/constants/meal-types';
+import { Shuffle, PenLine, MousePointerClick } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { EditorialLoader } from '@/components/ui/editorial-loader';
 import {
@@ -41,6 +44,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
  */
 export default function PianificatorePage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { recipes } = useRecipes();
   const {
     step,
@@ -55,6 +59,9 @@ export default function PianificatorePage() {
     saveNewRecipeToCookbook,
     reshuffleSlot,
     removeDay,
+    addDay,
+    addMealType,
+    removeMealType,
     regeneratingSlots,
     resetToSetup,
     loadPlan,
@@ -181,6 +188,57 @@ export default function PianificatorePage() {
     }
   }, [clearSlot]);
 
+  // ── Plan structure (days and meal types) ──────────────────
+  // Each handler surfaces the hook's guard messages ("almeno un giorno attivo",
+  // "almeno una portata") as toasts instead of letting them reject silently.
+  async function handleRemoveDay(dayIndex: number) {
+    try {
+      await removeDay(dayIndex);
+      toast.success(`Ho rimosso ${DAY_CHIPS[dayIndex]} dal piano`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Errore nella rimozione del giorno'
+      );
+    }
+  }
+
+  async function handleAddDay(dayIndex: number) {
+    try {
+      await addDay(dayIndex);
+      toast.success(`Ho aggiunto ${DAY_CHIPS[dayIndex]} al piano`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Errore nell\'aggiunta del giorno'
+      );
+    }
+  }
+
+  async function handleAddMealType(mealType: MealType, autofill: boolean) {
+    try {
+      await addMealType(mealType, recipes, { autofill });
+      toast.success(
+        autofill
+          ? `Ho aggiunto ${MEAL_LABELS[mealType].toLowerCase()} e riempito gli slot`
+          : `Ho aggiunto ${MEAL_LABELS[mealType].toLowerCase()} al piano`
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Errore nell\'aggiunta della portata'
+      );
+    }
+  }
+
+  async function handleRemoveMealType(mealType: MealType) {
+    try {
+      await removeMealType(mealType);
+      toast.success(`Ho rimosso ${MEAL_LABELS[mealType].toLowerCase()} dal piano`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Errore nella rimozione della portata'
+      );
+    }
+  }
+
   // ── Save new AI recipe ────────────────────────────────────
   function slotKey(slot: MealSlot): string {
     return `${slot.dayIndex}-${slot.mealType}`;
@@ -239,6 +297,10 @@ export default function PianificatorePage() {
 
     try {
       await deleteMealPlan(currentPlan.id);
+
+      // The shopping list derives from this plan, so its cache is now describing a
+      // document that no longer exists (see invalidateShoppingList in useMealPlanner).
+      queryClient.invalidateQueries({ queryKey: ['shoppingList', user.uid] });
 
       const currentWeekStartDate = getCurrentWeekMonday();
       setSetupWeekStartDate(currentWeekStartDate);
@@ -404,47 +466,16 @@ export default function PianificatorePage() {
       {/* ── STEP: CALENDAR ───────────────────────────── */}
       {step === 'calendar' && currentPlan && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Giorni inclusi nel piano</p>
-                <p className="text-xs text-muted-foreground">
-                  Se hai attivato un giorno per errore, puoi rimuoverlo qui senza rifare l'intera settimana.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {activeDays.map((dayIndex) => (
-                  <button
-                    key={dayIndex}
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await removeDay(dayIndex);
-                        toast.success(`Ho rimosso ${DAY_CHIPS[dayIndex]} dal piano`);
-                      } catch (error) {
-                        toast.error(
-                          error instanceof Error
-                            ? error.message
-                            : 'Errore nella rimozione del giorno'
-                        );
-                      }
-                    }}
-                    disabled={activeDays.length === 1 || isGenerating}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
-                    title={
-                      activeDays.length === 1
-                        ? 'Il piano deve mantenere almeno un giorno attivo'
-                        : `Rimuovi ${DAY_CHIPS[dayIndex]}`
-                    }
-                    aria-label={`Rimuovi ${DAY_CHIPS[dayIndex]} dal piano`}
-                  >
-                    <span>{DAY_CHIPS[dayIndex]}</span>
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <PlanStructureCard
+            activeDays={activeDays}
+            activeMealTypes={currentPlan.activeMealTypes}
+            hasRecipes={recipes.length > 0}
+            disabled={isGenerating}
+            onAddDay={handleAddDay}
+            onRemoveDay={handleRemoveDay}
+            onAddMealType={handleAddMealType}
+            onRemoveMealType={handleRemoveMealType}
+          />
 
           {/* Calendar grid */}
           <WeeklyCalendarGrid

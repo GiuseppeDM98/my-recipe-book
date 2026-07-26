@@ -11,6 +11,8 @@ export interface ParsedRecipe {
   prepTime?: number;
   cookTime?: number;
   notes?: string;
+  /** Estimated kcal for one serving (see Recipe.caloriesPerServing in types/index.ts). */
+  caloriesPerServing?: number;
   aiSuggestion?: AISuggestion;
 }
 
@@ -560,6 +562,57 @@ export async function getAISuggestionForRecipe(
     return data.suggestion;
   } catch (error) {
     console.error('Error getting AI suggestion:', error);
+    return null;
+  }
+}
+
+/**
+ * Ask the AI to estimate kcal per serving for a recipe.
+ *
+ * @param recipeTitle - Recipe title, used as context for the kind of dish
+ * @param ingredients - Ingredients with their quantities; both fields matter here,
+ *                      unlike the category suggestion which only needs names
+ * @param servings - Servings the ingredient list yields. Must be at least 1.
+ * @returns The estimate, or null when the recipe is too vague to estimate, the
+ *          request fails, or servings is unusable. Callers must not persist null.
+ */
+export async function getAICalorieEstimateForRecipe(
+  recipeTitle: string,
+  ingredients: Ingredient[],
+  servings: number | undefined
+): Promise<number | null> {
+  // Without a serving count there is nothing to divide by, and guessing one would
+  // silently scale the result. Skip the call instead.
+  if (!servings || servings < 1) {
+    return null;
+  }
+
+  try {
+    const response = await fetch('/api/estimate-calories', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getFirebaseAuthHeader({ forceRefresh: true })),
+      },
+      body: JSON.stringify({
+        recipeTitle,
+        ingredients: ingredients.map(ing => ({
+          name: ing.name,
+          quantity: ing.quantity,
+        })),
+        servings,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Error estimating calories:', response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    return typeof data.caloriesPerServing === 'number' ? data.caloriesPerServing : null;
+  } catch (error) {
+    console.error('Error estimating calories:', error);
     return null;
   }
 }

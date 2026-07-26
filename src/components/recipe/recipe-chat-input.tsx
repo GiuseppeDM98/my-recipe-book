@@ -1,12 +1,21 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Send, Sparkles, ChefHat } from 'lucide-react';
+import { MessageSquare, Send, Sparkles, ChefHat, Globe, Paperclip, X, ExternalLink } from 'lucide-react';
 import { FamilyProfile, Ingredient, Season } from '@/types';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { validateFamilyContextUsage } from '@/lib/utils/family-context';
 import { StatusBanner } from '@/components/ui/status-banner';
+import {
+  resizeImagesForUpload,
+  validateAttachmentBudget,
+  validateImageFile,
+  ACCEPTED_IMAGE_TYPES,
+  MAX_IMAGES_PER_MESSAGE,
+  type ResizedImage,
+} from '@/lib/utils/image-resize';
 
 /**
  * RecipeChatInput - Conversational AI recipe generation interface
@@ -53,11 +62,20 @@ const STARTER_PROMPTS = [
   'Ho solo pasta e pomodori, cosa faccio?',
 ];
 
+interface ChatSource {
+  title: string;
+  url: string;
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   // True when this assistant turn produced recipe cards (shown below the chat)
   hasRecipes: boolean;
+  // Photos attached to this user turn, shown as thumbnails in the bubble
+  attachmentPreviews?: string[];
+  // Web pages consulted for this assistant turn
+  sources?: ChatSource[];
 }
 
 interface ApiHistoryMessage {
@@ -93,14 +111,88 @@ export function RecipeChatInput({
   const [apiHistory, setApiHistory] = useState<ApiHistoryMessage[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [useWebSearch, setUseWebSearch] = useState(false);
+  const [attachments, setAttachments] = useState<ResizedImage[]>([]);
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Read by the unmount cleanup, which would otherwise close over an empty initial array
+  const attachmentsRef = useRef<ResizedImage[]>([]);
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  // Object URLs are not garbage-collected on their own — leaving the page mid-compose
+  // would leak every pending thumbnail.
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach(image => URL.revokeObjectURL(image.previewUrl));
+    };
+  }, []);
 
   // Auto-scroll to latest message whenever messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  /**
+   * Validates, downscales, and stages the picked photos.
+   *
+   * Everything is checked before any resizing work happens: rejecting a HEIC file after
+   * spending a second decoding two other images would be a worse experience than
+   * rejecting the batch immediately.
+   */
+  const handleFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+
+    const files = Array.from(fileList);
+
+    if (attachments.length + files.length > MAX_IMAGES_PER_MESSAGE) {
+      toast.error(`Puoi allegare al massimo ${MAX_IMAGES_PER_MESSAGE} foto per messaggio.`);
+      return;
+    }
+
+    for (const file of files) {
+      const formatError = validateImageFile(file);
+      if (formatError) {
+        toast.error(formatError);
+        return;
+      }
+    }
+
+    setIsProcessingImages(true);
+    try {
+      const resized = await resizeImagesForUpload(files);
+      const combined = [...attachments, ...resized];
+
+      const budget = validateAttachmentBudget(combined);
+      if (!budget.isValid) {
+        resized.forEach(image => URL.revokeObjectURL(image.previewUrl));
+        toast.error(budget.error ?? 'Foto troppo pesanti.');
+        return;
+      }
+
+      setAttachments(combined);
+    } catch (error) {
+      console.error('Image processing failed:', error);
+      toast.error('Non sono riuscito a preparare le foto. Riprova con un altro formato.');
+    } finally {
+      setIsProcessingImages(false);
+      // Reset the input so picking the same file twice in a row still fires onChange
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments(prev => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   /**
    * Builds a compact summary of the user's existing recipes to inject as
@@ -131,18 +223,41 @@ export function RecipeChatInput({
    */
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || isSending || disabled) return;
+    // A photo alone is a valid message ("cosa ci cucino con questo?")
+    if ((!text && attachments.length === 0) || isSending || disabled || isProcessingImages) return;
+
+    const sentAttachments = attachments;
 
     setInput('');
+    setAttachments([]);
     setIsSending(true);
 
     // Add user message to display immediately (optimistic)
-    setMessages((prev) => [...prev, { role: 'user', content: text, hasRecipes: false }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'user',
+        content: text,
+        hasRecipes: false,
+        ...(sentAttachments.length > 0
+          ? { attachmentPreviews: sentAttachments.map(image => image.previewUrl) }
+          : {}),
+      },
+    ]);
 
     // Inject existing recipes context only on the first turn
     const isFirstMessage = apiHistory.length === 0;
     const contextPrefix = isFirstMessage ? buildExistingRecipesContext(existingRecipes) : '';
     const userApiContent = contextPrefix + text;
+
+    // The history keeps a text marker, never the image data. Each photo costs up to
+    // ~4784 tokens; replaying three of them across twenty turns would put hundreds of
+    // thousands of tokens into a single request. The model's own description of the
+    // photos, which VISION_GUIDANCE requires, is what carries forward instead.
+    const historyContent =
+      sentAttachments.length > 0
+        ? `${userApiContent}\n\n[L'utente ha allegato ${sentAttachments.length} foto in questo messaggio]`
+        : userApiContent;
 
     try {
       const familyContextError = validateFamilyContextUsage(useFamilyContext, familyProfile);
@@ -161,6 +276,11 @@ export function RecipeChatInput({
           conversationHistory: apiHistory,
           useFamilyContext,
           familyProfile,
+          useWebSearch,
+          images: sentAttachments.map(image => ({
+            base64: image.base64,
+            mediaType: image.mediaType,
+          })),
         }),
       });
 
@@ -175,7 +295,7 @@ export function RecipeChatInput({
       const assistantRaw = data.rawContent || `[RISPOSTA]\n${data.reply}\n[/RISPOSTA]\n[RICETTE]\n${data.extractedRecipes}\n[/RICETTE]`;
       setApiHistory((prev) => [
         ...prev,
-        { role: 'user', content: userApiContent },
+        { role: 'user', content: historyContent },
         { role: 'assistant', content: assistantRaw },
       ]);
 
@@ -187,6 +307,9 @@ export function RecipeChatInput({
         role: 'assistant',
         content: cleanReply(data.reply || 'Ecco la mia risposta.'),
         hasRecipes,
+        ...(Array.isArray(data.sources) && data.sources.length > 0
+          ? { sources: data.sources as ChatSource[] }
+          : {}),
       }]);
 
       // Surface recipe markdown to parent for parsing + ExtractedRecipePreview
@@ -269,6 +392,21 @@ export function RecipeChatInput({
                     : 'bg-muted/70 text-foreground rounded-bl-sm border border-border/70'
                   }`}
               >
+                {/* Attached photos, so the user can see what they sent */}
+                {msg.attachmentPreviews && msg.attachmentPreviews.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {msg.attachmentPreviews.map((previewUrl, previewIndex) => (
+                      // eslint-disable-next-line @next/next/no-img-element -- blob: URL, not an optimizable asset
+                      <img
+                        key={previewIndex}
+                        src={previewUrl}
+                        alt={`Foto allegata ${previewIndex + 1}`}
+                        className="h-16 w-16 rounded-lg object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
+
                 {msg.content}
 
                 {/* Recipe generation indicator */}
@@ -276,6 +414,28 @@ export function RecipeChatInput({
                   <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border text-xs text-primary font-medium">
                     <Sparkles className="w-3 h-3" />
                     Ricette generate — vedi sotto
+                  </div>
+                )}
+
+                {/* Web sources consulted for this reply */}
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border/70">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Fonti consultate</p>
+                    <ul className="space-y-1">
+                      {msg.sources.map((source) => (
+                        <li key={source.url}>
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-start gap-1 text-xs text-primary hover:underline"
+                          >
+                            <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span className="line-clamp-1">{source.title}</span>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -299,6 +459,81 @@ export function RecipeChatInput({
         </div>
       )}
 
+      {/* ── Controls row: web search toggle + photo attachment ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* A styled button rather than a native checkbox: a bare checkbox renders in the
+            system blue, which is off-palette on the cream/terracotta theme. */}
+        <button
+          type="button"
+          onClick={() => setUseWebSearch((prev) => !prev)}
+          disabled={disabled || isSending}
+          aria-pressed={useWebSearch}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            useWebSearch
+              ? 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-border bg-background text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Globe className="h-3.5 w-3.5" />
+          Cerca sul web
+        </button>
+
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || isSending || isProcessingImages || attachments.length >= MAX_IMAGES_PER_MESSAGE}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+          {isProcessingImages ? 'Preparo le foto…' : 'Allega foto'}
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          // Explicit types, not image/*: HEIC is neither accepted by the API nor
+          // decodable by Chrome on Android. capture opens the rear camera directly —
+          // this is a kitchen app, often used one-handed.
+          accept={ACCEPTED_IMAGE_TYPES.join(',')}
+          capture="environment"
+          onChange={(e) => handleFilesSelected(e.target.files)}
+          className="hidden"
+        />
+
+        {useWebSearch && (
+          <span className="text-xs text-muted-foreground">
+            La ricerca rallenta la risposta e consuma più crediti.
+          </span>
+        )}
+      </div>
+
+      {/* ── Staged attachments ── */}
+      {attachments.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {attachments.map((image, index) => (
+            <div key={image.previewUrl} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- blob: URL, not an optimizable asset */}
+              <img
+                src={image.previewUrl}
+                alt={`Anteprima foto ${index + 1}`}
+                className="h-20 w-20 rounded-lg border border-border object-cover"
+              />
+              {/* Always visible, never hover-gated: on touch there is no hover, and a
+                  hidden remove control would read as no remove control at all. */}
+              <button
+                type="button"
+                onClick={() => handleRemoveAttachment(index)}
+                aria-label={`Rimuovi foto ${index + 1}`}
+                className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ── Input area ── */}
       <div className="flex items-end gap-2">
         <textarea
@@ -317,7 +552,10 @@ export function RecipeChatInput({
         <Button
           type="button"
           onClick={handleSend}
-          disabled={!input.trim() || isSending || disabled}
+          // Enabled with photos alone: "cosa ci cucino con questo?" needs no text.
+          disabled={
+            (!input.trim() && attachments.length === 0) || isSending || disabled || isProcessingImages
+          }
           size="lg"
           className="gap-2 shrink-0"
         >

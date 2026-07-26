@@ -64,6 +64,14 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
   const [servings, setServings] = useState(recipe?.servings || 4);
   const [prepTime, setPrepTime] = useState(recipe?.prepTime || 0);
   const [cookTime, setCookTime] = useState(recipe?.cookTime || 0);
+  /**
+   * Held as a string, not a number, so "empty" stays distinguishable from 0.
+   * An empty field means "no estimate" and must clear the stored value; coercing it to
+   * 0 would leave a recipe permanently claiming zero calories with no way back.
+   */
+  const [caloriesPerServing, setCaloriesPerServing] = useState(
+    recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : ''
+  );
   const [ingredientSections, setIngredientSections] = useState<IngredientSection[]>([]);
   const [steps, setSteps] = useState<Step[]>(recipe?.steps || []);
   const [categoryIds, setCategoryIds] = useState<string[]>(
@@ -414,6 +422,13 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         });
       });
 
+      // Empty, non-numeric, or non-positive input all mean "no estimate".
+      const caloriesInput = Number(caloriesPerServing);
+      const parsedCalories =
+        caloriesPerServing.trim() !== '' && Number.isFinite(caloriesInput) && caloriesInput > 0
+          ? Math.round(caloriesInput)
+          : null;
+
       const recipeData: Omit<Recipe, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
         title,
         description: description || '',
@@ -432,6 +447,7 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         images: recipe?.images || [],
         ...(seasons.length > 0 ? { seasons } : {}),
         ...(typeof recipe?.aiSuggested === 'boolean' ? { aiSuggested: recipe.aiSuggested } : {}),
+        ...(parsedCalories !== null ? { caloriesPerServing: parsedCalories } : {}),
       };
 
       if (mode === 'create') {
@@ -440,7 +456,15 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         // Clear the legacy single categoryId on edit so reads never see stale
         // drift between it and the new categoryIds array (dual-read fallback
         // in getRecipeCategoryIds only applies to un-migrated recipes).
-        await updateRecipe(recipeId, { ...recipeData, categoryId: deleteField() } as unknown as Partial<Recipe>);
+        //
+        // An emptied calories field must be deleted explicitly for the same reason a
+        // spread-omitted key isn't enough: updateDoc merges, so omitting the key would
+        // leave the previous estimate in place and make the field impossible to clear.
+        await updateRecipe(recipeId, {
+          ...recipeData,
+          categoryId: deleteField(),
+          ...(parsedCalories === null ? { caloriesPerServing: deleteField() } : {}),
+        } as unknown as Partial<Recipe>);
       }
 
       // Invalidate the recipes list so the next visit to /ricette shows fresh data,
@@ -495,7 +519,9 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         aiSuggested={recipe?.aiSuggested}
       />
 
-      <div className="grid grid-cols-3 gap-4">
+      {/* Four numeric fields: two columns on phones (four would be ~70px each at 375px),
+          four from sm up. */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
           <label htmlFor="recipe-servings" className="block text-sm font-medium mb-2">Porzioni</label>
           <Input
@@ -524,6 +550,17 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
             value={cookTime}
             onChange={(e) => setCookTime(Number(e.target.value))}
             min={0}
+          />
+        </div>
+        <div>
+          <label htmlFor="recipe-calories" className="block text-sm font-medium mb-2">kcal / porz.</label>
+          <Input
+            id="recipe-calories"
+            type="number"
+            value={caloriesPerServing}
+            onChange={(e) => setCaloriesPerServing(e.target.value)}
+            min={0}
+            placeholder="—"
           />
         </div>
       </div>

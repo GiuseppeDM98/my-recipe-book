@@ -577,7 +577,6 @@ Complete testing checklist to ensure everything works.
 
 **Filtering**:
 - [ ] Filter by category → count updates
-- [ ] Filter by subcategory → list updates
 - [ ] Filter by season → shows only matching recipes
 - [ ] Combine filters → works correctly
 

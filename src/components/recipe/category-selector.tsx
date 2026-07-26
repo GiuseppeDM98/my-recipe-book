@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils/cn';
  *
  * A recipe can belong to multiple categories (e.g. "Primi" + "Vegetariano").
  * Renders one toggle chip per category; clicking adds/removes it from the
- * selection. Subcategories are not part of the recipe flow anymore.
+ * selection.
  */
 
 interface CategorySelectorProps {

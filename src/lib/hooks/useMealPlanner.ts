@@ -52,6 +52,11 @@ interface UseMealPlannerReturn {
   saveNewRecipeToCookbook: (slot: MealSlot, categoryNames: string[], seasons: Season[]) => Promise<string>;
   reshuffleSlot: (dayIndex: number, mealType: MealType, recipes: Recipe[]) => Promise<void>;
   removeDay: (dayIndex: number) => Promise<void>;
+  addDay: (dayIndex: number) => Promise<void>;
+  /** Adds a meal type to the current plan, optionally filling it with a local shuffle. */
+  addMealType: (mealType: MealType, recipes: Recipe[], options?: { autofill?: boolean }) => Promise<void>;
+  /** Removes a meal type AND its slots. The plan must keep at least one meal type. */
+  removeMealType: (mealType: MealType) => Promise<void>;
   regeneratingSlots: Set<string>;
   resetToSetup: () => void;
   loadPlan: (plan: MealPlan) => void;
@@ -66,6 +71,25 @@ export function useMealPlanner(): UseMealPlannerReturn {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [regeneratingSlots, setRegeneratingSlots] = useState<Set<string>>(new Set());
+
+  /**
+   * Drops the cached shopping list after any write that changes the plan's slots.
+   *
+   * WHY EVERY SLOT WRITE NEEDS THIS:
+   * The shopping list is a derived view — useShoppingList recomputes it from the plan and
+   * its recipes, and caches the result under ['shoppingList', uid, weekStartDate]. Writing
+   * to Firestore does not touch that cache, so without an explicit invalidation the list
+   * keeps serving pre-write data until staleTime (2 min) expires. The symptom is a list
+   * that still bills you for a meal you removed, and looks correct until a hard refresh.
+   *
+   * Deliberately a partial key match (no weekStartDate): copyPlanToWeek writes to a week
+   * other than the one on screen, and invalidating a few extra weeks is free next to the
+   * cost of missing the one that mattered.
+   */
+  const invalidateShoppingList = useCallback(() => {
+    if (!user) return;
+    queryClient.invalidateQueries({ queryKey: ['shoppingList', user.uid] });
+  }, [user, queryClient]);
 
   /**
    * Load an existing plan (e.g., restored from Firebase on page mount).
@@ -145,6 +169,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
         updatedAt: null as unknown as import('firebase/firestore').Timestamp,
       });
       setStep('calendar');
+      invalidateShoppingList();
       return unfilledMealTypes;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
@@ -153,7 +178,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
     } finally {
       setIsGenerating(false);
     }
-  }, [user]);
+  }, [user, invalidateShoppingList]);
 
   /**
    * Duplicate the current plan onto another week.
@@ -174,7 +199,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
       throw new Error('Esiste già un piano per quella settimana');
     }
 
-    return createMealPlan(user.uid, {
+    const newPlanId = await createMealPlan(user.uid, {
       weekStartDate: targetWeekStartDate,
       slots: currentPlan.slots,
       activeMealTypes: currentPlan.activeMealTypes,
@@ -182,7 +207,10 @@ export function useMealPlanner(): UseMealPlannerReturn {
       generatedByAI: false,
       activeDays: currentPlan.activeDays ?? null,
     });
-  }, [user, currentPlan]);
+
+    invalidateShoppingList();
+    return newPlanId;
+  }, [user, currentPlan, invalidateShoppingList]);
 
   /**
    * Create an empty plan (manual mode) and go directly to the calendar.
@@ -218,11 +246,12 @@ export function useMealPlanner(): UseMealPlannerReturn {
 
       setCurrentPlan(plan);
       setStep('calendar');
+      invalidateShoppingList();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
       setError(msg);
     }
-  }, [user]);
+  }, [user, invalidateShoppingList]);
 
   /**
    * Assign an existing cookbook recipe to a slot.
@@ -253,7 +282,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
     const updatedPlan = { ...currentPlan, slots: updatedSlots };
     setCurrentPlan(updatedPlan);
     await updateMealPlanSlots(currentPlan.id, updatedSlots);
-  }, [currentPlan]);
+    invalidateShoppingList();
+  }, [currentPlan, invalidateShoppingList]);
 
   /**
    * Remove the recipe assignment from a slot (leave it empty).
@@ -268,7 +298,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
     const updatedPlan = { ...currentPlan, slots: updatedSlots };
     setCurrentPlan(updatedPlan);
     await updateMealPlanSlots(currentPlan.id, updatedSlots);
-  }, [currentPlan]);
+    invalidateShoppingList();
+  }, [currentPlan, invalidateShoppingList]);
 
   /**
    * Re-roll a single slot locally: pick a different recipe of the same category
@@ -326,6 +357,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
 
       setCurrentPlan({ ...currentPlan, slots: updatedSlots });
       await updateMealPlanSlots(currentPlan.id, updatedSlots);
+      invalidateShoppingList();
     } finally {
       setRegeneratingSlots(prev => {
         const next = new Set(prev);
@@ -362,7 +394,105 @@ export function useMealPlanner(): UseMealPlannerReturn {
       activeDays: nextActiveDays,
       slots: nextSlots,
     });
+    invalidateShoppingList();
+  }, [currentPlan, invalidateShoppingList]);
+
+  /**
+   * Re-add a day to an already-created plan.
+   *
+   * The day comes back empty: slots removed by removeDay are gone for good, and
+   * silently re-inventing them would be worse than an empty column the user fills
+   * from the picker. Days stay in calendar order so the grid never renders shuffled.
+   */
+  const addDay = useCallback(async (dayIndex: number) => {
+    if (!currentPlan) return;
+
+    const currentActiveDays = currentPlan.activeDays ?? [0, 1, 2, 3, 4, 5, 6];
+    if (currentActiveDays.includes(dayIndex)) return;
+
+    const nextActiveDays = [...currentActiveDays, dayIndex].sort((a, b) => a - b);
+    setCurrentPlan({ ...currentPlan, activeDays: nextActiveDays });
+
+    await updateMealPlan(currentPlan.id, { activeDays: nextActiveDays });
   }, [currentPlan]);
+
+  /**
+   * Add a meal type (e.g. "colazione") to a plan that is already running.
+   *
+   * WHY THIS EXISTS:
+   * activeMealTypes used to be written only at creation time, so adding a meal to
+   * a started week meant deleting the plan and rebuilding it, losing every slot.
+   *
+   * With `autofill` the new row is populated by the same local shuffle used at
+   * setup, restricted to this meal type so existing slots are never touched.
+   * Without it the row appears empty and is filled from the RecipePickerSheet.
+   */
+  const addMealType = useCallback(async (
+    mealType: MealType,
+    recipes: Recipe[],
+    options?: { autofill?: boolean }
+  ) => {
+    if (!currentPlan) return;
+    if (currentPlan.activeMealTypes.includes(mealType)) return;
+
+    const nextActiveMealTypes = [...currentPlan.activeMealTypes, mealType];
+
+    let nextSlots = currentPlan.slots;
+    if (options?.autofill) {
+      const { slots: shuffledSlots } = buildShuffledSlots(recipes, {
+        season: currentPlan.season,
+        activeMealTypes: [mealType],
+        activeDays: currentPlan.activeDays ?? null,
+        mealTypeConfigs: null,
+      });
+      nextSlots = [...currentPlan.slots, ...shuffledSlots];
+    }
+
+    setCurrentPlan({
+      ...currentPlan,
+      activeMealTypes: nextActiveMealTypes,
+      slots: nextSlots,
+    });
+
+    await updateMealPlan(currentPlan.id, {
+      activeMealTypes: nextActiveMealTypes,
+      slots: nextSlots,
+    });
+    invalidateShoppingList();
+  }, [currentPlan, invalidateShoppingList]);
+
+  /**
+   * Remove a meal type from the current plan, together with its slots.
+   *
+   * WHY THE SLOTS MUST GO TOO:
+   * buildContributions() in ingredient-aggregator.ts walks every slot without
+   * filtering on activeMealTypes. Dropping the meal type alone would leave orphan
+   * slots that keep feeding ingredients into the shopping list for a meal the
+   * calendar no longer shows — invisible and very hard to trace back.
+   */
+  const removeMealType = useCallback(async (mealType: MealType) => {
+    if (!currentPlan) return;
+
+    const nextActiveMealTypes = currentPlan.activeMealTypes.filter(type => type !== mealType);
+
+    if (nextActiveMealTypes.length === 0) {
+      throw new Error('Il piano deve mantenere almeno una portata');
+    }
+
+    const nextSlots = currentPlan.slots.filter(slot => slot.mealType !== mealType);
+
+    setCurrentPlan({
+      ...currentPlan,
+      activeMealTypes: nextActiveMealTypes,
+      slots: nextSlots,
+    });
+
+    await updateMealPlan(currentPlan.id, {
+      activeMealTypes: nextActiveMealTypes,
+      slots: nextSlots,
+    });
+    invalidateShoppingList();
+  }, [currentPlan, invalidateShoppingList]);
 
   /**
    * Save an AI-generated new recipe to the cookbook, then convert the slot
@@ -411,6 +541,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
       aiSuggested: true,
       ...(categoryIds.length ? { categoryIds } : {}),
       ...(seasons.length > 0 ? { seasons } : {}),
+      // Omit the key entirely when the estimate is missing — Firestore rejects undefined.
+      ...(recipe.caloriesPerServing ? { caloriesPerServing: recipe.caloriesPerServing } : {}),
     };
 
     const newRecipeId = await createRecipe(user.uid, newRecipeData);
@@ -433,9 +565,10 @@ export function useMealPlanner(): UseMealPlannerReturn {
     const updatedPlan = { ...currentPlan, slots: updatedSlots };
     setCurrentPlan(updatedPlan);
     await updateMealPlanSlots(currentPlan.id, updatedSlots);
+    invalidateShoppingList();
 
     return newRecipeId;
-  }, [user, currentPlan]);
+  }, [user, currentPlan, invalidateShoppingList]);
 
   /** Return to setup without deleting the current plan from Firebase. */
   const resetToSetup = useCallback(() => {
@@ -457,6 +590,9 @@ export function useMealPlanner(): UseMealPlannerReturn {
     saveNewRecipeToCookbook,
     reshuffleSlot,
     removeDay,
+    addDay,
+    addMealType,
+    removeMealType,
     regeneratingSlots,
     resetToSetup,
     loadPlan,

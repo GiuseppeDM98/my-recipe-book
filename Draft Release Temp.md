@@ -45,7 +45,16 @@
 - Added the ability to check off, remove individual ingredients from, or remove an entire ad-hoc recipe addition in the shopping list — these sections appear even on weeks without a saved meal plan, and stay in sync across your devices
 - Added automatic refresh for ad-hoc recipe additions: tapping "Voglio preparare questo" again on a recipe you already added updates its ingredient list in place instead of creating a duplicate section
 
+- Added estimated calories per serving for recipes — enter a value manually, or tap "Estimate calories" on any recipe to have the AI calculate it from the ingredient list; shown on recipe cards, the recipe detail page, and AI extraction previews
+- Added daily calorie totals to the meal planner, summing all recipes planned for each day (days with recipes that have no estimate show a "≥" total instead of hiding the number)
+- Added an optional "Search the web" toggle to Chat AI, so the assistant can look up real recipes online and cite its sources before generating a result
+- Added support for attaching up to 3 photos (max 3 MB total) to a Chat AI message, so you can ask about a dish from a picture or get suggestions from a photo of your ingredients
+- Added the ability to add or remove meal types (breakfast, lunch, dinner, etc.) on a meal plan that's already in progress, without having to delete and recreate the whole week
+- Added the ability to add back a day you previously removed from a meal plan
+
 ## 🐛 Bug Fixes
+
+- Fixed the shopping list not refreshing immediately after adding/removing a meal type or day, a recipe, or deleting the plan — it previously could take up to two minutes (or a hard refresh) to reflect the change
 
 - Fixed shopping list checked items and custom additions not being saved when switching between devices — your progress is now stored in the cloud and stays in sync across all your devices
 - Fixed shopping list check-offs occasionally being lost when you closed the app or switched away right after ticking the last item — pending changes are now saved immediately when you leave or background the page, so items no longer reappear unchecked days later
@@ -187,7 +196,7 @@
 
 ## ⚠️ Breaking Changes
 
-- Removed subcategory selection from the recipe create/edit form — recipes are now organized by one or more categories only. Existing subcategory assignments on recipes no longer apply; the Categories/Subcategories management page itself is unaffected
+- Removed subcategory support entirely, including the management page under Categories — recipes are now organized by one or more categories only. Any previously saved subcategory assignments no longer apply
 
 ## 🔒 Security
 

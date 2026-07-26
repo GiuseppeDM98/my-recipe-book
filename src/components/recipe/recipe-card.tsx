@@ -2,7 +2,7 @@
 
 import { Recipe, Category } from '@/types';
 import Link from 'next/link';
-import { Clock, Users } from 'lucide-react';
+import { Clock, Users, Flame } from 'lucide-react';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
 import { cn } from '@/lib/utils/cn';
 import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
@@ -104,8 +104,10 @@ export function RecipeCard({ recipe, categories = [], index = 0 }: RecipeCardPro
           </p>
         )}
 
-        {/* Footer meta — time + servings */}
-        {(recipe.totalTime || recipe.servings) && (
+        {/* Footer meta — time + servings + calories. Calories are simply absent when
+            unknown: the whole card is a <Link>, so an estimate button here would nest
+            an interactive element inside an anchor. Estimating happens on the detail page. */}
+        {(recipe.totalTime || recipe.servings || recipe.caloriesPerServing) && (
           <div className="relative z-10 mt-auto flex items-center gap-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
             {recipe.totalTime && (
               <span className="flex items-center gap-1">
@@ -118,6 +120,13 @@ export function RecipeCard({ recipe, categories = [], index = 0 }: RecipeCardPro
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3 text-primary/70" />
                 {recipe.servings} porz.
+              </span>
+            )}
+            {(recipe.totalTime || recipe.servings) && recipe.caloriesPerServing && <span>·</span>}
+            {recipe.caloriesPerServing && (
+              <span className="flex items-center gap-1">
+                <Flame className="w-3 h-3 text-primary/70" />
+                {recipe.caloriesPerServing} kcal
               </span>
             )}
           </div>

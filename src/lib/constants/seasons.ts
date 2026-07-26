@@ -9,14 +9,11 @@
  * DRY PRINCIPLE:
  * Instead of maintaining 6 separate copies of SEASON_ICONS and SEASON_LABELS,
  * we have one canonical source that all components import from.
- * Adding a new season now requires updating only 3 locations:
- * - This file (add to all three exports)
- * - ITALIAN_SEASONAL_INGREDIENTS in api/suggest-category/route.ts
- * - ITALIAN_SEASONAL_INGREDIENTS in api/extract-recipes/route.ts
  *
  * CHECKLIST: If you add a season value, also update:
+ * - All three exports in this file
  * - ITALIAN_SEASONAL_INGREDIENTS in api/suggest-category/route.ts
- * - ITALIAN_SEASONAL_INGREDIENTS in api/extract-recipes/route.ts
+ * - The season enum in CATEGORY_SUGGESTION_SCHEMA in api/suggest-category/route.ts
  */
 
 import { Season } from '@/types';

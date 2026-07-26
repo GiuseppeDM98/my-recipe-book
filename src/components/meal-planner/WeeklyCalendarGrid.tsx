@@ -1,6 +1,9 @@
 'use client';
 
+import { useMemo } from 'react';
 import { MealPlan, MealSlot, MealType, Recipe, Category } from '@/types';
+import { MEAL_LABELS } from '@/lib/constants/meal-types';
+import { computeWeekCalories } from '@/lib/utils/meal-plan-calories';
 import { MealSlotCell, isNewRecipeSlot } from './MealSlotCell';
 import { cn } from '@/lib/utils/cn';
 
@@ -17,16 +20,6 @@ interface WeeklyCalendarGridProps {
 
 const DAY_LABELS_SHORT = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const DAY_LABELS_FULL = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
-
-const MEAL_LABELS: Record<MealType, string> = {
-  colazione: 'Colazione',
-  pranzo: 'Pranzo',
-  cena: 'Cena',
-  primo: 'Primo',
-  secondo: 'Secondo',
-  contorno: 'Contorno',
-  dolce: 'Dolce',
-};
 
 /**
  * Weekly meal plan calendar grid.
@@ -45,6 +38,7 @@ const MEAL_LABELS: Record<MealType, string> = {
  */
 export function WeeklyCalendarGrid({
   plan,
+  recipes,
   onSlotClick,
   onSaveNewRecipe,
   onRegenerateSlot,
@@ -54,8 +48,43 @@ export function WeeklyCalendarGrid({
   const { activeMealTypes, slots } = plan;
   const activeDays = plan.activeDays ?? [0, 1, 2, 3, 4, 5, 6];
 
+  const recipesById = useMemo(
+    () => new Map(recipes.map(recipe => [recipe.id, recipe])),
+    [recipes]
+  );
+
+  const caloriesByDay = useMemo(
+    () => computeWeekCalories(plan, recipesById),
+    [plan, recipesById]
+  );
+
   function getSlot(dayIndex: number, mealType: MealType): MealSlot | undefined {
     return slots.find(s => s.dayIndex === dayIndex && s.mealType === mealType);
+  }
+
+  /**
+   * Renders a day's calorie total, or nothing when there is none to show.
+   *
+   * A partial total is marked with "≥" rather than being hidden: a day where two of
+   * three recipes have estimates still carries useful information, but presenting the
+   * partial sum as the day's intake would understate it silently.
+   */
+  function renderDayCalories(dayIndex: number, className: string) {
+    const dayCalories = caloriesByDay.get(dayIndex);
+    if (!dayCalories || dayCalories.total === 0) return null;
+
+    return (
+      <span
+        className={className}
+        title={
+          dayCalories.isPartial
+            ? `Almeno ${dayCalories.total} kcal — ${dayCalories.uncountedSlots} ricett${dayCalories.uncountedSlots === 1 ? 'a' : 'e'} senza stima`
+            : `${dayCalories.total} kcal stimate`
+        }
+      >
+        {dayCalories.isPartial ? '≥' : ''}{dayCalories.total} kcal
+      </span>
+    );
   }
 
 
@@ -97,6 +126,7 @@ export function WeeklyCalendarGrid({
             <div key={i} className={cn('text-center rounded-md px-1 py-0.5', isToday(i) && 'bg-primary/10 ring-1 ring-primary/40')}>
               <p className={cn('text-xs font-semibold', isToday(i) ? 'text-primary' : 'text-foreground')}>{DAY_LABELS_SHORT[i]}</p>
               <p className={cn('text-xs', isToday(i) ? 'text-primary/70' : 'text-muted-foreground')}>{getDayDate(i)}</p>
+              {renderDayCalories(i, 'block text-[11px] tabular-nums text-muted-foreground')}
             </div>
           ))}
         </div>
@@ -156,6 +186,7 @@ export function WeeklyCalendarGrid({
                 {DAY_LABELS_FULL[dayIndex]}
               </span>
               <span className={cn('text-xs', isToday(dayIndex) ? 'text-primary/70' : 'text-muted-foreground')}>{getDayDate(dayIndex)}</span>
+              {renderDayCalories(dayIndex, 'ml-auto text-xs tabular-nums text-muted-foreground')}
             </div>
 
             {/* Meal type rows */}

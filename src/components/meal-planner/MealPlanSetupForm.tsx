@@ -10,6 +10,7 @@ import {
   getCurrentSeason,
   getCurrentWeekMonday,
 } from '@/lib/constants/seasons';
+import { MEAL_LABELS, SELECTABLE_MEAL_TYPES } from '@/lib/constants/meal-types';
 import { cn } from '@/lib/utils/cn';
 
 interface MealPlanSetupFormProps {
@@ -21,18 +22,7 @@ interface MealPlanSetupFormProps {
   initialWeekStartDate?: string;
 }
 
-const ALL_MEAL_TYPES: { value: MealType; label: string }[] = [
-  { value: 'colazione', label: 'Colazione' },
-  { value: 'pranzo', label: 'Pranzo' },
-  { value: 'cena', label: 'Cena' },
-];
-
 const DAY_CHIPS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-
-const MEAL_LABELS: Record<MealType, string> = {
-  colazione: 'Colazione', pranzo: 'Pranzo', cena: 'Cena',
-  primo: 'Primo piatto', secondo: 'Secondo piatto', contorno: 'Contorno', dolce: 'Dolce',
-};
 
 const SEASONS_FOR_PLANNER: Exclude<Season, 'tutte_stagioni'>[] = [
   'primavera', 'estate', 'autunno', 'inverno'
@@ -184,7 +174,7 @@ export function MealPlanSetupForm({
       <div>
         <p className="text-sm font-medium text-foreground mb-2">Cosa vuoi pianificare</p>
         <div className="grid grid-cols-2 gap-2">
-          {ALL_MEAL_TYPES.map(({ value, label }) => (
+          {SELECTABLE_MEAL_TYPES.map((value) => (
             <label key={value} className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -192,7 +182,7 @@ export function MealPlanSetupForm({
                 onChange={() => toggleMealType(value)}
                 className="h-4 w-4 accent-primary"
               />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{MEAL_LABELS[value]}</span>
             </label>
           ))}
         </div>
