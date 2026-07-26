@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ParsedRecipe } from '@/lib/utils/recipe-parser';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, Check, Clock, Users, Sparkles, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, Clock, Users, Sparkles, X, Flame } from 'lucide-react';
 import { Season } from '@/types';
 import { Input } from '@/components/ui/input';
 import { SeasonSelector } from './season-selector';
@@ -130,6 +130,14 @@ export function ExtractedRecipePreview({
               <div className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
                 <span>Cottura: {recipe.cookTime} min</span>
+              </div>
+            )}
+            {/* Shown before saving so the estimate can be checked, and corrected in the
+                form afterwards, rather than discovered already stored. */}
+            {recipe.caloriesPerServing && (
+              <div className="flex items-center gap-1">
+                <Flame className="w-4 h-4" />
+                <span>{recipe.caloriesPerServing} kcal / porz.</span>
               </div>
             )}
           </div>

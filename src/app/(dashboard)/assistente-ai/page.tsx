@@ -7,7 +7,12 @@ import { RecipeExtractorUpload } from '@/components/recipe/recipe-extractor-uplo
 import { ExtractedRecipePreview } from '@/components/recipe/extracted-recipe-preview';
 import { RecipeTextInput } from '@/components/recipe/recipe-text-input';
 import { RecipeChatInput } from '@/components/recipe/recipe-chat-input';
-import { parseExtractedRecipes, ParsedRecipe, getAISuggestionForRecipe } from '@/lib/utils/recipe-parser';
+import {
+  parseExtractedRecipes,
+  ParsedRecipe,
+  getAISuggestionForRecipe,
+  getAICalorieEstimateForRecipe,
+} from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
@@ -140,6 +145,36 @@ export default function RecipeExtractorPage() {
    * @param markdownText - Claude's markdown output (same format regardless of source)
    * @param emptyMessage - Error message to show if no recipes are parsed
    */
+  /**
+   * Adds the AI-derived fields (category/season suggestion and calorie estimate) to
+   * freshly parsed recipes.
+   *
+   * The two enrichment calls are independent, so they run concurrently per recipe and
+   * every recipe runs concurrently too — the calorie estimate costs no extra wall time
+   * beyond the slower of the two. Either can come back null; the recipe is still usable
+   * without them, so a failure here never blocks the preview.
+   */
+  const enrichRecipesWithAI = async (parsedRecipes: ParsedRecipe[]): Promise<ParsedRecipe[]> => {
+    return Promise.all(
+      parsedRecipes.map(async (recipe) => {
+        const [suggestion, caloriesPerServing] = await Promise.all([
+          getAISuggestionForRecipe(
+            recipe.title,
+            recipe.ingredients,
+            userCategories.map(c => ({ name: c.name }))
+          ),
+          getAICalorieEstimateForRecipe(recipe.title, recipe.ingredients, recipe.servings),
+        ]);
+
+        return {
+          ...recipe,
+          aiSuggestion: suggestion || undefined,
+          ...(caloriesPerServing !== null ? { caloriesPerServing } : {}),
+        };
+      })
+    );
+  };
+
   const processExtractedMarkdown = async (markdownText: string, emptyMessage: string) => {
     const parsedRecipes = parseExtractedRecipes(markdownText);
 
@@ -149,26 +184,11 @@ export default function RecipeExtractorPage() {
 
     // Two-phase AI workflow:
     // Phase 1: Extract/format recipes (Claude) → returns markdown
-    // Phase 2: Suggest categories (Claude text analysis) → one call per recipe
-    // Phase 2 is parallelized (Promise.all) for speed.
-    // Total AI calls: 1 extraction/format + N suggestions (N = number of recipes)
+    // Phase 2: Per-recipe enrichment (category/season + calories), parallelized
+    // Total AI calls: 1 extraction/format + 2N enrichment (N = number of recipes)
     toast.success(`${parsedRecipes.length} ricett${parsedRecipes.length === 1 ? 'a trovata' : 'e trovate'}! Ottenimento suggerimenti AI...`);
 
-    const recipesWithSuggestions = await Promise.all(
-      parsedRecipes.map(async (recipe) => {
-        const suggestion = await getAISuggestionForRecipe(
-          recipe.title,
-          recipe.ingredients,
-          userCategories.map(c => ({ name: c.name }))
-        );
-        return {
-          ...recipe,
-          aiSuggestion: suggestion || undefined
-        };
-      })
-    );
-
-    setExtractedRecipes(recipesWithSuggestions);
+    setExtractedRecipes(await enrichRecipesWithAI(parsedRecipes));
     toast.success('Suggerimenti AI pronti!');
   };
 
@@ -189,16 +209,7 @@ export default function RecipeExtractorPage() {
 
     setCurrentSourceType('chat');
 
-    const recipesWithSuggestions = await Promise.all(
-      parsedRecipes.map(async (recipe) => {
-        const suggestion = await getAISuggestionForRecipe(
-          recipe.title,
-          recipe.ingredients,
-          userCategories.map((c) => ({ name: c.name }))
-        );
-        return { ...recipe, aiSuggestion: suggestion || undefined };
-      })
-    );
+    const recipesWithSuggestions = await enrichRecipesWithAI(parsedRecipes);
 
     // Append (not replace) so chat turns accumulate recipes in the preview list
     setExtractedRecipes((prev) => [...prev, ...recipesWithSuggestions]);
@@ -381,6 +392,8 @@ export default function RecipeExtractorPage() {
         images: [],
         ...(categoryIds.length ? { categoryIds } : {}),
         ...(seasons.length > 0 ? { seasons } : {}),
+        // Omit the key entirely when the estimate is missing — Firestore rejects undefined.
+        ...(recipe.caloriesPerServing ? { caloriesPerServing: recipe.caloriesPerServing } : {}),
       };
 
       await createRecipe(user.uid, recipeData);

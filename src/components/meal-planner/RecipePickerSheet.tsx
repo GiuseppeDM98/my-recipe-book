@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Category, MealSlot, MealType, Recipe, Season } from '@/types';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
+import { MEAL_LABELS } from '@/lib/constants/meal-types';
 import { matchesSearch } from '@/lib/utils/search';
 import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
 import { cn } from '@/lib/utils/cn';
@@ -28,17 +29,7 @@ interface RecipePickerSheetProps {
   onClear: (dayIndex: number, mealType: MealType) => void;
 }
 
-const MEAL_LABELS: Record<MealType, string> = {
-  colazione: 'Colazione',
-  pranzo: 'Pranzo',
-  cena: 'Cena',
-  primo: 'Primo',
-  secondo: 'Secondo',
-  contorno: 'Contorno',
-  dolce: 'Dolce',
-};
-
-const DAY_LABELS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+const DAY_LABELS =['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
 const SEASONS_WITH_ALL: (Season | 'tutti')[] = [
   'tutti', 'primavera', 'estate', 'autunno', 'inverno', 'tutte_stagioni'

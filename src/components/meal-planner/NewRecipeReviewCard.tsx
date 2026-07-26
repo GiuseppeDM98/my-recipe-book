@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, ChevronDown, ChevronUp, BookPlus, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Category, MealSlot, MealType, Season } from '@/types';
+import { Category, MealSlot, Season } from '@/types';
 import { SEASON_ICONS, SEASON_LABELS, ALL_SEASONS } from '@/lib/constants/seasons';
+import { MEAL_LABELS } from '@/lib/constants/meal-types';
 import { cn } from '@/lib/utils/cn';
 
 interface NewRecipeReviewCardProps {
@@ -18,7 +19,6 @@ interface NewRecipeReviewCardProps {
 }
 
 const DAY_LABELS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
-const MEAL_LABELS: Record<MealType, string> = { colazione: 'Colazione', pranzo: 'Pranzo', cena: 'Cena', primo: 'Primo', secondo: 'Secondo', contorno: 'Contorno', dolce: 'Dolce' };
 
 /**
  * Review card for an AI-generated recipe that hasn't been saved to the cookbook yet.

@@ -11,13 +11,13 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './config';
-import { Category, Subcategory } from '@/types';
+import { Category } from '@/types';
 
 /**
- * Category and Subcategory Management
+ * Category Management
  *
  * Architecture:
- * - Two collections: categories and subcategories
+ * - Single collection: categories
  * - User-scoped: All queries filter by userId
  * - Default categories: Created on user sign-up (see auth-context.tsx)
  * - Order field: Manual sorting (drag-drop in future)
@@ -42,7 +42,6 @@ import { Category, Subcategory } from '@/types';
  *
  * CHECKLIST: If you add a default category here, also update:
  * - Category type definitions in types/index.ts (if new fields added)
- * - Recipe extraction prompts in app/api/extract-recipes/route.ts
  * - Category suggestion prompts in app/api/suggest-category/route.ts
  */
 export const DEFAULT_CATEGORIES = [
@@ -112,102 +111,19 @@ export async function updateCategory(
 }
 
 /**
- * Delete category and all its subcategories
+ * Delete a category
  *
  * @param categoryId - Category to delete
- * @param userId - User ID for security filtering
  *
- * Cascade Delete Pattern:
- * 1. Query all subcategories for this category
- * 2. Delete all subcategories in parallel
- * 3. Delete the category itself
+ * Ownership is enforced by the Firestore rules on the categories collection, so no
+ * userId filter is needed here.
  *
- * Note: Does NOT delete recipes in this category - they become uncategorized.
+ * Note: Does NOT delete recipes in this category - they simply lose the tag.
  * This prevents accidental data loss.
  */
-export async function deleteCategory(categoryId: string, userId: string): Promise<void> {
-  // First, delete all subcategories in parallel for performance
-  const subcategoriesRef = collection(db, 'subcategories');
-  const q = query(
-    subcategoriesRef,
-    where('categoryId', '==', categoryId),
-    where('userId', '==', userId)
-  );
-
-  const subcategoriesSnapshot = await getDocs(q);
-  const deletePromises = subcategoriesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-  await Promise.all(deletePromises);
-
-  // Then delete the category itself
+export async function deleteCategory(categoryId: string): Promise<void> {
   const categoryRef = doc(db, 'categories', categoryId);
   await deleteDoc(categoryRef);
-}
-
-// Count subcategories for a category
-export async function countSubcategories(categoryId: string, userId: string): Promise<number> {
-  const subcategoriesRef = collection(db, 'subcategories');
-  const q = query(
-    subcategoriesRef,
-    where('categoryId', '==', categoryId),
-    where('userId', '==', userId)
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.size;
-}
-
-// Subcategories
-export async function createSubcategory(
-  userId: string,
-  categoryId: string,
-  name: string,
-  order: number
-): Promise<string> {
-  const subcategoriesRef = collection(db, 'subcategories');
-
-  const docRef = await addDoc(subcategoriesRef, {
-    categoryId,
-    userId,
-    name,
-    order,
-    createdAt: serverTimestamp(),
-  });
-
-  return docRef.id;
-}
-
-export async function getCategorySubcategories(
-  categoryId: string,
-  userId: string
-): Promise<Subcategory[]> {
-  const subcategoriesRef = collection(db, 'subcategories');
-  const q = query(
-    subcategoriesRef,
-    where('categoryId', '==', categoryId),
-    where('userId', '==', userId),
-    orderBy('order', 'asc')
-  );
-
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as Subcategory[];
-}
-
-// Update subcategory
-export async function updateSubcategory(
-  subcategoryId: string,
-  updates: Partial<Subcategory>
-): Promise<void> {
-  const subcategoryRef = doc(db, 'subcategories', subcategoryId);
-  await updateDoc(subcategoryRef, updates);
-}
-
-// Delete subcategory
-export async function deleteSubcategory(subcategoryId: string): Promise<void> {
-  const subcategoryRef = doc(db, 'subcategories', subcategoryId);
-  await deleteDoc(subcategoryRef);
 }
 
 /**

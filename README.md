@@ -146,7 +146,8 @@ Three ways to get recipes in — all powered by Claude AI:
 **Technical Details**:
 - Powered by Claude Sonnet 5 (1M token context window)
 - Native PDF support with base64 encoding
-- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat)
+- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (kcal)
+- The chat can optionally search the web and read attached photos (both opt-in per message); PDF and free-text extraction stay strictly faithful to the source you provide
 - AI-generated recipes include `[DUR:N]` tokens on timed steps; the parser converts them to `step.duration` automatically
 
 **Italian Seasonal Ingredient Database**:
@@ -1189,7 +1190,7 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 5. Add Vercel domain to Firebase authorized domains
 
 **Production auth note**:
-- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, and `/api/chat-recipe` all verify Firebase ID tokens server-side
+- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/estimate-calories` all verify Firebase ID tokens server-side
 - `NEXT_PUBLIC_FIREBASE_*` alone are not enough for those endpoints
 - On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64` to avoid multiline private key formatting issues
 
@@ -1330,7 +1331,6 @@ Firestore collections and document structures.
 - `users/{uid}` - User profiles
 - `recipes/{id}` - Recipe documents
 - `categories/{id}` - User-created categories
-- `subcategories/{id}` - Subcategories nested under categories
 - `cooking_sessions/{id}` - Active cooking progress tracking
 
 ### users/{uid}
@@ -1371,6 +1371,8 @@ interface Recipe {
   prepTime: number | null;     // Minutes
   cookTime: number | null;     // Minutes
   difficulty: string | null;   // "Facile", "Media", "Difficile"
+
+  caloriesPerServing?: number; // Estimated kcal for ONE serving (AI or manual, never measured)
 
   categoryIds: string[];       // A recipe can belong to multiple categories
   season: Season | null;       // Seasonal classification
@@ -1436,28 +1438,6 @@ interface Category {
 
 ---
 
-### subcategories/{id}
-
-Optional subcategories nested under categories, managed from the Categories page. They no longer apply to recipes — recipes are organized by one or more `categoryIds` only.
-
-```typescript
-interface Subcategory {
-  id: string;
-  userId: string;
-  categoryId: string;          // Parent category
-  name: string;
-  createdAt: Timestamp;
-}
-```
-
-**Example**:
-- Category: "Primi Piatti"
-- Subcategories: "Pasta", "Risotti", "Zuppe"
-
-**Security**: Owner-only access
-
----
-
 ### cooking_sessions/{id}
 
 Active cooking session with progress tracking.
@@ -1513,7 +1493,7 @@ service cloud.firestore {
                     && request.resource.data.userId == request.auth.uid;
     }
 
-    // Categories, Subcategories, Cooking Sessions: same pattern
+    // Categories, Cooking Sessions: same pattern
     // ...
   }
 }
@@ -1583,6 +1563,44 @@ Body:
 - Small PDF (1-5 recipes, < 1MB): 15-30 seconds
 - Medium PDF (10-20 recipes, 2-3MB): 45-90 seconds
 - Large PDF (20+ recipes, 3-4MB): 90-180 seconds
+
+---
+
+### POST /api/estimate-calories
+
+Estimates kcal per serving from a recipe's ingredient list.
+
+**Endpoint**: `POST /api/estimate-calories`
+
+**Content-Type**: `application/json`
+
+**Request**:
+```json
+{
+  "recipeTitle": "Risotto ai Funghi Porcini",
+  "ingredients": [
+    { "name": "riso carnaroli", "quantity": "320 g" },
+    { "name": "funghi porcini", "quantity": "300 g" },
+    { "name": "burro", "quantity": "40 g" }
+  ],
+  "servings": 4
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "caloriesPerServing": 520,
+  "confidence": "alta"
+}
+```
+
+**Notes**:
+- The estimate is always **per serving**, never a recipe total: servings are editable and cooking mode scales them at runtime.
+- `caloriesPerServing` is `null` when the ingredients are too vague to estimate, or when the returned figure falls outside a plausible 20–3000 kcal range. A `null` result is a successful response and is never saved — nothing is worse than a stored number nobody can tell is wrong.
+- `confidence` is `alta` / `media` / `bassa`, based on how many quantities were precise.
+- Ingredients with no numeric quantity are ignored, except cooking fats (oil, butter), which are estimated because they materially affect the total.
 
 ---
 

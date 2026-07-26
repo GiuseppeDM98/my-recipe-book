@@ -216,6 +216,16 @@ export interface Recipe {
   prepTime?: number;
   cookTime?: number;
   totalTime?: number;
+
+  /**
+   * Estimated kcal for ONE serving — an AI guess or a manual entry, never a measured value.
+   *
+   * Per serving rather than per recipe because `servings` is editable in the form and is
+   * already scaled at runtime by cooking mode: a stored total would silently drift out of
+   * sync the first time either changes.
+   */
+  caloriesPerServing?: number;
+
   notes?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -233,15 +243,6 @@ export interface Category {
   color?: string;
   order: number;
   isDefault: boolean;
-  createdAt: Timestamp;
-}
-
-export interface Subcategory {
-  id: string;
-  categoryId: string;
-  userId: string;
-  name: string;
-  order: number;
   createdAt: Timestamp;
 }
 
@@ -356,6 +357,8 @@ export interface ParsedRecipe {
   prepTime?: number;
   cookTime?: number;
   notes?: string;
+  /** Estimated kcal for one serving (see Recipe.caloriesPerServing). */
+  caloriesPerServing?: number;
   ingredients: Ingredient[];
   steps: Step[];
   aiSuggestion?: AISuggestion; // AI-generated category and season suggestion

@@ -7,13 +7,8 @@ import {
   createCategory,
   deleteCategory,
   updateCategory,
-  getCategorySubcategories,
-  createSubcategory,
-  updateSubcategory,
-  deleteSubcategory,
-  countSubcategories,
 } from '@/lib/firebase/categories';
-import { Category, Subcategory } from '@/types';
+import { Category } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -30,18 +25,17 @@ import {
 } from '@/components/ui/dialog';
 
 /**
- * Category Management Page - Complex CRUD with Nested Subcategories
+ * Category Management Page - CRUD on the user's recipe categories.
  *
- * Architecture: Lazy loading pattern for subcategories to reduce initial load time.
- * - Categories: Loaded eagerly on page mount
- * - Subcategories: Loaded lazily when category is expanded
+ * Categories are loaded eagerly on mount: the collection is small (a handful of
+ * documents per user) and every row is visible at once, so there is nothing to defer.
  *
- * State management: 4 concurrent dialog workflows (create, edit, delete, add subcategory).
- * Each dialog has independent state because they can't be open simultaneously (modal blocking),
- * each carries different data, and cleanup timing differs.
+ * State management: create is an inline form, edit and delete are separate dialogs.
+ * Each dialog keeps its own state because they can't be open simultaneously (modal
+ * blocking), they carry different data, and their cleanup timing differs.
  *
- * Why lazy loading: With many categories, loading all subcategories upfront would be slow.
- * Lazy loading provides instant page load with data fetched only when needed.
+ * Note: deleting a category does NOT delete the recipes in it — they simply lose that
+ * tag. A recipe can belong to several categories at once (see getRecipeCategoryIds).
  */
 export default function GestioneCategoriePage() {
   const { user } = useAuth();
@@ -52,17 +46,6 @@ export default function GestioneCategoriePage() {
   const [newCategoryColor, setNewCategoryColor] = useState('#FF6B6B');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
-  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
-  // WARNING: If you modify subcategory structure, also update:
-  // - getCategorySubcategories() in lib/firebase/categories.ts
-  // - Subcategory type in types/index.ts
-  // - Subcategory display in RecipeCard component
-  const [subcategories, setSubcategories] = useState<Record<string, Subcategory[]>>({});
-  const [newSubcategoryName, setNewSubcategoryName] = useState('');
-  const [addingSubcategoryTo, setAddingSubcategoryTo] = useState<string | null>(null);
-  const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
-  const [deletingSubcategory, setDeletingSubcategory] = useState<Subcategory | null>(null);
-  const [subcategoryCount, setSubcategoryCount] = useState<number>(0);
 
   const loadCategories = async () => {
     if (!user) return;
@@ -77,37 +60,11 @@ export default function GestioneCategoriePage() {
     }
   };
 
-  /**
-   * Fetches subcategories for a specific category on demand.
-   *
-   * Why lazy: Performance optimization - only load when category is expanded.
-   *
-   * Side effects: Updates subcategories map with categoryId as key.
-   */
-  const loadSubcategories = async (categoryId: string) => {
-    if (!user) return;
-    try {
-      const subs = await getCategorySubcategories(categoryId, user.uid);
-      setSubcategories(prev => ({ ...prev, [categoryId]: subs }));
-    } catch (error) {
-      console.error('Error loading subcategories:', error);
-    }
-  };
-
   useEffect(() => {
     if (user) {
       loadCategories();
     }
   }, [user]);
-
-  // Load subcategories only when category is expanded.
-  // Prevents unnecessary Firebase queries on page load.
-  // Cache check (!subcategories[expandedCategoryId]) avoids duplicate fetches.
-  useEffect(() => {
-    if (expandedCategoryId && !subcategories[expandedCategoryId]) {
-      loadSubcategories(expandedCategoryId);
-    }
-  }, [expandedCategoryId]);
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,92 +89,14 @@ export default function GestioneCategoriePage() {
     }
   };
 
-  /**
-   * Prepares delete confirmation dialog with subcategory impact warning.
-   *
-   * Why separate function: Must pre-load subcategory count before showing dialog
-   * to warn user about cascade deletion impact.
-   *
-   * Side effects: Firebase count query, state updates
-   */
-  const handleOpenDeleteDialog = async (category: Category) => {
-    if (!user) return;
-    setDeletingCategory(category);
-    // Pre-load count to warn user about cascade deletion impact.
-    // Firebase rules will cascade delete subcategories automatically,
-    // but user needs to know how many will be deleted.
-    const count = await countSubcategories(category.id, user.uid);
-    setSubcategoryCount(count);
-  };
-
   const handleDeleteCategory = async () => {
     if (!deletingCategory || !user) return;
     try {
-      await deleteCategory(deletingCategory.id, user.uid);
+      await deleteCategory(deletingCategory.id);
       setDeletingCategory(null);
-      setSubcategoryCount(0);
       await loadCategories();
     } catch (error) {
       console.error('Error deleting category:', error);
-    }
-  };
-
-  const handleAddSubcategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !addingSubcategoryTo || !newSubcategoryName) return;
-
-    try {
-      const currentSubs = subcategories[addingSubcategoryTo] || [];
-      await createSubcategory(
-        user.uid,
-        addingSubcategoryTo,
-        newSubcategoryName,
-        currentSubs.length + 1
-      );
-      setNewSubcategoryName('');
-      setAddingSubcategoryTo(null);
-      await loadSubcategories(addingSubcategoryTo);
-    } catch (error) {
-      console.error('Error creating subcategory:', error);
-    }
-  };
-
-  /**
-   * Expands/collapses category to show/hide subcategories (accordion pattern).
-   *
-   * Triggers: Lazy load via useEffect if subcategories not cached.
-   *
-   * State: Single expanded category at a time (clicking same category collapses it).
-   */
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategoryId(prev => prev === categoryId ? null : categoryId);
-  };
-
-  const handleUpdateSubcategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSubcategory) return;
-
-    try {
-      await updateSubcategory(editingSubcategory.id, {
-        name: editingSubcategory.name,
-      });
-      setEditingSubcategory(null);
-      await loadSubcategories(editingSubcategory.categoryId);
-    } catch (error) {
-      console.error('Error updating subcategory:', error);
-    }
-  };
-
-  const handleDeleteSubcategory = async () => {
-    if (!deletingSubcategory) return;
-
-    try {
-      await deleteSubcategory(deletingSubcategory.id);
-      const categoryId = deletingSubcategory.categoryId;
-      setDeletingSubcategory(null);
-      await loadSubcategories(categoryId);
-    } catch (error) {
-      console.error('Error deleting subcategory:', error);
     }
   };
 
@@ -317,14 +196,6 @@ export default function GestioneCategoriePage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => toggleCategory(cat.id)}
-                      className="flex-1 sm:flex-none text-xs sm:text-sm"
-                    >
-                      {expandedCategoryId === cat.id ? 'Chiudi' : 'Sottocategorie'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => setEditingCategory(cat)}
                       className="flex-1 sm:flex-none text-xs sm:text-sm"
                     >
@@ -334,7 +205,7 @@ export default function GestioneCategoriePage() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => handleOpenDeleteDialog(cat)}
+                        onClick={() => setDeletingCategory(cat)}
                         className="flex-1 sm:flex-none text-xs sm:text-sm"
                       >
                         Elimina
@@ -342,82 +213,6 @@ export default function GestioneCategoriePage() {
                     )}
                   </div>
                 </div>
-
-                {/* Subcategories Section */}
-                {expandedCategoryId === cat.id && (
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t">
-                    <div className="mb-3">
-                      <h4 className="font-medium mb-2 text-sm sm:text-base">Sottocategorie</h4>
-                      {subcategories[cat.id]?.length > 0 ? (
-                        <div className="space-y-2">
-                          {subcategories[cat.id].map((sub) => (
-                            <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 bg-muted/30 rounded">
-                              <span className="flex-grow min-w-0 text-sm sm:text-base break-words">{sub.name}</span>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setEditingSubcategory(sub)}
-                                  className="flex-1 sm:flex-none text-xs sm:text-sm"
-                                >
-                                  Modifica
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => setDeletingSubcategory(sub)}
-                                  className="flex-1 sm:flex-none text-xs sm:text-sm"
-                                >
-                                  Elimina
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs sm:text-sm text-muted-foreground">Nessuna sottocategoria</p>
-                      )}
-                    </div>
-                    {addingSubcategoryTo === cat.id ? (
-                      <form onSubmit={handleAddSubcategory} className="flex flex-col sm:flex-row gap-2">
-                        <Input
-                          type="text"
-                          value={newSubcategoryName}
-                          onChange={(e) => setNewSubcategoryName(e.target.value)}
-                          placeholder="Nome sottocategoria"
-                          required
-                          className="flex-grow"
-                        />
-                        <div className="flex gap-2">
-                          <Button type="submit" size="sm" className="flex-1 sm:flex-none text-xs sm:text-sm">
-                            Aggiungi
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setAddingSubcategoryTo(null);
-                              setNewSubcategoryName('');
-                            }}
-                            className="flex-1 sm:flex-none text-xs sm:text-sm"
-                          >
-                            Annulla
-                          </Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setAddingSubcategoryTo(cat.id)}
-                        className="w-full sm:w-auto text-xs sm:text-sm"
-                      >
-                        + Aggiungi Sottocategoria
-                      </Button>
-                    )}
-                  </div>
-                )}
               </div>
             </Card>
           ))}
@@ -473,87 +268,23 @@ export default function GestioneCategoriePage() {
       </Dialog>
 
       {/* === DELETE CATEGORY DIALOG === */}
-      <Dialog open={!!deletingCategory} onOpenChange={(open) => {
-        if (!open) {
-          setDeletingCategory(null);
-          setSubcategoryCount(0);
-        }
-      }}>
+      <Dialog open={!!deletingCategory} onOpenChange={(open) => !open && setDeletingCategory(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Elimina Categoria</DialogTitle>
             <DialogDescription>
               Sei sicuro di voler eliminare la categoria "{deletingCategory?.name}"?
-              {subcategoryCount > 0 && (
-                <span className="block mt-2 font-semibold text-red-600">
-                  Attenzione: verranno eliminate anche {subcategoryCount} sotto-categori{subcategoryCount === 1 ? 'a' : 'e'} associate.
-                </span>
-              )}
+              <span className="block mt-2">
+                Le ricette che la usano non vengono eliminate: perdono soltanto questa categoria.
+              </span>
               <span className="block mt-2">Questa azione non può essere annullata.</span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setDeletingCategory(null);
-              setSubcategoryCount(0);
-            }}>
+            <Button variant="outline" onClick={() => setDeletingCategory(null)}>
               Annulla
             </Button>
             <Button variant="destructive" onClick={handleDeleteCategory}>
-              Elimina
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* === EDIT SUBCATEGORY DIALOG === */}
-      <Dialog open={!!editingSubcategory} onOpenChange={(open) => !open && setEditingSubcategory(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modifica Sottocategoria</DialogTitle>
-            <DialogDescription>
-              Modifica il nome della sottocategoria
-            </DialogDescription>
-          </DialogHeader>
-          {editingSubcategory && (
-            <form onSubmit={handleUpdateSubcategory}>
-              <div className="space-y-4 py-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Nome</label>
-                  <Input
-                    type="text"
-                    value={editingSubcategory.name}
-                    onChange={(e) => setEditingSubcategory({ ...editingSubcategory, name: e.target.value })}
-                    placeholder="Nome sottocategoria"
-                    required
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditingSubcategory(null)}>
-                  Annulla
-                </Button>
-                <Button type="submit">Salva Modifiche</Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* === DELETE SUBCATEGORY DIALOG === */}
-      <Dialog open={!!deletingSubcategory} onOpenChange={(open) => !open && setDeletingSubcategory(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Elimina Sottocategoria</DialogTitle>
-            <DialogDescription>
-              Sei sicuro di voler eliminare la sottocategoria "{deletingSubcategory?.name}"? Questa azione non può essere annullata.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingSubcategory(null)}>
-              Annulla
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteSubcategory}>
               Elimina
             </Button>
           </DialogFooter>

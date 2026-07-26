@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingBasket } from 'lucide-react';
+import { ShoppingBasket, Flame } from 'lucide-react';
 import { Recipe } from '@/types';
 import { IngredientListCollapsible } from './ingredient-list-collapsible';
 import { StepsListCollapsible } from './steps-list-collapsible';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAddToAdHocShoppingList } from '@/lib/hooks/useAddToAdHocShoppingList';
+import { useEstimateCalories } from '@/lib/hooks/useEstimateCalories';
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -18,6 +19,7 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
   const originalServings = recipe.servings || 4;
   const { user } = useAuth();
   const addToAdHocShoppingList = useAddToAdHocShoppingList();
+  const estimateCalories = useEstimateCalories();
   const hasIngredients = recipe.ingredients.length > 0;
 
   /**
@@ -98,6 +100,37 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
               <span className="text-2xl font-bold tabular-nums text-primary">{recipe.totalTime}</span>
               <span className="ml-1.5 text-sm text-muted-foreground">min totali</span>
             </div>
+          )}
+          {/* Calories: the estimate when we have one, otherwise the action that produces
+              it. A "—" placeholder in a row of large numbers reads as broken data. */}
+          {recipe.caloriesPerServing ? (
+            <div>
+              <span className="text-2xl font-bold tabular-nums">{recipe.caloriesPerServing}</span>
+              <span className="ml-1.5 text-sm text-muted-foreground">kcal / porz.</span>
+            </div>
+          ) : (
+            hasIngredients && user && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={estimateCalories.isPending}
+                onClick={() => estimateCalories.mutate(recipe)}
+                className="h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                {estimateCalories.isPending ? (
+                  <>
+                    <Spinner size="sm" />
+                    Stimo le calorie…
+                  </>
+                ) : (
+                  <>
+                    <Flame className="h-4 w-4" />
+                    Stima calorie
+                  </>
+                )}
+              </Button>
+            )
           )}
         </div>
 
