@@ -179,6 +179,25 @@ Notes:
 | `npm audit fix` | Apply safe dependency fixes |
 | `docker compose --env-file .env.local up --build` | Build and run self-hosted app |
 | `firebase deploy --only firestore` | Deploy rules and indexes |
+| `npm run emulators` | Start Firebase Auth/Firestore/Storage emulators for guided testing |
+| `npm run test:e2e` | Run Playwright e2e specs (`e2e/**`) |
+
+---
+
+## Guided testing tooling
+
+Installed so manual collaudi can be automated end-to-end instead of asking the user to click through the UI (see guided-testing protocol in Claude's memory — data prepared via throwaway scripts with spy words, one phase per message, expected outcome declared up front, everything scriptable automated).
+
+- **Firebase Emulator Suite**: configured in `firebase.json` (`emulators.auth:9099`, `emulators.firestore:8080`, `emulators.storage:9199`, UI on `:4000`). Start with `npm run emulators`.
+- **Client SDK emulator wiring**: opt-in via `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true` (see `.env.example`) — `src/lib/firebase/config.ts` and `src/lib/firebase/storage.ts` connect to the local emulators instead of production when set. Unset (default) behaves exactly as before.
+- **Admin SDK emulator wiring**: no flag needed — `src/lib/firebase/admin.ts` auto-detects the standard `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` env vars and skips requiring real service-account credentials when set (the emulator doesn't validate them).
+- **Playwright**: `@playwright/test` installed as a devDependency, Chromium browser installed locally, config at `playwright.config.ts` (`baseURL` defaults to `http://localhost:3000`, one worker, trace on failure).
+- **Throwaway scripts**: guided-testing scripts for a specific collaudo go in `e2e/scratch/` (gitignored — never committed) and are deleted at the end of that collaudo, per the protocol. Reusable e2e helpers, if any emerge, belong in tracked `e2e/` files instead.
+
+Typical guided-testing session: `npm run emulators` in one terminal, `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` in another, then a scratch Playwright script under `e2e/scratch/` driving a real browser against the emulated backend, asserting on Firestore/HTTP state rather than page appearance.
+
+Collaudi eseguiti con questa tooling (aggiungere una riga per ogni collaudo chiuso):
+- *(nessun collaudo ancora eseguito con questa tooling — 2026-08-12: setup iniziale)*
 
 ---
 

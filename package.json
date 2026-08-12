@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "export": "next build && next export",
-    "test": "jest"
+    "test": "jest",
+    "emulators": "firebase emulators:start --only auth,firestore,storage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -38,6 +40,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/uuid": "^9.0.7",
