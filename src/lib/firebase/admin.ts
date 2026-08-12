@@ -72,6 +72,13 @@ function getFirebaseAdminCredential(): FirebaseAdminCredentialShape {
   };
 }
 
+// The Admin SDK auto-routes to `firebase emulators:start` when FIRESTORE_EMULATOR_HOST /
+// FIREBASE_AUTH_EMULATOR_HOST / FIREBASE_STORAGE_EMULATOR_HOST are set (standard emulator env
+// vars), and the emulator doesn't validate credentials — so skip requiring real ones in that case.
+function isEmulatorEnv(): boolean {
+  return Boolean(process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST);
+}
+
 export function getFirebaseAdminApp(): App {
   if (adminApp) {
     return adminApp;
@@ -79,6 +86,14 @@ export function getFirebaseAdminApp(): App {
 
   if (getApps().some((app) => app.name === FIREBASE_ADMIN_APP_NAME)) {
     adminApp = getApp(FIREBASE_ADMIN_APP_NAME);
+    return adminApp;
+  }
+
+  if (isEmulatorEnv()) {
+    adminApp = initializeApp({
+      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    }, FIREBASE_ADMIN_APP_NAME);
+
     return adminApp;
   }
 

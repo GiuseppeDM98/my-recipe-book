@@ -1,4 +1,4 @@
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { connectStorageEmulator, getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth } from './config';
 
 /**
@@ -19,6 +19,18 @@ import { auth } from './config';
  */
 
 const storage = getStorage();
+
+// Same opt-in emulator flag as config.ts — see comment there.
+if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+  const globalWithEmulatorFlag = globalThis as typeof globalThis & {
+    __firebaseStorageEmulatorConnected?: boolean;
+  };
+
+  if (!globalWithEmulatorFlag.__firebaseStorageEmulatorConnected) {
+    connectStorageEmulator(storage, '127.0.0.1', 9199);
+    globalWithEmulatorFlag.__firebaseStorageEmulatorConnected = true;
+  }
+}
 
 /**
  * Upload a recipe image to Firebase Storage

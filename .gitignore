@@ -55,3 +55,17 @@ next-env.d.ts
 
 # Impeccable critique snapshots (transient working artifacts; design.json stays tracked)
 .impeccable/critique/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Guided-testing throwaway scripts (one-off per collaudo session, never tracked)
+/e2e/scratch/*
+!/e2e/scratch/.gitkeep
+
+# Firebase emulator data/logs
+firebase-export-*/
+firestore-debug.log
+ui-debug.log
