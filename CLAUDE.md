@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-07-26
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-08-21
 
 ## Quick Reference
 
@@ -135,18 +135,11 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-07-26 — kcal, ricerca web + foto in chat, rimozione sottocategorie, portate nel piano
-- **kcal per porzione**: nuovo campo `caloriesPerServing?: number` su `Recipe` e su entrambi i `ParsedRecipe`, più la route `POST /api/estimate-calories` (json_schema, `thinking: adaptive` + `effort: 'low'`). Una sola route serve tutti i flussi (PDF, testo libero, chat, ricette esistenti): l'estrazione resta fedele alla fonte e la stima è un passaggio separato, come `suggest-category`. Stima **per porzione** e non totale perché `servings` è modificabile e la cottura lo scala a runtime. Guardie server: `servings >= 1`, valori fuori da 20–3000 kcal → `null` (l'errore tipico del modello è saltare la divisione). Campo manuale nel form (stringa, per distinguere vuoto da `0`; in modifica il vuoto diventa `deleteField()`), pulsante "Stima calorie" nel dettaglio, kcal su card/dettaglio/anteprima e **totali giornalieri** nel pianificatore via `meal-plan-calories.ts` (i giorni parziali si mostrano con `≥`). Esclusa dalla lista spesa per scelta
-- **Ricerca web e foto nella chat**, entrambe opt-in e solo su `chat-recipe`: `extract`/`format` hanno un contratto di fedeltà alla fonte, una seconda fonte di verità produrrebbe una sostituzione silenziosa. Web search `web_search_20260209` (nessun beta header, `code_execution` **non** dichiarato). Nuovo `claude-tool-loop.ts` per riprendere su `stop_reason: 'pause_turn'`: senza, `[/RICETTE]` non chiude e **le ricette spariscono senza errore**. `claude-blocks.ts` estrae testo e fonti gestendo il caso in cui `content` è un *oggetto errore* invece di un array (arriva su HTTP 200). Foto ridimensionate client-side (`image-resize.ts`, `imageOrientation: 'from-image'` — le foto da telefono arrivano ruotate), budget 3 foto / 3 MB validato **due volte** (client e server), e **non** persistite nella history (solo un marcatore testuale: 3 foto × 20 turni sarebbero ~280k token)
-- **Sottocategorie rimosse del tutto**: erano già staccate dal flusso ricette ma la pagina Categorie continuava a permetterne la creazione. Via ~230 righe di UI, 5 funzioni Firebase, il cascade-delete, il tipo, la regola e l'indice Firestore. I documenti già in `subcategories` restano inerti (nessuna query li legge)
-- **Portate e giorni su un piano avviato**: `addMealType`/`removeMealType`/`addDay` in `useMealPlanner` + nuova `PlanStructureCard`. Prima aggiungere "colazione" a una settimana avviata richiedeva di eliminare il piano. `removeMealType` cancella **anche gli slot**: `buildContributions` itera tutti gli slot senza filtrare per `activeMealTypes`, quindi uno slot orfano continuerebbe a contribuire alla lista della spesa. `MEAL_LABELS`/`SELECTABLE_MEAL_TYPES` centralizzati (erano 4 copie divergenti)
-- **Structured outputs su `suggest-category`** al posto del fence-stripping manuale, e rimozione di `suggestCategoryAndSeason`/`createCategorizationPrompt` (123 righe morte in `extract-recipes`)
-
-### 2026-07-05 — Upgrade Claude Sonnet 5 + pulizia ingredienti orfani
-- **Modello → Claude Sonnet 5** su tutti gli endpoint AI, centralizzato nella costante `AI_MODEL` (`lib/utils/constants.ts`) al posto di 8 literal hardcoded. Migrazione pulita: nessun `temperature`/`top_p`/`top_k`/prefill (romperebbero con 400). SDK `@anthropic-ai/sdk` bumpato a 0.110.0 per abilitare `output_config.effort`
-- **Thinking per endpoint**: `extract-recipes`/`format-recipe` usano `thinking: adaptive` + `output_config.effort: 'low'` (ragionamento leggero per la coerenza ingredienti↔procedimento, costo/latenza vicini al no-thinking); `suggest-category` `disabled`; `chat-recipe` adaptive default. `max_tokens` alzati per il nuovo tokenizer (~+30%): format/chat 4000→6000, suggest 500→700
-- **Ingredienti orfani**: `EXTRACTION_PROMPT` (§11) e `FORMAT_RECIPE_PROMPT` (§9) ora **omettono** gli ingredienti mai usati/menzionati in nessuno step (refusi della fonte, es. arancia candita nelle sfogliatelle). Regola **conservativa fail-safe**: mantiene tutto se il procedimento è sintetico ("aggiungere i restanti ingredienti", ecc.)
-- **Prompt caching valutato e scartato**: uso sporadico → la cache scade prima del riuso (TTL 5 min), sarebbe costo netto (premio scrittura 1,25×) non risparmio
+### 2026-08-21 — Fix spunte lista della spesa che spariscono al remount
+- **Causa**: `useShoppingList` vive dentro il componente pagina `lista-spesa/page.tsx`, quindi navigare via e tornare smonta/rimonta l'hook. La query del piano ha `staleTime: 2min` (globale): un remount entro quella finestra riusava lo snapshot cachato dal **primo** fetch, e l'effetto di init si fidava ciecamente di quello snapshot, sovrascrivendo lo stato locale con le spunte vecchie anche se la scrittura debounced su Firestore era già andata a buon fine
+- **Fix**: nuovo effetto che specchia `checkedIdsList`/`customItems` nella cache React Query (`queryClient.setQueryData` sulla query key `['shoppingList', uid, weekStartDate]`) ad ogni loro variazione, invece di aspettare la scrittura Firestore. Un remount entro `staleTime` legge quindi sempre lo stato più recente
+- **Non toccato**: debounce 500ms, flush su `unmount`/`visibilitychange`/`pagehide`, fallback `localStorage` — restano invariati (servono per persistenza cross-device/offline)
+- **Nota**: resta un gotcha minore non risolto — se una scrittura Firestore fallisce e scatta il fallback `localStorage`, quel fallback non viene mai riletto finché `shoppingCheckedIds` su Firestore non è vuoto (l'init controlla solo vuoto/non-vuoto, non quale dei due sia più recente); casistica rara, da affrontare separatamente se si ripresenta
 
 ---
 
@@ -179,6 +172,25 @@ Notes:
 | `npm audit fix` | Apply safe dependency fixes |
 | `docker compose --env-file .env.local up --build` | Build and run self-hosted app |
 | `firebase deploy --only firestore` | Deploy rules and indexes |
+| `npm run emulators` | Start Firebase Auth/Firestore/Storage emulators for guided testing |
+| `npm run test:e2e` | Run Playwright e2e specs (`e2e/**`) |
+
+---
+
+## Guided testing tooling
+
+Installed so manual collaudi can be automated end-to-end instead of asking the user to click through the UI (see guided-testing protocol in Claude's memory — data prepared via throwaway scripts with spy words, one phase per message, expected outcome declared up front, everything scriptable automated).
+
+- **Firebase Emulator Suite**: configured in `firebase.json` (`emulators.auth:9099`, `emulators.firestore:8080`, `emulators.storage:9199`, UI on `:4000`). Start with `npm run emulators`.
+- **Client SDK emulator wiring**: opt-in via `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true` (see `.env.example`) — `src/lib/firebase/config.ts` and `src/lib/firebase/storage.ts` connect to the local emulators instead of production when set. Unset (default) behaves exactly as before.
+- **Admin SDK emulator wiring**: no flag needed — `src/lib/firebase/admin.ts` auto-detects the standard `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` env vars and skips requiring real service-account credentials when set (the emulator doesn't validate them).
+- **Playwright**: `@playwright/test` installed as a devDependency, Chromium browser installed locally, config at `playwright.config.ts` (`baseURL` defaults to `http://localhost:3000`, one worker, trace on failure).
+- **Throwaway scripts**: guided-testing scripts for a specific collaudo go in `e2e/scratch/` (gitignored — never committed) and are deleted at the end of that collaudo, per the protocol. Reusable e2e helpers, if any emerge, belong in tracked `e2e/` files instead.
+
+Typical guided-testing session: `npm run emulators` in one terminal, `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` in another, then a scratch Playwright script under `e2e/scratch/` driving a real browser against the emulated backend, asserting on Firestore/HTTP state rather than page appearance.
+
+Collaudi eseguiti con questa tooling (aggiungere una riga per ogni collaudo chiuso):
+- *(nessun collaudo ancora eseguito con questa tooling — 2026-08-12: setup iniziale)*
 
 ---
 

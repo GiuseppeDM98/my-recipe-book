@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,5 +16,20 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Opt-in only: set NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true (e.g. via .env.local.emulator)
+// to point the client SDK at `firebase emulators:start` instead of production Firebase.
+// Guarded by a global flag so hot-reload/multiple imports don't reconnect twice.
+if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === 'true') {
+  const globalWithEmulatorFlag = globalThis as typeof globalThis & {
+    __firebaseEmulatorsConnected?: boolean;
+  };
+
+  if (!globalWithEmulatorFlag.__firebaseEmulatorsConnected) {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    globalWithEmulatorFlag.__firebaseEmulatorsConnected = true;
+  }
+}
 
 export default app;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getMealPlanByWeek, updateMealPlanShoppingState } from '@/lib/firebase/meal-plans';
 import { getRecipesByIds } from '@/lib/firebase/firestore';
@@ -83,6 +83,7 @@ export interface UseShoppingListReturn {
  */
 export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const lsKey = user ? storageKey(user.uid, weekStartDate) : '';
 
@@ -97,13 +98,15 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     initialCustomItems: ShoppingItem[];
   }
 
+  const shoppingListQueryKey = ['shoppingList', user?.uid ?? '', weekStartDate] as const;
+
   const {
     data,
     isLoading,
     isFetched,
   } = useQuery<QueryResult | null>({
     enabled: !!user,
-    queryKey: ['shoppingList', user?.uid ?? '', weekStartDate],
+    queryKey: shoppingListQueryKey,
     queryFn: async () => {
       const plan = await getMealPlanByWeek(user!.uid, weekStartDate);
       if (!plan) return null; // null signals "no plan for this week"
@@ -309,6 +312,26 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
       setCustomItems(saved);
     }
   }, [lsKey, isFetched, data]);
+
+  // Keep the React Query cache in sync with local state as it changes.
+  //
+  // WHY: this hook lives inside the shopping-list page component, so leaving
+  // that page and coming back (SPA navigation, not a full reload) unmounts
+  // and remounts it. The plan query has a 2min staleTime, so a remount within
+  // that window reuses the cached fetch result instead of hitting Firestore
+  // again — and the init effect below trusts that cached `data` blindly. Without
+  // this sync, the cache still held the checked ids from the ORIGINAL fetch,
+  // so remounting silently reverted any items (un)checked since then, even
+  // though the Firestore write itself had already succeeded. Updating the
+  // cache eagerly (not waiting on the debounced Firestore write) means the
+  // cache always reflects what's on screen, independent of write timing.
+  useEffect(() => {
+    if (stateKeyRef.current !== lsKey || !lsKey || !planIdRef.current) return;
+    queryClient.setQueryData<QueryResult | null>(shoppingListQueryKey, old =>
+      old ? { ...old, initialCheckedIds: checkedIdsList, initialCustomItems: customItems } : old
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lsKey, checkedIdsList, customItems]);
 
   // Persist state changes. The stateKeyRef guard prevents writes before
   // initialization (e.g. the week-change reset doesn't clobber Firestore).
