@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { MealType } from '@/types';
-import { MEAL_LABELS, SELECTABLE_MEAL_TYPES } from '@/lib/constants/meal-types';
+import { MEAL_LABELS, SELECTABLE_MEAL_TYPES, sortMealTypes } from '@/lib/constants/meal-types';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -133,7 +133,7 @@ export function PlanStructureCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {activeMealTypes.map((mealType) => (
+          {sortMealTypes(activeMealTypes).map((mealType) => (
             <button
               key={mealType}
               type="button"

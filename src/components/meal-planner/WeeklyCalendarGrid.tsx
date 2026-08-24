@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { MealPlan, MealSlot, MealType, Recipe, Category } from '@/types';
-import { MEAL_LABELS } from '@/lib/constants/meal-types';
+import { MEAL_LABELS, sortMealTypes } from '@/lib/constants/meal-types';
 import { computeWeekCalories } from '@/lib/utils/meal-plan-calories';
 import { MealSlotCell, isNewRecipeSlot } from './MealSlotCell';
 import { cn } from '@/lib/utils/cn';
@@ -47,6 +47,7 @@ export function WeeklyCalendarGrid({
 }: WeeklyCalendarGridProps) {
   const { activeMealTypes, slots } = plan;
   const activeDays = plan.activeDays ?? [0, 1, 2, 3, 4, 5, 6];
+  const orderedMealTypes = useMemo(() => sortMealTypes(activeMealTypes), [activeMealTypes]);
 
   const recipesById = useMemo(
     () => new Map(recipes.map(recipe => [recipe.id, recipe])),
@@ -132,7 +133,7 @@ export function WeeklyCalendarGrid({
         </div>
 
         {/* Meal rows */}
-        {activeMealTypes.map(mealType => (
+        {orderedMealTypes.map(mealType => (
           <div
             key={mealType}
             className="grid gap-2 mb-2"
@@ -191,7 +192,7 @@ export function WeeklyCalendarGrid({
 
             {/* Meal type rows */}
             <div className="space-y-2">
-              {activeMealTypes.map(mealType => {
+              {orderedMealTypes.map(mealType => {
                 const slot = getSlot(dayIndex, mealType);
                 const slotKey = `${dayIndex}-${mealType}`;
                 return (

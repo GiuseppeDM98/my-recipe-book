@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-08-21
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-08-24
 
 > Leggi [WORKFLOW.md](WORKFLOW.md) prima di iniziare: regole di sessione (branch,
 > commit, lingua) e protocollo di collaudo guidato.
@@ -22,7 +22,7 @@ Digital recipe book for home cooks with:
 - recipe CRUD with multi-category tagging (a recipe can belong to several categories at once)
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation (chat supports opt-in web search and photo attachments)
 - cooking mode with active session tracking and per-step countdown timers
-- weekly meal planning with local "shuffle" generation (no AI) and manual editing
+- weekly meal planning (colazione/spuntino/pranzo/merenda/cena, always in canonical day order) with local "shuffle" generation (no AI) and manual editing
 - weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging), plus ad-hoc "Voglio preparare questo" additions from any recipe, independent of the weekly plan
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
 - estimated kcal per serving, AI-estimated or entered by hand, with daily totals in the planner
@@ -138,11 +138,11 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-08-21 — Fix spunte lista della spesa che spariscono al remount
-- **Causa**: `useShoppingList` vive dentro il componente pagina `lista-spesa/page.tsx`, quindi navigare via e tornare smonta/rimonta l'hook. La query del piano ha `staleTime: 2min` (globale): un remount entro quella finestra riusava lo snapshot cachato dal **primo** fetch, e l'effetto di init si fidava ciecamente di quello snapshot, sovrascrivendo lo stato locale con le spunte vecchie anche se la scrittura debounced su Firestore era già andata a buon fine
-- **Fix**: nuovo effetto che specchia `checkedIdsList`/`customItems` nella cache React Query (`queryClient.setQueryData` sulla query key `['shoppingList', uid, weekStartDate]`) ad ogni loro variazione, invece di aspettare la scrittura Firestore. Un remount entro `staleTime` legge quindi sempre lo stato più recente
-- **Non toccato**: debounce 500ms, flush su `unmount`/`visibilitychange`/`pagehide`, fallback `localStorage` — restano invariati (servono per persistenza cross-device/offline)
-- **Nota**: resta un gotcha minore non risolto — se una scrittura Firestore fallisce e scatta il fallback `localStorage`, quel fallback non viene mai riletto finché `shoppingCheckedIds` su Firestore non è vuoto (l'init controlla solo vuoto/non-vuoto, non quale dei due sia più recente); casistica rara, da affrontare separatamente se si ripresenta
+### 2026-08-24 — Ordine canonico portate + spuntino/merenda (Spec A)
+- **Ordine canonico**: `MealType` si estende con `spuntino` (metà mattina) e `merenda` (pomeriggio); `SELECTABLE_MEAL_TYPES` diventa `['colazione', 'spuntino', 'pranzo', 'merenda', 'cena']` ed è anche l'ordine canonico della giornata
+- **`sortMealTypes()`** (`lib/constants/meal-types.ts`): nuovo helper che ordina per indice in `SELECTABLE_MEAL_TYPES`, tipi legacy (`primo`/`secondo`/`contorno`/`dolce`) in coda con sort stabile. Applicato in scrittura (`addMealType`, `copyPlanToWeek` in `useMealPlanner.ts`; `toggleMealType` in `MealPlanSetupForm.tsx`) e in lettura (`WeeklyCalendarGrid.tsx`, `PlanStructureCard.tsx`, `MealPlanSetupForm.tsx`) — i piani Firestore esistenti con ordine sbagliato si auto-correggono a render time, senza migrazione
+- **Spuntini**: selezionabili al setup, aggiungibili/rimovibili da un piano avviato via `PlanStructureCard`, riempibili con lo shuffle locale e con configurazione categorie per-portata come le altre portate — nessuna UI nuova, entrano gratis nei flussi esistenti grazie a `SELECTABLE_MEAL_TYPES`/`MEAL_LABELS`
+- **Non toccato**: lista della spesa e statistiche (insensibili all'ordine di `activeMealTypes`), pool dello shuffle (non specifico per portata, mitigazione = categoria preferita per-portata)
 
 ---
 
@@ -193,7 +193,7 @@ Installed so manual collaudi can be automated end-to-end instead of asking the u
 Typical guided-testing session: `npm run emulators` in one terminal, `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` in another, then a scratch Playwright script under `e2e/scratch/` driving a real browser against the emulated backend, asserting on Firestore/HTTP state rather than page appearance.
 
 Collaudi eseguiti con questa tooling (aggiungere una riga per ogni collaudo chiuso):
-- *(nessun collaudo ancora eseguito con questa tooling — 2026-08-12: setup iniziale)*
+- **2026-08-24 — Spec A (ordinamento portate + spuntino/merenda)**: 6 fasi (seed → auto-correzione in lettura → scrittura canonica via `addMealType` → setup con toggle pranzo → rimozione merenda senza slot orfani → screenshot desktop/mobile a 5 portate), tutte verdi, asserzioni su Firestore reale (non solo aspetto pagina). Bug di harness scoperto e corretto durante il collaudo: un'asserzione Playwright basata su un testo già presente nel form di setup dava falso positivo prima che la scrittura Firestore fosse completata — corretto attendendo un marker visibile solo nello step calendario. Nessun bug applicativo trovato.
 
 ---
 
