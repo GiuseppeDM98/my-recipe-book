@@ -52,6 +52,8 @@
 - Added the ability to add or remove meal types (breakfast, lunch, dinner, etc.) on a meal plan that's already in progress, without having to delete and recreate the whole week
 - Added the ability to add back a day you previously removed from a meal plan
 
+- Added two new meal types to the weekly planner: Spuntino (mid-morning snack) and Merenda (afternoon snack) — select them during setup or add them to a plan that's already running, just like breakfast, lunch, or dinner
+
 ## 🐛 Bug Fixes
 
 - Fixed the shopping list not refreshing immediately after adding/removing a meal type or day, a recipe, or deleting the plan — it previously could take up to two minutes (or a hard refresh) to reflect the change
@@ -88,6 +90,8 @@
 - Fixed the meal planner "reshuffle" button being invisible on phones — the ↺ swap-recipe button on each meal slot is now always visible on mobile, where it previously only appeared on mouse hover (which phones don't have)
 - Fixed the servings selector in cooking mode jumping back to 1 when you cleared the field to type a new number
 - Fixed an error while cooking (for example a failed save) replacing the whole screen — problems now show as a dismissible message and your cooking progress stays in view
+
+- Fixed meal rows in the weekly planner sometimes displaying out of the natural order of the day (e.g. adding breakfast to an existing plan could show it after lunch and dinner instead of first) — meal rows now always follow breakfast → morning snack → lunch → afternoon snack → dinner, including in plans saved before this fix
 
 ## 🔧 Improvements
 

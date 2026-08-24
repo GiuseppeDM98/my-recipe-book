@@ -377,13 +377,19 @@ export interface ParsedRecipe {
  * - cena (dinner): second main meal, typically 7:30–9pm
  */
 /**
- * Meal types include both traditional meal slots (colazione/pranzo/cena) and
- * Italian course types (primo/secondo/contorno/dolce).
+ * Meal types include both traditional meal slots (colazione/spuntino/pranzo/
+ * merenda/cena) and Italian course types (primo/secondo/contorno/dolce).
  *
  * Course types are optional rows added in advanced setup, each optionally
  * associated with a preferred category so the AI picks appropriate recipes.
  */
-export type MealType = 'colazione' | 'pranzo' | 'cena' | 'primo' | 'secondo' | 'contorno' | 'dolce';
+export type MealType =
+  | 'colazione'
+  | 'spuntino' // metà mattina
+  | 'pranzo'
+  | 'merenda' // pomeriggio
+  | 'cena'
+  | 'primo' | 'secondo' | 'contorno' | 'dolce'; // legacy course types, solo render di piani storici
 
 /**
  * A single slot in the weekly meal plan.

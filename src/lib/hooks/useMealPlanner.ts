@@ -12,6 +12,7 @@ import { createRecipe } from '@/lib/firebase/firestore';
 import { createCategoryIfNotExists } from '@/lib/firebase/categories';
 import { buildShuffledSlots, pickReshuffledRecipe } from '@/lib/utils/meal-plan-shuffle';
 import { getRecipeCategoryIds } from '@/lib/utils/recipe-categories';
+import { sortMealTypes } from '@/lib/constants/meal-types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { recipesQueryKey } from '@/lib/hooks/useRecipes';
@@ -202,7 +203,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
     const newPlanId = await createMealPlan(user.uid, {
       weekStartDate: targetWeekStartDate,
       slots: currentPlan.slots,
-      activeMealTypes: currentPlan.activeMealTypes,
+      activeMealTypes: sortMealTypes(currentPlan.activeMealTypes),
       season: currentPlan.season,
       generatedByAI: false,
       activeDays: currentPlan.activeDays ?? null,
@@ -426,6 +427,9 @@ export function useMealPlanner(): UseMealPlannerReturn {
    * With `autofill` the new row is populated by the same local shuffle used at
    * setup, restricted to this meal type so existing slots are never touched.
    * Without it the row appears empty and is filled from the RecipePickerSheet.
+   *
+   * The result is passed through sortMealTypes so the array stays in canonical
+   * day order, same as addDay does for activeDays.
    */
   const addMealType = useCallback(async (
     mealType: MealType,
@@ -435,7 +439,7 @@ export function useMealPlanner(): UseMealPlannerReturn {
     if (!currentPlan) return;
     if (currentPlan.activeMealTypes.includes(mealType)) return;
 
-    const nextActiveMealTypes = [...currentPlan.activeMealTypes, mealType];
+    const nextActiveMealTypes = sortMealTypes([...currentPlan.activeMealTypes, mealType]);
 
     let nextSlots = currentPlan.slots;
     if (options?.autofill) {

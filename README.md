@@ -163,7 +163,7 @@ Plan your meals for the week — generated locally from your own recipes, or ful
 
 - **Shuffle generation**: One tap builds a weekly plan by picking recipes from your cookbook that match the selected season and your per-meal category choices
 - **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
-- **Per-meal categories**: For each meal (breakfast, lunch, dinner) choose a preferred category and categories to avoid, so the shuffle won't put, say, a dessert at lunch
+- **Per-meal categories**: For each meal (breakfast, morning snack, lunch, afternoon snack, dinner) choose a preferred category and categories to avoid, so the shuffle won't put, say, a dessert at lunch
 - **Reshuffle a slot**: Use the ↺ action on any slot to swap in a different recipe of the same category, without rebuilding the week
 - **Edit anytime**: Click any slot to change the recipe manually
 - **Copy plan**: Duplicate a week you liked into another week (it stops you if that week already has a plan)

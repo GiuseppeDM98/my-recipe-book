@@ -167,7 +167,7 @@ per sessione, nessun commit senza OK esplicito).
 
 ## Stato
 
-- [ ] Spec A — da implementare
+- [x] Spec A — implementata (2026-08-24)
 - [ ] Spec B — da implementare
 - [ ] Spec C — da implementare
 - [ ] Spec D — da implementare

@@ -10,7 +10,7 @@ import {
   getCurrentSeason,
   getCurrentWeekMonday,
 } from '@/lib/constants/seasons';
-import { MEAL_LABELS, SELECTABLE_MEAL_TYPES } from '@/lib/constants/meal-types';
+import { MEAL_LABELS, SELECTABLE_MEAL_TYPES, sortMealTypes } from '@/lib/constants/meal-types';
 import { cn } from '@/lib/utils/cn';
 
 interface MealPlanSetupFormProps {
@@ -78,7 +78,7 @@ export function MealPlanSetupForm({
         setMealTypeConfigs(m => { const n = { ...m }; delete n[type]; return n; });
         return prev.filter(t => t !== type);
       }
-      return [...prev, type];
+      return sortMealTypes([...prev, type]);
     });
   }
 
@@ -202,7 +202,7 @@ export function MealPlanSetupForm({
               Per ogni pasto scegli la categoria da usare e quelle da evitare: così lo shuffle non mette, ad esempio, un dolce a pranzo.
             </p>
           </div>
-          {activeMealTypes.map(type => {
+          {sortMealTypes(activeMealTypes).map(type => {
                 const cfg = mealTypeConfigs[type] ?? {};
                 const excluded = cfg.excludedCategoryIds ?? [];
                 const preferredId = cfg.preferredCategoryId ?? '';
