@@ -1,6 +1,6 @@
 # AI Agent Guidelines - Il Mio Ricettario
 
-**Focus**: solo gotcha che possono causare debug >30min. Per contesto architetturale: [CLAUDE.md](CLAUDE.md)
+**Focus**: solo gotcha che possono causare debug >30min. Per contesto architetturale: [CLAUDE.md](CLAUDE.md). Per regole di sessione e collaudo guidato: [WORKFLOW.md](WORKFLOW.md)
 
 ---
 

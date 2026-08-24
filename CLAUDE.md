@@ -2,6 +2,9 @@
 
 > **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-08-21
 
+> Leggi [WORKFLOW.md](WORKFLOW.md) prima di iniziare: regole di sessione (branch,
+> commit, lingua) e protocollo di collaudo guidato.
+
 ## Quick Reference
 
 | Resource | Purpose |
