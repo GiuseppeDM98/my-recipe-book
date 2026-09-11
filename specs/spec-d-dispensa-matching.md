@@ -1,45 +1,45 @@
-# Spec D — Motore di matching ingredienti + integrazione lista spesa ↔ dispensa ↔ cotture
+# Spec D — Ingredient matching engine + shopping list ↔ pantry ↔ cooking integration
 
-> Note coperte: 1 (ingredienti banali, spunta→dispensa, doppioni, scalo a fine cottura, matching) | Dipendenze: nessuna (Spec E dipende da questa) | Branch: `feature/pantry-shopping-integration`
+> Notes covered: 1 (trivial ingredients, check→pantry, duplicates, end-of-cooking deduction, matching) | Dependencies: none (Spec E depends on this one) | Branch: `feature/pantry-shopping-integration`
 
-Leggere insieme a `specs/00-roadmap.md` (contratto vincolante, in particolare "Contratti cross-spec §2" e "Decisioni di prodotto §1–3").
+Read together with `specs/00-roadmap.md` (binding contract, in particular "Cross-spec contracts §2" and "Product decisions §1–3").
 
 ---
 
-## 1. Obiettivo
+## 1. Goal
 
-Oggi lista della spesa e dispensa sono due mondi separati: la lista propone di comprare acqua e ingredienti che l'utente ha già in casa, la spesa spuntata non finisce mai in dispensa, e a fine cottura le scorte restano invariate. Questa spec introduce un **motore di matching ingredienti↔dispensa** condiviso (`ingredient-matching.ts`) e lo usa in tre punti:
+Today the shopping list and the pantry are two separate worlds: the list suggests buying water and ingredients the user already has at home, checked-off shopping never ends up in the pantry, and at the end of cooking the stock stays unchanged. This spec introduces a shared **ingredient↔pantry matching engine** (`ingredient-matching.ts`) and uses it in three places:
 
-1. la lista della spesa **non mostra mai** ingredienti banali (acqua, ghiaccio) e sposta in una sezione collassata **"Hai già in casa"** gli ingredienti matchati in dispensa con scorta sufficiente, re-includibili con un tap;
-2. un bottone **"Aggiungi alla dispensa"** trasforma in batch gli articoli spuntati in voci di dispensa (creazione o incremento della voce esistente), con posizione/quantità/scadenza precompilate;
-3. al tap su **"Termina cottura"** un dialog propone lo **scalo delle scorte** usate, quantità già adattate alle porzioni cucinate, ogni riga modificabile o escludibile.
+1. the shopping list **never shows** trivial ingredients (water, ice) and moves ingredients matched in the pantry with sufficient stock into a collapsed **"Hai già in casa"** section, re-includable with one tap;
+2. an **"Aggiungi alla dispensa"** button turns the checked items into pantry entries in batch (creating or incrementing the existing entry), with position/quantity/expiry prefilled;
+3. on tapping **"Termina cottura"** a dialog proposes **deducting the stock** used, with quantities already adapted to the servings cooked, every row editable or excludable.
 
-I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferma una volta, e la conferma diventa un **alias persistente** sulla voce di dispensa (vale per sempre, sia in lista sia nello scalo). Include quattro micro-fix (bottone "Aggiungi articolo" senza piano, ConfirmDialog sul delete dispensa, "Consumato" sensato per unità, rimozione stub morti).
+Uncertain matches never do anything on their own: the app **proposes**, the user confirms once, and the confirmation becomes a **persistent alias** on the pantry entry (valid forever, both in the list and in the deduction). Includes four micro-fixes ("Aggiungi articolo" button without a plan, ConfirmDialog on pantry delete, a sensible "Consumato" per unit, removal of dead stubs).
 
-## 2. Stato attuale (riferimenti verificati)
+## 2. Current state (verified references)
 
-### 2.1 Aggregazione lista spesa
+### 2.1 Shopping list aggregation
 
-- `src/lib/utils/ingredient-aggregator.ts:19` — `buildContributions(plan, recipesById)` appiattisce tutti gli slot del piano in `IngredientContribution[]` (nessun filtro).
-- `src/lib/utils/ingredient-aggregator.ts:75` — `aggregateIngredients(contributions)` raggruppa per chiave canonica; alla riga 89: `const key = canonicalIngredientKey(c.name);`.
-- `src/lib/utils/ingredient-aggregator.ts:164` — la funzione chiave è **privata**:
+- `src/lib/utils/ingredient-aggregator.ts:19` — `buildContributions(plan, recipesById)` flattens all plan slots into `IngredientContribution[]` (no filter).
+- `src/lib/utils/ingredient-aggregator.ts:75` — `aggregateIngredients(contributions)` groups by canonical key; at line 89: `const key = canonicalIngredientKey(c.name);`.
+- `src/lib/utils/ingredient-aggregator.ts:164` — the key function is **private**:
   ```ts
   function canonicalIngredientKey(name: string): string {
   ```
-  (NFD accent-strip, lowercase, `singularizeWord` per parola — riga 184; conservativa: parole <4 caratteri intoccate, multi-parola mai collassate).
-- `src/lib/utils/ingredient-aggregator.ts:218` — `NON_SCALABLE_RE` (`q.b.`, `un pizzico`, `a piacere`…): influenza solo il parsing quantità, **non** esclude articoli.
-- `src/lib/utils/ingredient-aggregator.ts:224` — `UNIT_ALIASES` privata (massa base g, volume base ml, alias italiani `etti`, `chili`, `lt`…).
-- `src/lib/utils/ingredient-aggregator.ts:298` — `parseQuantity(quantity): ParsedQuantity | null` privata; `ParsedQuantity` (riga 210) = `{ baseValue, dimension: 'mass'|'volume'|'count', unit }`.
-- `src/lib/utils/ingredient-aggregator.ts:322` — `formatQuantity(baseValue, dimension)` privata (g↔kg, ml↔l, virgola italiana).
-- `src/lib/utils/ingredient-aggregator.ts:127` — id item piano = `toSlug(key)` (stabile tra ricomputazioni).
-- **Nessun filtro di ingredienti banali esiste** (verificato: nessun riferimento ad acqua/ghiaccio nell'aggregatore, nel hook o nei componenti).
+  (NFD accent-strip, lowercase, `singularizeWord` per word — line 184; conservative: words <4 characters untouched, multi-word never collapsed).
+- `src/lib/utils/ingredient-aggregator.ts:218` — `NON_SCALABLE_RE` (`q.b.`, `un pizzico`, `a piacere`…): affects only quantity parsing, it does **not** exclude items.
+- `src/lib/utils/ingredient-aggregator.ts:224` — private `UNIT_ALIASES` (mass base g, volume base ml, Italian aliases `etti`, `chili`, `lt`…).
+- `src/lib/utils/ingredient-aggregator.ts:298` — private `parseQuantity(quantity): ParsedQuantity | null`; `ParsedQuantity` (line 210) = `{ baseValue, dimension: 'mass'|'volume'|'count', unit }`.
+- `src/lib/utils/ingredient-aggregator.ts:322` — private `formatQuantity(baseValue, dimension)` (g↔kg, ml↔l, Italian decimal comma).
+- `src/lib/utils/ingredient-aggregator.ts:127` — plan item id = `toSlug(key)` (stable across recomputations).
+- **No trivial-ingredient filter exists** (verified: no reference to acqua/ghiaccio in the aggregator, the hook or the components).
 
-### 2.2 Hook lista spesa e persistenza
+### 2.2 Shopping list hook and persistence
 
-- `src/lib/hooks/useShoppingList.ts:84` — orchestrazione completa. Query `['shoppingList', uid, weekStartDate]` (riga 106) → `getMealPlanByWeek` + `getRecipesByIds` + aggregazione. Query separata `['adHocShopping', uid]` (riga 145).
-- Persistenza a **due target indipendenti**: piano su `meal_plans` (debounce 500 ms righe 315–339, flush `flushPendingShoppingState` riga 191) e ad-hoc su `users/{uid}` (debounce righe 261–272, flush `flushPendingAdHocState` riga 234). `flushAll` (righe 345–365) su `visibilitychange:hidden`, `pagehide`, unmount.
-- `src/lib/hooks/useShoppingList.ts:20` — fallback localStorage: `interface PersistedState { checkedIds: string[]; customItems: ShoppingItem[]; }`.
-- `src/lib/firebase/meal-plans.ts:181` — scrittura stato piano, che questa spec estende:
+- `src/lib/hooks/useShoppingList.ts:84` — full orchestration. Query `['shoppingList', uid, weekStartDate]` (line 106) → `getMealPlanByWeek` + `getRecipesByIds` + aggregation. Separate query `['adHocShopping', uid]` (line 145).
+- Persistence to **two independent targets**: plan on `meal_plans` (500 ms debounce lines 315–339, flush `flushPendingShoppingState` line 191) and ad-hoc on `users/{uid}` (debounce lines 261–272, flush `flushPendingAdHocState` line 234). `flushAll` (lines 345–365) on `visibilitychange:hidden`, `pagehide`, unmount.
+- `src/lib/hooks/useShoppingList.ts:20` — localStorage fallback: `interface PersistedState { checkedIds: string[]; customItems: ShoppingItem[]; }`.
+- `src/lib/firebase/meal-plans.ts:181` — plan state write, which this spec extends:
   ```ts
   export async function updateMealPlanShoppingState(
     planId: string,
@@ -53,8 +53,8 @@ I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferm
     });
   }
   ```
-  Unico call-site: `useShoppingList.ts` (righe 203 e 327).
-- `src/lib/firebase/shopping-adhoc.ts:38` — `addRecipeToAdHocShoppingList` copia gli ingredienti **verbatim** (righe 50–55):
+  Only call site: `useShoppingList.ts` (lines 203 and 327).
+- `src/lib/firebase/shopping-adhoc.ts:38` — `addRecipeToAdHocShoppingList` copies ingredients **verbatim** (lines 50–55):
   ```ts
   items: recipe.ingredients.map((ingredient): AdHocShoppingItem => ({
     id: crypto.randomUUID(),
@@ -63,7 +63,7 @@ I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferm
     checked: false,
   })),
   ```
-- `src/components/shopping-list/ShoppingListContent.tsx:125–134` — il bottone "Aggiungi articolo" è gated su `hasPlan`:
+- `src/components/shopping-list/ShoppingListContent.tsx:125–134` — the "Aggiungi articolo" button is gated on `hasPlan`:
   ```tsx
   {hasPlan && (
     <Button variant="outline" className="w-full" onClick={() => setAddSheetOpen(true)}>
@@ -72,16 +72,16 @@ I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferm
     </Button>
   )}
   ```
-  e l'empty state "no piano" (righe 52–69) ritorna prima di montare la sheet.
-- `src/components/shopping-list/ShoppingSection.tsx:28` — sezione collassabile (animazione `grid-rows`), `ShoppingItemRow.tsx:22` — riga generica a props esplicite (`name`/`quantity`/`checked`/`footnote`/`onToggle`/`onRemove`).
+  and the "no plan" empty state (lines 52–69) returns before mounting the sheet.
+- `src/components/shopping-list/ShoppingSection.tsx:28` — collapsible section (`grid-rows` animation), `ShoppingItemRow.tsx:22` — generic row with explicit props (`name`/`quantity`/`checked`/`footnote`/`onToggle`/`onRemove`).
 
-### 2.3 Dispensa
+### 2.3 Pantry
 
-- `src/types/pantry.ts:3–17` — `PantryItem` (qty `number`, `unit: string` con vocabolario `PANTRY_UNITS`, `categoryId` slug, `position`, `purchased`/`expires` stringhe `YYYY-MM-DD` o null, `min`, `notes`). **Nessun campo `aliases`**.
-- `src/lib/firebase/pantry.ts:22/29/43/54` — `getPantryItems` (solo `where('userId','==',userId)`, nessun orderBy), `createPantryItem`, `updatePantryItem(itemId, partial)`, `deletePantryItem`. Nessun helper batch.
-- `src/lib/hooks/usePantry.ts:13–24` — `pantryQueryKey(uid) = ['pantryItems', uid]`, `staleTime: 2min`, `enabled: !!user`; mutazioni invalidano la chiave.
-- `src/lib/utils/pantry-utils.ts:7–18` — `PANTRY_CATEGORIES` (10 slug hardcoded); riga 20 `PANTRY_UNITS = ['g','kg','ml','L','pz','vasetti','mazzo','testa']`; riga 106 `formatQty(item)`.
-- `src/components/pantry/PantryItemQuickSheet.tsx:38–43` — "Consumato" decrementa sempre di 1 a prescindere dall'unità:
+- `src/types/pantry.ts:3–17` — `PantryItem` (qty `number`, `unit: string` with the `PANTRY_UNITS` vocabulary, `categoryId` slug, `position`, `purchased`/`expires` strings `YYYY-MM-DD` or null, `min`, `notes`). **No `aliases` field**.
+- `src/lib/firebase/pantry.ts:22/29/43/54` — `getPantryItems` (only `where('userId','==',userId)`, no orderBy), `createPantryItem`, `updatePantryItem(itemId, partial)`, `deletePantryItem`. No batch helper.
+- `src/lib/hooks/usePantry.ts:13–24` — `pantryQueryKey(uid) = ['pantryItems', uid]`, `staleTime: 2min`, `enabled: !!user`; mutations invalidate the key.
+- `src/lib/utils/pantry-utils.ts:7–18` — `PANTRY_CATEGORIES` (10 hardcoded slugs); line 20 `PANTRY_UNITS = ['g','kg','ml','L','pz','vasetti','mazzo','testa']`; line 106 `formatQty(item)`.
+- `src/components/pantry/PantryItemQuickSheet.tsx:38–43` — "Consumato" always decrements by 1 regardless of the unit:
   ```ts
   async function handleConsume() {
     if (!item) return;
@@ -90,7 +90,7 @@ I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferm
     onClose();
   }
   ```
-- `src/components/pantry/PantryItemQuickSheet.tsx:120–128` — delete **senza ConfirmDialog** (viola la regola di progetto):
+- `src/components/pantry/PantryItemQuickSheet.tsx:120–128` — delete **without ConfirmDialog** (violates the project rule):
   ```tsx
   <button
     onClick={async () => {
@@ -102,15 +102,15 @@ I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferm
     Elimina prodotto
   </button>
   ```
-- `src/components/pantry/PantryItemQuickSheet.tsx:86–92` — "Aggiungi a lista" è un no-op (`onClick={onClose}`).
-- `src/components/pantry/PantryAddSheet.tsx:18` — `type Tab = 'manuale' | 'voce' | 'lista';`; righe 100–104 array tab; righe 276–310 i due tab stub "In arrivo".
-- `src/components/pantry/PantryItemRow.tsx:90–121` — azioni desktop hover-only `onConsume`/`onAddToList`/`onEdit`; la pagina (`dispensa/page.tsx:63–69`) passa **solo** `onEdit`: consume/add-to-list sono morte anche su desktop.
-- `src/components/pantry/PantryDesktopSidebar.tsx:54–71` — card "Dalla lista spesa" con copy promissorio ("Segna gli acquisti come completati…") e link a `/lista-spesa`.
-- `firebase/firestore.rules:70–75` — ownership su `pantry_items`; `firebase/firestore.indexes.json` ha già `(userId ASC, createdAt DESC)` per `pantry_items` (inutilizzato, nessuna modifica).
+- `src/components/pantry/PantryItemQuickSheet.tsx:86–92` — "Aggiungi a lista" is a no-op (`onClick={onClose}`).
+- `src/components/pantry/PantryAddSheet.tsx:18` — `type Tab = 'manuale' | 'voce' | 'lista';`; lines 100–104 tab array; lines 276–310 the two "In arrivo" stub tabs.
+- `src/components/pantry/PantryItemRow.tsx:90–121` — hover-only desktop actions `onConsume`/`onAddToList`/`onEdit`; the page (`dispensa/page.tsx:63–69`) passes **only** `onEdit`: consume/add-to-list are dead on desktop too.
+- `src/components/pantry/PantryDesktopSidebar.tsx:54–71` — "Dalla lista spesa" card with promissory copy ("Segna gli acquisti come completati…") and a link to `/lista-spesa`.
+- `firebase/firestore.rules:70–75` — ownership on `pantry_items`; `firebase/firestore.indexes.json` already has `(userId ASC, createdAt DESC)` for `pantry_items` (unused, no change).
 
-### 2.4 Cottura
+### 2.4 Cooking
 
-- `src/app/(dashboard)/ricette/[id]/cooking/page.tsx:278–298` — la funzione da agganciare:
+- `src/app/(dashboard)/ricette/[id]/cooking/page.tsx:278–298` — the function to hook into:
   ```ts
   const handleFinishCooking = async () => {
     if (!user || !cookingSession || !recipe) return;
@@ -132,23 +132,23 @@ I match incerti non fanno mai nulla da soli: l'app **propone**, l'utente conferm
     }
   };
   ```
-  In scope al momento del tap: `recipe` completo, `servings` (porzioni cucinate), `scaledIngredients` (effetto righe 162–173 via `scaleQuantity`), `cookingSession`. Bottone alle righe 518–525, abilitato solo a progresso 100%.
-- **Bug latente documentato**: `createCookingHistoryEntry` (`src/lib/firebase/cooking-history.ts:34–51`) usa `addDoc`; se `deleteCookingSession` fallisce dopo la history, il retry di "Termina cottura" **duplica la entry** in `cooking_history`.
-- Percorso abbandono: `src/app/(dashboard)/cotture-in-corso/page.tsx:73–87` (`handleConfirmDeleteSession`) cancella la sessione **senza** history — non va MAI toccato dallo scalo.
-- `src/lib/utils/ingredient-scaler.ts:29` — `scaleQuantity(quantity, originalServings, newServings)`: string-in/string-out, pass-through per q.b. e parse failure, **mai** conversione di unità.
+  In scope at tap time: the full `recipe`, `servings` (servings cooked), `scaledIngredients` (effect lines 162–173 via `scaleQuantity`), `cookingSession`. Button at lines 518–525, enabled only at 100% progress.
+- **Documented latent bug**: `createCookingHistoryEntry` (`src/lib/firebase/cooking-history.ts:34–51`) uses `addDoc`; if `deleteCookingSession` fails after the history write, retrying "Termina cottura" **duplicates the entry** in `cooking_history`.
+- Abandon path: `src/app/(dashboard)/cotture-in-corso/page.tsx:73–87` (`handleConfirmDeleteSession`) deletes the session **without** history — it must NEVER be touched by the deduction.
+- `src/lib/utils/ingredient-scaler.ts:29` — `scaleQuantity(quantity, originalServings, newServings)`: string-in/string-out, pass-through for q.b. and parse failures, **never** unit conversion.
 
-## 3. Decisioni di prodotto (vincoli dal roadmap)
+## 3. Product decisions (constraints from the roadmap)
 
-1. **Matching ibrido** (decisione 1): match automatico solo conservativo (chiave canonica esistente, accenti + singolare/plurale); casi incerti → proposta + conferma utente una tantum → **alias persistente su `PantryItem.aliases`**, valido per lista spesa E scalo cottura. Filosofia invariata: **il non-match è il fallimento sicuro** — un falso "già in dispensa" è peggio di un falso negativo.
-2. **Spunta → dispensa in batch** (decisione 2): nessuna interruzione durante la spesa; un bottone apre un flusso unico con tutti gli articoli spuntati, ognuno con posizione/quantità/scadenza precompilate e modificabili.
-3. **Banali e doppioni** (decisione 3): lista fissa curata **mai** mostrata in lista; match con scorta sufficiente → sezione collassata "Hai già in casa" re-includibile con un tap; match non quantificabile → resta in lista con badge informativo ("In dispensa: 500 g").
-4. Contratto cross-spec §2: il modulo si chiama **`src/lib/utils/ingredient-matching.ts`** ed esporta almeno `canonicalIngredientKey`, `isTrivialIngredient`, `matchIngredientToPantry` con le firme lì definite; `PantryItem.aliases?: string[]`; `parseQuantity`/conversioni unità esportate e riusabili. Spec E importerà da qui: **non cambiare questi nomi**.
+1. **Hybrid matching** (decision 1): automatic match only when conservative (existing canonical key, accents + singular/plural); uncertain cases → proposal + one-time user confirmation → **persistent alias on `PantryItem.aliases`**, valid for the shopping list AND the cooking deduction. Philosophy unchanged: **the non-match is the safe failure** — a false "already in the pantry" is worse than a false negative.
+2. **Check → pantry in batch** (decision 2): no interruption while shopping; one button opens a single flow with all checked items, each with position/quantity/expiry prefilled and editable.
+3. **Trivial items and duplicates** (decision 3): a fixed curated list **never** shown in the list; match with sufficient stock → collapsed "Hai già in casa" section, re-includable with one tap; non-quantifiable match → stays in the list with an informational badge ("In dispensa: 500 g").
+4. Cross-spec contract §2: the module is called **`src/lib/utils/ingredient-matching.ts`** and exports at least `canonicalIngredientKey`, `isTrivialIngredient`, `matchIngredientToPantry` with the signatures defined there; `PantryItem.aliases?: string[]`; `parseQuantity`/unit conversions exported and reusable. Spec E will import from here: **do not change these names**.
 
-## 4. Design proposto
+## 4. Proposed design
 
-### 4.1 Modello dati (prima/dopo)
+### 4.1 Data model (before/after)
 
-**`src/types/pantry.ts`** — `PantryItem` guadagna un campo (nessuna migrazione: assente = nessun alias):
+**`src/types/pantry.ts`** — `PantryItem` gains one field (no migration: absent = no alias):
 
 ```ts
 export interface PantryItem {
@@ -164,9 +164,9 @@ export interface PantryItem {
   min: number;
   notes: string | null;
   /**
-   * Chiavi canoniche (canonicalIngredientKey) confermate dall'utente come
-   * "questo ingrediente è questa voce di dispensa". Scritte solo dal flusso
-   * di conferma suggerimenti; mai undefined su Firestore (omesso o array).
+   * Canonical keys (canonicalIngredientKey) confirmed by the user as
+   * "this ingredient is this pantry entry". Written only by the suggestion
+   * confirmation flow; never undefined on Firestore (omitted or array).
    */
   aliases?: string[];
   createdAt: Timestamp;
@@ -174,21 +174,21 @@ export interface PantryItem {
 }
 ```
 
-**`src/types/index.ts`** — `MealPlan` (dopo riga 442) guadagna:
+**`src/types/index.ts`** — `MealPlan` (after line 442) gains:
 
 ```ts
   /** Shopping list state stored here to sync across devices. */
   shoppingCheckedIds?: string[] | null;
   shoppingCustomItems?: ShoppingItem[] | null;
   /**
-   * Item ids (ShoppingItem.id) che l'utente ha ri-incluso in lista pur avendo
-   * l'ingrediente in dispensa ("Mi serve comunque"). Persistito insieme a
-   * checked/custom nello stesso write (nessun nuovo target di persistenza).
+   * Item ids (ShoppingItem.id) the user re-included in the list despite having
+   * the ingredient in the pantry ("Mi serve comunque"). Persisted together with
+   * checked/custom in the same write (no new persistence target).
    */
   shoppingPantryIncludedIds?: string[] | null;
 ```
 
-**`AdHocShoppingItem`** (`src/types/index.ts:496`) guadagna il flag equivalente — viaggia dentro l'array già persistito su `users/{uid}`, quindi riusa debounce/flush ad-hoc esistenti:
+**`AdHocShoppingItem`** (`src/types/index.ts:496`) gains the equivalent flag — it travels inside the array already persisted on `users/{uid}`, so it reuses the existing ad-hoc debounce/flush:
 
 ```ts
 export interface AdHocShoppingItem {
@@ -196,25 +196,25 @@ export interface AdHocShoppingItem {
   name: string;
   quantity: string;
   checked: boolean;
-  /** true = ri-incluso in lista nonostante il match dispensa. Assente = false. */
+  /** true = re-included in the list despite the pantry match. Absent = false. */
   pantryIncluded?: boolean;
 }
 ```
 
-Attenzione Firestore: quando si riscrive l'array ad-hoc, `pantryIncluded` va scritto come boolean oppure **omesso** (mai `undefined` dentro l'oggetto — usare spread condizionale nella costruzione dell'item aggiornato).
+Firestore caution: when rewriting the ad-hoc array, `pantryIncluded` must be written as a boolean or **omitted** (never `undefined` inside the object — use a conditional spread when building the updated item).
 
-### 4.2 Modulo `src/lib/utils/ingredient-matching.ts` (contratto 2 — vincolante)
+### 4.2 Module `src/lib/utils/ingredient-matching.ts` (contract 2 — binding)
 
-**Layout delle dipendenze** (per evitare cicli): la macchineria quantità **resta definita** in `ingredient-aggregator.ts` che passa da `function` a `export function` / `export const`; `ingredient-matching.ts` importa da lì e **ri-esporta** ciò che il contratto richiede. Direzione unica `matching → aggregator`, zero churn sui test esistenti.
+**Dependency layout** (to avoid cycles): the quantity machinery **stays defined** in `ingredient-aggregator.ts`, which goes from `function` to `export function` / `export const`; `ingredient-matching.ts` imports from there and **re-exports** what the contract requires. Single direction `matching → aggregator`, zero churn on existing tests.
 
-**Modifiche a `ingredient-aggregator.ts`** — diventano esportati (solo keyword, nessun cambio di corpo):
-- `export function canonicalIngredientKey(...)` (riga 164) e, per i test, `export function singularizeWord(...)` (riga 184);
-- `export function parseQuantity(...)` (riga 298);
-- `export const UNIT_ALIASES` (riga 224), `export const NON_SCALABLE_RE` (riga 218);
-- `export function formatQuantity(...)` (riga 322) e `export function formatItalianNumber(...)` (riga 332);
-- `export type QuantityDimension` (riga 208) e `export interface ParsedQuantity` (riga 210).
+**Changes to `ingredient-aggregator.ts`** — these become exported (keyword only, no body change):
+- `export function canonicalIngredientKey(...)` (line 164) and, for tests, `export function singularizeWord(...)` (line 184);
+- `export function parseQuantity(...)` (line 298);
+- `export const UNIT_ALIASES` (line 224), `export const NON_SCALABLE_RE` (line 218);
+- `export function formatQuantity(...)` (line 322) and `export function formatItalianNumber(...)` (line 332);
+- `export type QuantityDimension` (line 208) and `export interface ParsedQuantity` (line 210).
 
-**Contenuto di `ingredient-matching.ts`**:
+**Contents of `ingredient-matching.ts`**:
 
 ```ts
 import { PantryItem } from '@/types/pantry';
@@ -226,21 +226,21 @@ import {
   QuantityDimension,
 } from './ingredient-aggregator';
 
-// Ri-esporta per Spec E e per i consumatori del contratto (roadmap §2).
+// Re-export for Spec E and for the contract's consumers (roadmap §2).
 export { canonicalIngredientKey, parseQuantity, UNIT_ALIASES };
 export type { ParsedQuantity, QuantityDimension };
 ```
 
 #### 4.2.1 `isTrivialIngredient(name: string): boolean`
 
-Criterio della lista: **solo cose che nessuno compra** — acqua di rubinetto in tutte le sue temperature/forme e ghiaccio fatto in casa. Sale, olio, pepe, zucchero **non** sono banali: si comprano, e li gestisce il match dispensa. La lista è di **frasi intere** in italiano leggibile; le chiavi si derivano una volta con `canonicalIngredientKey` così lo stemming resta coerente col resto del sistema:
+List criterion: **only things nobody buys** — tap water in all its temperatures/forms and homemade ice. Salt, oil, pepper, sugar are **not** trivial: they get bought, and the pantry match handles them. The list is made of **whole phrases** in readable Italian; the keys are derived once with `canonicalIngredientKey` so stemming stays consistent with the rest of the system:
 
 ```ts
 /**
- * SOLO cose che nessuno compra al supermercato. Lista fissa curata, chiusa.
- * NON aggiungere sale/olio/pepe/zucchero: si comprano, li gestisce il match
- * dispensa. Il confronto è per uguaglianza esatta della chiave canonica:
- * "acqua di rose" o "acqua di mare" NON matchano e restano in lista (corretto).
+ * ONLY things nobody buys at the supermarket. Fixed, curated, closed list.
+ * DO NOT add salt/oil/pepper/sugar: they get bought, the pantry match handles
+ * them. Comparison is by exact equality of the canonical key:
+ * "acqua di rose" or "acqua di mare" do NOT match and stay in the list (correct).
  */
 const TRIVIAL_INGREDIENT_NAMES = [
   'acqua',
@@ -266,17 +266,17 @@ export function isTrivialIngredient(name: string): boolean {
   return TRIVIAL_KEYS.has(canonicalIngredientKey(name));
 }
 
-/** Variante per chi ha già la chiave canonica in mano (aggregatore). */
+/** Variant for callers that already hold the canonical key (aggregator). */
 export function isTrivialIngredientKey(key: string): boolean {
   return TRIVIAL_KEYS.has(key);
 }
 ```
 
-Match **esatto sulla chiave intera**, niente sottostringhe: fail-safe (una frase non in lista resta in lista). Nota su "acqua frizzante": inclusa perché nelle ricette compare come componente di pastelle/impasti, non come bevanda da comprare — decisione del brainstorming, non rimetterla in discussione.
+Match **exact on the whole key**, no substrings: fail-safe (a phrase not in the list stays in the list). Note on "acqua frizzante": included because in recipes it appears as a component of batters/doughs, not as a drink to buy — a brainstorming decision, do not reopen it.
 
 #### 4.2.2 `matchIngredientToPantry(name, pantryItems)`
 
-Firma dal contratto (invariante):
+Signature from the contract (invariant):
 
 ```ts
 export type PantryMatch =
@@ -289,49 +289,49 @@ export function matchIngredientToPantry(
 ): PantryMatch
 ```
 
-Algoritmo:
+Algorithm:
 
 1. `key = canonicalIngredientKey(name)`.
-2. **Exact**: item con `canonicalIngredientKey(item.name) === key`. Se più d'uno (doppioni in dispensa): scegliere quello con `qty` maggiore, a parità il primo in ordine d'array (deterministico, e mostra la scorta più utile).
-3. **Alias**: item con `(item.aliases ?? []).includes(key)`. Exact vince sempre su alias; stessa regola di disambiguazione.
-4. **Nessun match** → `{ item: null, suggestions }` con l'euristica fuzzy sotto (max 3, mai azzardata).
+2. **Exact**: item with `canonicalIngredientKey(item.name) === key`. If more than one (duplicates in the pantry): pick the one with the highest `qty`, on a tie the first in array order (deterministic, and shows the most useful stock).
+3. **Alias**: item with `(item.aliases ?? []).includes(key)`. Exact always wins over alias; same disambiguation rule.
+4. **No match** → `{ item: null, suggestions }` with the fuzzy heuristic below (max 3, never reckless).
 
-**Euristica suggerimenti** (proposta, conservativa):
+**Suggestion heuristic** (proposed, conservative):
 
 ```ts
 const STOPWORD_TOKENS = new Set(['di', 'd', 'al', 'all', 'alla', 'con', 'senza', 'per', 'e', 'in', 'da', 'dell', 'della', 'dello', 'del']);
-// NB: le stopword vanno espresse come TOKEN GIÀ STEMMATI (es. "della" → "dell"
-// dopo singularizeWord): derivarle nel modulo applicando canonicalIngredientKey
-// alla lista leggibile, come per TRIVIAL_KEYS.
+// NB: stopwords must be expressed as ALREADY-STEMMED TOKENS (e.g. "della" → "dell"
+// after singularizeWord): derive them in the module by applying canonicalIngredientKey
+// to the readable list, as for TRIVIAL_KEYS.
 
 function significantTokens(key: string): Set<string> {
   return new Set(key.split(' ').filter(t => !STOPWORD_TOKENS.has(t)));
 }
 ```
 
-Un `PantryItem` è suggerito per `name` se, detti `A = significantTokens(key)` e `B = significantTokens(canonicalIngredientKey(item.name))`:
-- `A ⊆ B` oppure `B ⊆ A` (sottoinsieme **proprio**: insiemi uguali si scartano — quasi sempre coincidono con l'exact match sulla chiave; i rari casi con stessi token significativi ma chiave diversa per sole stopword/ordine restano non suggeriti, coerente col fail-safe), **e**
-- l'intersezione contiene almeno un token di lunghezza ≥ 4 (post-stemming; esclude match su token corti tipo "the", "uva" → "uva" ha 3 char e non basta da solo), **e**
-- entrambe le parti hanno almeno 1 token significativo.
+A `PantryItem` is suggested for `name` if, with `A = significantTokens(key)` and `B = significantTokens(canonicalIngredientKey(item.name))`:
+- `A ⊆ B` or `B ⊆ A` (**proper** subset: equal sets are discarded — they almost always coincide with the exact key match; the rare cases with the same significant tokens but a different key due only to stopwords/order stay unsuggested, consistent with the fail-safe), **and**
+- the intersection contains at least one token of length ≥ 4 (post-stemming; excludes matches on short tokens like "the", "uva" → "uva" has 3 chars and is not enough on its own), **and**
+- both sides have at least 1 significant token.
 
-Esempi: "spaghetti" (`{spaghett}`) ⊂ "Spaghetti fini" (`{spaghett, fin}`) → suggerito. "Pomodori" (`{pomodor}`) ⊂ "Passata di pomodoro" (`{passat, pomodor}`) → suggerito (l'utente conferma o rifiuta: nessun automatismo). "Farina" vs "Farina di mandorle" → suggerito. "Latte" vs "Latte di cocco" → suggerito. "Sale" (`{sal}`) vs "Salsa di soia" (`{sals, soi}`) → **non** suggerito (nessun token in comune: i token si confrontano per uguaglianza esatta, mai per prefisso — "sal" ≠ "sals"). "Uva" (`{uva}`) vs "Uva passa" (`{uva, pass}`) → **non** suggerito (unico token comune di 3 char, sotto la soglia ≥ 4). Ordinamento: per numero di token extra crescente (il più simile primo), poi alfabetico; `slice(0, 3)`.
+Examples: "spaghetti" (`{spaghett}`) ⊂ "Spaghetti fini" (`{spaghett, fin}`) → suggested. "Pomodori" (`{pomodor}`) ⊂ "Passata di pomodoro" (`{passat, pomodor}`) → suggested (the user confirms or rejects: nothing automatic). "Farina" vs "Farina di mandorle" → suggested. "Latte" vs "Latte di cocco" → suggested. "Sale" (`{sal}`) vs "Salsa di soia" (`{sals, soi}`) → **not** suggested (no token in common: tokens are compared by exact equality, never by prefix — "sal" ≠ "sals"). "Uva" (`{uva}`) vs "Uva passa" (`{uva, pass}`) → **not** suggested (only common token has 3 chars, below the ≥ 4 threshold). Ordering: by increasing number of extra tokens (most similar first), then alphabetical; `slice(0, 3)`.
 
-#### 4.2.3 Confronto scorte: `comparePantryStock`
+#### 4.2.3 Stock comparison: `comparePantryStock`
 
-Serve alla sezione "Hai già in casa" e allo scalo cottura. Union discriminata (gotcha "Union non discriminata"):
+Used by the "Hai già in casa" section and by the cooking deduction. Discriminated union ("Non-discriminated union → lost narrowing" gotcha):
 
 ```ts
 export type PantryStockComparison =
   | {
       comparable: true;
       sufficient: boolean;        // availableBase >= requiredBase && availableBase > 0
-      requiredBase: number;       // nell'unità base della dimensione
+      requiredBase: number;       // in the dimension's base unit
       availableBase: number;
       dimension: QuantityDimension;
     }
   | { comparable: false; reason: 'unparsable' | 'dimension-mismatch' | 'unit-mismatch' | 'empty' };
 
-/** Converte qty+unit di una voce dispensa in ParsedQuantity (base g/ml o count). */
+/** Converts a pantry entry's qty+unit into a ParsedQuantity (base g/ml or count). */
 export function parsePantryQty(item: PantryItem): ParsedQuantity;
 
 export function comparePantryStock(
@@ -340,30 +340,30 @@ export function comparePantryStock(
 ): PantryStockComparison;
 ```
 
-Regole:
-- `ingredientQuantity` che contiene `' + '` (displayQuantity concatenata, es. `"200 g + q.b."`) → `{ comparable: false, reason: 'unparsable' }` senza tentare il parse (il concatenato è per definizione non sommabile).
-- `parseQuantity(ingredientQuantity) === null` (q.b., testo libero) → `'unparsable'`.
-- Lato dispensa: `unit.toLowerCase()` prima del lookup in `UNIT_ALIASES` (gestisce `'L'`); unità non in alias (`pz`, `vasetti`, `mazzo`, `testa`, stringa vuota) → dimensione `'count'` col token come unit.
-- **Equivalenza count**: i token `''`, `'pz'`, `'pezzo'`, `'pezzi'` sono lo stesso count ("2" in ricetta vs "6 pz" in dispensa → confrontabili). Altri token count devono coincidere esattamente (`mazzo` ≠ `vasetti` → `'unit-mismatch'`).
-- Dimensioni diverse (count vs massa: "2 pomodori" vs "500 g") → `'dimension-mismatch'`. **Nessuna tabella di densità**: fuori scope per scelta.
-- `item.qty <= 0` → `{ comparable: false, reason: 'empty' }` (una scorta a zero non deve né spostare l'item né mostrare badge).
+Rules:
+- `ingredientQuantity` containing `' + '` (concatenated displayQuantity, e.g. `"200 g + q.b."`) → `{ comparable: false, reason: 'unparsable' }` without attempting the parse (the concatenation is by definition not summable).
+- `parseQuantity(ingredientQuantity) === null` (q.b., free text) → `'unparsable'`.
+- Pantry side: `unit.toLowerCase()` before the lookup in `UNIT_ALIASES` (handles `'L'`); units not in the aliases (`pz`, `vasetti`, `mazzo`, `testa`, empty string) → dimension `'count'` with the token as unit.
+- **Count equivalence**: the tokens `''`, `'pz'`, `'pezzo'`, `'pezzi'` are the same count ("2" in the recipe vs "6 pz" in the pantry → comparable). Other count tokens must match exactly (`mazzo` ≠ `vasetti` → `'unit-mismatch'`).
+- Different dimensions (count vs mass: "2 pomodori" vs "500 g") → `'dimension-mismatch'`. **No density table**: out of scope by choice.
+- `item.qty <= 0` → `{ comparable: false, reason: 'empty' }` (zero stock must neither move the item nor show a badge).
 
-### 4.3 Parte 2 — Filtro banali in lista
+### 4.3 Part 2 — Trivial-item filter in the list
 
-**Dove**: in `aggregateIngredients`, non in `buildContributions`. Motivazione: (a) `buildContributions` descrive "cosa contiene il piano" ed è il punto giusto per consumatori futuri che vogliono fedeltà totale; il filtro è una policy di presentazione/aggregazione; (b) in `aggregateIngredients` la chiave canonica è già calcolata per ogni contribution (riga 89), quindi il check è gratuito con `isTrivialIngredientKey(key)` senza doppia canonicalizzazione.
+**Where**: in `aggregateIngredients`, not in `buildContributions`. Rationale: (a) `buildContributions` describes "what the plan contains" and is the right place for future consumers that want full fidelity; the filter is a presentation/aggregation policy; (b) in `aggregateIngredients` the canonical key is already computed for every contribution (line 89), so the check is free with `isTrivialIngredientKey(key)` without double canonicalization.
 
 ```ts
-// in aggregateIngredients, nel loop delle contributions:
+// in aggregateIngredients, inside the contributions loop:
 for (const c of contributions) {
   const key = canonicalIngredientKey(c.name);
-  if (isTrivialIngredientKey(key)) continue;   // <— NUOVO
+  if (isTrivialIngredientKey(key)) continue;   // <— NEW
   ...
 }
 ```
 
-Import `isTrivialIngredientKey` da `./ingredient-matching`: la direzione `aggregator → matching` per questa sola funzione è aciclica perché `isTrivialIngredientKey` non dipende dall'aggregatore a runtime? **No — dipende** (usa `canonicalIngredientKey`). Per evitare il ciclo di import: spostare `TRIVIAL_INGREDIENT_NAMES`/`TRIVIAL_KEYS`/`isTrivialIngredientKey` **dentro `ingredient-aggregator.ts`** (dove vive `canonicalIngredientKey`) e ri-esportarli da `ingredient-matching.ts` come il resto. È lo stesso pattern di ri-esportazione già scelto per `canonicalIngredientKey`: il contratto richiede solo che `ingredient-matching.ts` **esporti** `isTrivialIngredient`, non dove sia definita.
+Import `isTrivialIngredientKey` from `./ingredient-matching`: is the `aggregator → matching` direction for this single function acyclic because `isTrivialIngredientKey` does not depend on the aggregator at runtime? **No — it does** (it uses `canonicalIngredientKey`). To avoid the import cycle: move `TRIVIAL_INGREDIENT_NAMES`/`TRIVIAL_KEYS`/`isTrivialIngredientKey` **into `ingredient-aggregator.ts`** (where `canonicalIngredientKey` lives) and re-export them from `ingredient-matching.ts` like the rest. It is the same re-export pattern already chosen for `canonicalIngredientKey`: the contract only requires that `ingredient-matching.ts` **exports** `isTrivialIngredient`, not where it is defined.
 
-**Percorso ad-hoc** — filtro a monte, in `addRecipeToAdHocShoppingList` (`shopping-adhoc.ts:50`):
+**Ad-hoc path** — filter upstream, in `addRecipeToAdHocShoppingList` (`shopping-adhoc.ts:50`):
 
 ```ts
 items: recipe.ingredients
@@ -371,30 +371,30 @@ items: recipe.ingredients
   .map((ingredient): AdHocShoppingItem => ({ ... })),
 ```
 
-Filtrare alla copia (non al render) mantiene puliti i dati persistiti e corretti i conteggi progresso. I gruppi ad-hoc **già salvati** prima del rilascio possono contenere banali: restano visibili finché l'utente non li rimuove o ri-aggiunge la ricetta (dedup su recipeId li rimpiazza) — accettato, nessuna migrazione.
+Filtering at copy time (not at render) keeps the persisted data clean and the progress counts correct. Ad-hoc groups **already saved** before the release may contain trivial items: they stay visible until the user removes them or re-adds the recipe (dedup on recipeId replaces them) — accepted, no migration.
 
-**MAI sugli articoli custom**: `addCustomItem` (`useShoppingList.ts:452`) non cambia — se l'utente digita "acqua frizzante" la vuole in lista.
+**NEVER on custom items**: `addCustomItem` (`useShoppingList.ts:452`) does not change — if the user types "acqua frizzante" they want it in the list.
 
-**Igiene checkedIds**: gli id degli item filtrati diventano voci **inerti** in `shoppingCheckedIds` (il set contiene id che nessun item mostra più) — innocuo e già vero oggi quando una ricetta esce dal piano; documentarlo con un commento accanto al filtro.
+**checkedIds hygiene**: the ids of filtered items become **inert** entries in `shoppingCheckedIds` (the set contains ids that no item shows anymore) — harmless and already true today when a recipe leaves the plan; document it with a comment next to the filter.
 
-### 4.4 Parte 3 — Sezione "Hai già in casa"
+### 4.4 Part 3 — "Hai già in casa" section
 
-#### 4.4.1 Derivazione (in `useShoppingList`)
+#### 4.4.1 Derivation (in `useShoppingList`)
 
-Il hook monta `usePantry()` (riusa `pantryQueryKey`, `staleTime 2min`, `enabled: !!user` — nessun nuovo percorso di fetch) e calcola in un `useMemo` una mappa di classificazione:
+The hook mounts `usePantry()` (reuses `pantryQueryKey`, `staleTime 2min`, `enabled: !!user` — no new fetch path) and computes a classification map in a `useMemo`:
 
 ```ts
 export type PantryMatchInfo =
-  | { kind: 'in-pantry'; item: PantryItem }          // match + confrontabile + scorta sufficiente
-  | { kind: 'badge'; item: PantryItem }              // match ma non confrontabile / insufficiente (qty > 0)
-  | { kind: 'suggestion'; candidates: PantryItem[] } // nessun match, candidati fuzzy
+  | { kind: 'in-pantry'; item: PantryItem }          // match + comparable + sufficient stock
+  | { kind: 'badge'; item: PantryItem }              // match but not comparable / insufficient (qty > 0)
+  | { kind: 'suggestion'; candidates: PantryItem[] } // no match, fuzzy candidates
   | { kind: 'none' };
 
-// nel hook:
+// in the hook:
 const pantryInfoById = useMemo(() => {
   const map = new Map<string, PantryMatchInfo>();
-  // pre-indicizza la dispensa UNA volta: Map<chiave, item> per exact e per alias
-  // (O(n+m), liste piccole — <100 voci per lato, nessun problema di performance)
+  // pre-index the pantry ONCE: Map<key, item> for exact and for alias
+  // (O(n+m), small lists — <100 entries per side, no performance issue)
   for (const it of planItems) map.set(it.id, classify(it.name, it.displayQuantity));
   for (const g of adHocRecipesList)
     for (const it of g.items) map.set(it.id, classify(it.name, it.quantity));
@@ -404,70 +404,70 @@ const pantryInfoById = useMemo(() => {
 
 `classify(name, quantity)`:
 1. `matchIngredientToPantry(name, pantryItems)`;
-2. match trovato → `comparePantryStock(quantity, item)`:
+2. match found → `comparePantryStock(quantity, item)`:
    - `comparable && sufficient` → `'in-pantry'`;
    - `comparable && !sufficient` → `'badge'`;
-   - `!comparable && reason !== 'empty'` → `'badge'` (match non quantificabile: resta in lista con badge, decisione 3);
-   - `reason === 'empty'` → `'none'` (scorta a zero: né sezione né badge);
-3. nessun match, `suggestions.length > 0` → `'suggestion'`; altrimenti `'none'`.
+   - `!comparable && reason !== 'empty'` → `'badge'` (non-quantifiable match: stays in the list with a badge, decision 3);
+   - `reason === 'empty'` → `'none'` (zero stock: neither section nor badge);
+3. no match, `suggestions.length > 0` → `'suggestion'`; otherwise `'none'`.
 
-**Scope**: solo item derivati dal piano e item ad-hoc. Gli **articoli custom** non vengono mai classificati (l'utente li ha scritti apposta).
+**Scope**: only plan-derived items and ad-hoc items. **Custom items** are never classified (the user wrote them on purpose).
 
-#### 4.4.2 Persistenza dei re-include
+#### 4.4.2 Persistence of re-includes
 
-**Item del piano** (gli articoli custom non sono mai classificati, §4.4.1, quindi non entrano mai qui): nuovo stato locale `pantryIncludedIds: string[]` che **viaggia nello stesso write** del piano — NON è un terzo target di persistenza, è un terzo campo del target esistente. Il gotcha "Nuovo target di persistenza dimenticato nel flush" (AGENTS.md riga 42) si applica in forma attenuata: niente nuovo timer, ma il campo deve entrare in **tutti** i punti del circuito esistente. Checklist esaustiva in `useShoppingList.ts`:
+**Plan items** (custom items are never classified, §4.4.1, so they never enter here): new local state `pantryIncludedIds: string[]` that **travels in the same write** as the plan — it is NOT a third persistence target, it is a third field of the existing target. The "New persistence target forgotten in the flush" gotcha (AGENTS.md line 42) applies in a softened form: no new timer, but the field must enter **every** point of the existing circuit. Exhaustive checklist in `useShoppingList.ts`:
 
-1. `useState<string[]>([])` accanto a `checkedIdsList`/`customItems` (riga 153);
-2. `latestStateRef` (riga 165): aggiungere `pantryIncludedIds` allo snapshot e al sync effect (riga 173);
-3. `flushPendingShoppingState` (riga 191): leggerlo dal ref e passarlo al write;
-4. reset al cambio settimana (riga 276): azzerarlo;
-5. init effect (riga 286): `setPantryIncludedIds(data.initialPantryIncludedIds)` — la query (riga 120) ritorna anche `initialPantryIncludedIds: plan.shoppingPantryIncludedIds ?? []`;
-6. persist effect (riga 315): aggiungerlo alle dependency e allo snapshot debounced;
-7. `PersistedState` localStorage (riga 20): `pantryIncludedIds: string[]`, con default `[]` in `loadPersistedState` per i JSON legacy (`parsed.pantryIncludedIds ?? []`);
-8. `updateMealPlanShoppingState` (meal-plans.ts:181): quarta posizione nella firma, scrive `shoppingPantryIncludedIds: pantryIncludedIds` (sempre array, mai undefined).
+1. `useState<string[]>([])` next to `checkedIdsList`/`customItems` (line 153);
+2. `latestStateRef` (line 165): add `pantryIncludedIds` to the snapshot and to the sync effect (line 173);
+3. `flushPendingShoppingState` (line 191): read it from the ref and pass it to the write;
+4. reset on week change (line 276): clear it;
+5. init effect (line 286): `setPantryIncludedIds(data.initialPantryIncludedIds)` — the query (line 120) also returns `initialPantryIncludedIds: plan.shoppingPantryIncludedIds ?? []`;
+6. persist effect (line 315): add it to the dependencies and to the debounced snapshot;
+7. localStorage `PersistedState` (line 20): `pantryIncludedIds: string[]`, with default `[]` in `loadPersistedState` for legacy JSON (`parsed.pantryIncludedIds ?? []`);
+8. `updateMealPlanShoppingState` (meal-plans.ts:181): fourth position in the signature, writes `shoppingPantryIncludedIds: pantryIncludedIds` (always an array, never undefined).
 
-**Item ad-hoc**: `pantryIncluded?: boolean` sull'item — il toggle muta `adHocRecipesList` e la persistenza avviene col debounce/flush ad-hoc **già esistente** (righe 261–272 + 234). Zero nuovi timer. In `flushAll` non serve aggiungere nulla: entrambi i flush esistenti coprono i nuovi campi perché leggono dai latest-ref aggiornati.
+**Ad-hoc items**: `pantryIncluded?: boolean` on the item — the toggle mutates `adHocRecipesList` and persistence happens through the **already existing** ad-hoc debounce/flush (lines 261–272 + 234). Zero new timers. Nothing needs adding to `flushAll`: both existing flushes cover the new fields because they read from the updated latest-refs.
 
-API del hook (aggiunte a `UseShoppingListReturn`):
+Hook API (additions to `UseShoppingListReturn`):
 
 ```ts
 pantryInfoById: Map<string, PantryMatchInfo>;
-pantryIncludedIds: Set<string>;                                  // item piano ri-inclusi
-togglePantryIncluded: (id: string, adHocGroupId?: string) => void; // piano o ad-hoc
+pantryIncludedIds: Set<string>;                                  // re-included plan items
+togglePantryIncluded: (id: string, adHocGroupId?: string) => void; // plan or ad-hoc
 confirmPantryAlias: (pantryItem: PantryItem, ingredientName: string) => Promise<void>;
-dismissPantrySuggestion: (id: string) => void;                   // solo sessione, non persistito
+dismissPantrySuggestion: (id: string) => void;                   // session only, not persisted
 ```
 
-`confirmPantryAlias`: `updatePantryItem(pantryItem.id, { aliases: [...new Set([...(pantryItem.aliases ?? []), canonicalIngredientKey(ingredientName)])] })` poi `queryClient.invalidateQueries({ queryKey: pantryQueryKey(uid) })` → il memo si ricalcola e l'item si ricategorizza da solo. `dismissPantrySuggestion` alimenta un `Set<string>` in stato locale (id item): i suggerimenti rifiutati non ricompaiono nella sessione corrente ma **non** sono persistiti (ricompaiono alla prossima visita — accettato: sono discreti, e persistere i rifiuti sarebbe un nuovo campo con nuovo circuito di flush per un beneficio marginale).
+`confirmPantryAlias`: `updatePantryItem(pantryItem.id, { aliases: [...new Set([...(pantryItem.aliases ?? []), canonicalIngredientKey(ingredientName)])] })` then `queryClient.invalidateQueries({ queryKey: pantryQueryKey(uid) })` → the memo recomputes and the item recategorizes itself. `dismissPantrySuggestion` feeds a `Set<string>` in local state (item ids): rejected suggestions don't reappear in the current session but are **not** persisted (they reappear on the next visit — accepted: they are unobtrusive, and persisting rejections would be a new field with a new flush circuit for a marginal benefit).
 
 #### 4.4.3 UI
 
-**Partizione** (in `ShoppingListContent`, sui soli item piano): un item con `kind === 'in-pantry'` e id **non** in `pantryIncludedIds` esce dalle sezioni normali e finisce nella sezione "Hai già in casa". Stessa logica per gli item ad-hoc (`pantryIncluded !== true`). Tutto il resto resta dov'è.
+**Partition** (in `ShoppingListContent`, on plan items only): an item with `kind === 'in-pantry'` and id **not** in `pantryIncludedIds` leaves the normal sections and goes into the "Hai già in casa" section. Same logic for ad-hoc items (`pantryIncluded !== true`). Everything else stays where it is.
 
-**Sezione "Hai già in casa"**: renderizzata **dopo** le sezioni piano e **prima** dei gruppi ad-hoc, stile `ShoppingSection` ma `defaultExpanded={false}` e senza checkbox: righe non spuntabili (non c'è nulla da comprare). Ogni riga: nome, caption `In dispensa: {formatQty(item)}` (es. "In dispensa: 500 g"), e bottone testuale **"Mi serve comunque"** (touch-target ≥ 44px, sempre visibile — mai `group-hover` sotto `lg`). Tap → `togglePantryIncluded(id[, groupId])` → l'item torna nella sua sezione d'origine.
+**"Hai già in casa" section**: rendered **after** the plan sections and **before** the ad-hoc groups, `ShoppingSection` style but `defaultExpanded={false}` and without checkboxes: rows cannot be checked (there is nothing to buy). Each row: name, caption `In dispensa: {formatQty(item)}` (e.g. "In dispensa: 500 g"), and a text button **"Mi serve comunque"** (touch target ≥ 44px, always visible — never `group-hover` below `lg`). Tap → `togglePantryIncluded(id[, groupId])` → the item goes back to its original section.
 
-**Item ri-incluso**: torna nella sezione normale, spuntabile, con footnote estesa: `"{fonte} · In dispensa: 500 g"` e un'azione secondaria discreta **"Ce l'ho già"** (testo, `text-muted-foreground`) per rimandarlo nella sezione.
+**Re-included item**: goes back to the normal section, checkable, with an extended footnote: `"{fonte} · In dispensa: 500 g"` and an unobtrusive secondary action **"Ce l'ho già"** (text, `text-muted-foreground`) to send it back to the section.
 
-**Badge informativo** (`kind === 'badge'`): l'item resta in lista normale con footnote `In dispensa: {formatQty(item)}` accodata alla fonte esistente. Colori: `text-accent` su `bg-accent/10` per il badge, mai verdi raw (token semantici, dark mode gratis).
+**Informational badge** (`kind === 'badge'`): the item stays in the normal list with the footnote `In dispensa: {formatQty(item)}` appended to the existing source. Colors: `text-accent` on `bg-accent/10` for the badge, never raw greens (semantic tokens, dark mode for free).
 
-**Riga suggerimento** (`kind === 'suggestion'`, non dismissato): sotto la riga dell'item, una riga compatta:
+**Suggestion row** (`kind === 'suggestion'`, not dismissed): below the item's row, a compact row:
 
 > Forse ce l'hai già: **Spaghetti fini** — è lo stesso?  [Sì, è lo stesso] [No]
 
-- "Sì, è lo stesso" → `confirmPantryAlias(candidato, item.name)` + toast `Collegato a "Spaghetti fini" in dispensa` → l'item si ricategorizza (sezione o badge a seconda della scorta);
+- "Sì, è lo stesso" → `confirmPantryAlias(candidato, item.name)` + toast `Collegato a "Spaghetti fini" in dispensa` → the item recategorizes (section or badge depending on stock);
 - "No" → `dismissPantrySuggestion(id)`.
-- Se i candidati sono più d'uno si mostra solo il primo (il più simile); niente caroselli.
-- **Nessuno spostamento automatico**: finché l'utente non conferma, l'item resta in lista normale.
+- If there is more than one candidate only the first (most similar) is shown; no carousels.
+- **No automatic moves**: until the user confirms, the item stays in the normal list.
 
-**Progress bar**: gli item in "Hai già in casa" (non ri-inclusi) escono dal conteggio `progress.total` (e i loro eventuali id spuntati dal `checked`), così il 100% resta raggiungibile. `clearChecked` non tocca `pantryIncludedIds`.
+**Progress bar**: items in "Hai già in casa" (not re-included) leave the `progress.total` count (and any of their checked ids leave `checked`), so 100% stays reachable. `clearChecked` does not touch `pantryIncludedIds`.
 
-**Staleness**: dati dispensa con `staleTime 2min` — la sezione può riflettere con ritardo modifiche fatte altrove (altro device). Le mutazioni locali (alias, batch, scalo) invalidano `pantryQueryKey` e aggiornano subito. Accettato e da documentare in un commento nel hook.
+**Staleness**: pantry data with `staleTime 2min` — the section may reflect changes made elsewhere (another device) with a delay. Local mutations (alias, batch, deduction) invalidate `pantryQueryKey` and update immediately. Accepted, and to be documented in a comment in the hook.
 
-### 4.5 Parte 4 — Batch spunta → dispensa
+### 4.5 Part 4 — Batch check → pantry
 
 #### 4.5.1 Entry point
 
-In `ShoppingListContent`, quando esiste **almeno un articolo spuntato** (piano/custom via `checkedIds` ∩ item visibili, oppure ad-hoc con `checked === true`), sopra il bottone "Aggiungi articolo":
+In `ShoppingListContent`, when there is **at least one checked item** (plan/custom via `checkedIds` ∩ visible items, or ad-hoc with `checked === true`), above the "Aggiungi articolo" button:
 
 ```tsx
 <Button className="w-full" onClick={() => setPantrySheetOpen(true)}>
@@ -476,20 +476,20 @@ In `ShoppingListContent`, quando esiste **almeno un articolo spuntato** (piano/c
 </Button>
 ```
 
-#### 4.5.2 Builder puro delle righe — `src/lib/utils/pantry-batch.ts`
+#### 4.5.2 Pure row builder — `src/lib/utils/pantry-batch.ts`
 
 ```ts
 export interface PantryDraftRow {
-  sourceId: string;               // ShoppingItem.id o AdHocShoppingItem.id
+  sourceId: string;               // ShoppingItem.id or AdHocShoppingItem.id
   include: boolean;               // default true
-  name: string;                   // editabile solo se existingItem === null
-  qty: number;                    // nell'unità scelta
-  unit: string;                   // valore di PANTRY_UNITS
+  name: string;                   // editable only if existingItem === null
+  qty: number;                    // in the chosen unit
+  unit: string;                   // a PANTRY_UNITS value
   categoryId: string;
   position: PantryItem['position']; // default 'dispensa'
-  expires: string;                // '' = nessuna scadenza
-  existingItem: PantryItem | null; // match exact/alias → UPDATE (incremento)
-  /** Copy informativa mostrata sotto la riga (es. incremento proposto). */
+  expires: string;                // '' = no expiry
+  existingItem: PantryItem | null; // exact/alias match → UPDATE (increment)
+  /** Informational copy shown below the row (e.g. proposed increment). */
   note: string | null;
 }
 
@@ -499,29 +499,29 @@ export function buildPantryDraftRows(
 ): PantryDraftRow[];
 ```
 
-Precompilazione quantità da `parseQuantity(quantity)`:
-- massa: `baseValue >= 1000` → `{ qty: base/1000, unit: 'kg' }`, altrimenti `{ qty: base, unit: 'g' }`; volume idem con `L`/`ml` (nota: unità dispensa `'L'` maiuscola);
-- count con token in `{'', 'pz', 'pezzo', 'pezzi'}` → `{ qty: value, unit: 'pz' }`;
-- count con altro token ("3 cucchiai") o parse `null` (q.b.) → **fallback `{ qty: 1, unit: 'pz' }`** con `note: 'Quantità in lista: "3 cucchiai"'` così l'utente corregge a vista;
-- **displayQuantity concatenata** (`"200 g + q.b."`, `"200 g + 3"`): split su `' + '`, parse di ogni segmento; se i segmenti parsati condividono una sola dimensione massa/volume → somma delle basi (mirror di `mergeQuantities`) e i segmenti non parsabili si ignorano (`"200 g + q.b."` → 200 g, `note: 'Quantità in lista: "200 g + q.b."'`); se nessun segmento è utilizzabile o le dimensioni sono miste → fallback 1 pz con nota.
+Quantity prefill from `parseQuantity(quantity)`:
+- mass: `baseValue >= 1000` → `{ qty: base/1000, unit: 'kg' }`, otherwise `{ qty: base, unit: 'g' }`; volume likewise with `L`/`ml` (note: pantry unit `'L'` is uppercase);
+- count with a token in `{'', 'pz', 'pezzo', 'pezzi'}` → `{ qty: value, unit: 'pz' }`;
+- count with another token ("3 cucchiai") or parse `null` (q.b.) → **fallback `{ qty: 1, unit: 'pz' }`** with `note: 'Quantità in lista: "3 cucchiai"'` so the user corrects it at a glance;
+- **concatenated displayQuantity** (`"200 g + q.b."`, `"200 g + 3"`): split on `' + '`, parse each segment; if the parsed segments share a single mass/volume dimension → sum of the bases (mirror of `mergeQuantities`) and unparsable segments are ignored (`"200 g + q.b."` → 200 g, `note: 'Quantità in lista: "200 g + q.b."'`); if no segment is usable or the dimensions are mixed → 1 pz fallback with a note.
 
-Categoria: se `existingItem` → `existingItem.categoryId`; altrimenti **`'altro'`** — slug non presente in `PANTRY_CATEGORIES` che la pagina dispensa già raggruppa sotto "Altro" (`dispensa/page.tsx:242–255`) e che Spec E formalizzerà nella tassonomia. Il select della riga mostra le 10 categorie + voce "Altro" (value `altro`). Motivazione contro il default `'condimenti'` di `PantryAddSheet`: silenziosamente sbagliato per quasi tutto; "Altro" è onesto e ordinabile dopo.
+Category: if `existingItem` → `existingItem.categoryId`; otherwise **`'altro'`** — a slug not present in `PANTRY_CATEGORIES` that the pantry page already groups under "Altro" (`dispensa/page.tsx:242–255`) and that Spec E will formalize in the taxonomy. The row's select shows the 10 categories + an "Altro" entry (value `altro`). Rationale against `PantryAddSheet`'s `'condimenti'` default: silently wrong for almost everything; "Altro" is honest and can be sorted later.
 
-Match esistente (via `matchIngredientToPantry`):
-- stessa dimensione confrontabile → la riga è un **incremento**: `qty` precompilata = quantità acquistata **convertita nell'unità della voce esistente** (base / factor dell'unità, arrotondata a 1 decimale), `unit` bloccata su quella della voce, nome **non editabile** (si aggiorna quel documento), `note: 'Già in dispensa: 500 g → diventa 1,5 kg'`;
-- dimensioni non confrontabili → resta un incremento ma `qty` precompilata `0` e `note: 'Già in dispensa: 6 pz — unità non confrontabili, imposta tu l'incremento'`;
-- l'update imposta anche `purchased = oggi`; `expires` solo se compilata (altrimenti il valore esistente resta).
+Existing match (via `matchIngredientToPantry`):
+- same comparable dimension → the row is an **increment**: prefilled `qty` = purchased quantity **converted into the existing entry's unit** (base / unit factor, rounded to 1 decimal), `unit` locked to the entry's unit, name **not editable** (that document gets updated), `note: 'Già in dispensa: 500 g → diventa 1,5 kg'`;
+- non-comparable dimensions → still an increment, but prefilled `qty` is `0` and `note: 'Già in dispensa: 6 pz — unità non confrontabili, imposta tu l'incremento'`;
+- the update also sets `purchased = today`; `expires` only if filled in (otherwise the existing value stays).
 
-Righe multiple che puntano alla **stessa voce esistente** (es. item piano + item ad-hoc dello stesso ingrediente): in fase di apply gli incrementi si **accumulano** sulla stessa `qty` (mai due update indipendenti sullo stesso doc in batch: l'ultimo vincerebbe).
+Multiple rows pointing to the **same existing entry** (e.g. a plan item + an ad-hoc item of the same ingredient): at apply time the increments **accumulate** on the same `qty` (never two independent updates on the same doc in a batch: the last one would win).
 
-Creazioni: `purchased = oggi` in formato locale via `formatLocalDate(new Date())` (`src/lib/constants/seasons.ts:72` — MAI `toISOString().slice(0,10)`, gotcha timezone), `min: 0`, `notes: null`, `expires: form || null`.
+Creations: `purchased = today` in local format via `formatLocalDate(new Date())` (`src/lib/constants/seasons.ts:72` — NEVER `toISOString().slice(0,10)`, timezone gotcha), `min: 0`, `notes: null`, `expires: form || null`.
 
 #### 4.5.3 Apply — `applyPantryBatch` in `src/lib/firebase/pantry.ts`
 
 ```ts
 export interface PantryBatchOp {
   kind: 'create' | 'update';
-  itemId?: string;                 // per update
+  itemId?: string;                 // for update
   data: Omit<PantryItem, 'id' | 'userId' | 'createdAt' | 'updatedAt'>  // create
       | Partial<Omit<PantryItem, 'id' | 'userId' | 'createdAt'>>;      // update
 }
@@ -529,21 +529,21 @@ export interface PantryBatchOp {
 export async function applyPantryBatch(userId: string, ops: PantryBatchOp[]): Promise<void>
 ```
 
-Implementazione con `writeBatch(db)`: create = `batch.set(doc(collection(db, 'pantry_items')), {...data, userId, createdAt: serverTimestamp(), updatedAt: serverTimestamp()})`; update = `batch.update(ref, {...data, updatedAt: serverTimestamp()})`; un solo `commit()` → **atomico** (o tutto o niente, niente dispense a metà). Le rules esistenti coprono entrambe le operazioni.
+Implementation with `writeBatch(db)`: create = `batch.set(doc(collection(db, 'pantry_items')), {...data, userId, createdAt: serverTimestamp(), updatedAt: serverTimestamp()})`; update = `batch.update(ref, {...data, updatedAt: serverTimestamp()})`; a single `commit()` → **atomic** (all or nothing, no half-updated pantries). The existing rules cover both operations.
 
-#### 4.5.4 Sheet `AddCheckedToPantrySheet` — `src/components/shopping-list/AddCheckedToPantrySheet.tsx`
+#### 4.5.4 `AddCheckedToPantrySheet` sheet — `src/components/shopping-list/AddCheckedToPantrySheet.tsx`
 
-Pattern `PantryAddSheet`: bottom sheet mobile, modale centrata 540px su `lg` (stessa `className` di `PantryAddSheet.tsx:111`), `SheetDescription` sr-only, contenuto scrollabile `max-h-[92dvh]`.
+`PantryAddSheet` pattern: mobile bottom sheet, 540px centered modal on `lg` (same `className` as `PantryAddSheet.tsx:111`), sr-only `SheetDescription`, scrollable content `max-h-[92dvh]`.
 
-- Titolo: **"Aggiungi alla dispensa"**; sottotitolo: *"Gli articoli spuntati, pronti da salvare. Controlla e conferma."*
-- Una card per riga (`PantryDraftRow`): checkbox include (`accent-primary`), nome (input se creazione, testo fisso se incremento), riga qty+unit (input number `step 0.1` + select `PANTRY_UNITS`), select categoria, toggle posizione (3 bottoni, pattern PantryAddSheet), input date scadenza opzionale, `note` in `text-xs text-muted-foreground`.
-- Footer: "Annulla" + **"Salva in dispensa (N)"** (N = righe incluse; disabilitato a N=0 o durante il salvataggio).
-- Conferma → costruisce le op (accumulo incrementi per doc, clamp `qty` a ≥ 0), `applyPantryBatch`, invalida `pantryQueryKey(uid)`, toast riepilogo: `"3 prodotti aggiunti, 1 aggiornato in dispensa"` (declinazioni singolare/plurale); errore → `toast.error('Impossibile aggiornare la dispensa. Riprova.')` e sheet aperta (l'atomicità del batch rende il retry sicuro).
-- **Gli articoli restano spuntati**: nessuna modifica a `checkedIds`/`checked` (la spunta significa "comprato", non "archiviato").
+- Title: **"Aggiungi alla dispensa"**; subtitle: *"Gli articoli spuntati, pronti da salvare. Controlla e conferma."*
+- One card per row (`PantryDraftRow`): include checkbox (`accent-primary`), name (input if creation, fixed text if increment), qty+unit row (number input `step 0.1` + `PANTRY_UNITS` select), category select, position toggle (3 buttons, PantryAddSheet pattern), optional expiry date input, `note` in `text-xs text-muted-foreground`.
+- Footer: "Annulla" + **"Salva in dispensa (N)"** (N = included rows; disabled at N=0 or while saving).
+- Confirm → builds the ops (increment accumulation per doc, clamp `qty` to ≥ 0), `applyPantryBatch`, invalidates `pantryQueryKey(uid)`, summary toast: `"3 prodotti aggiunti, 1 aggiornato in dispensa"` (singular/plural forms); error → `toast.error('Impossibile aggiornare la dispensa. Riprova.')` and the sheet stays open (the batch's atomicity makes the retry safe).
+- **Items stay checked**: no change to `checkedIds`/`checked` (the check means "bought", not "archived").
 
-### 4.6 Parte 5 — Scalo dispensa a fine cottura
+### 4.6 Part 5 — Pantry deduction at end of cooking
 
-#### 4.6.1 Calcolo puro — `src/lib/utils/pantry-deduction.ts`
+#### 4.6.1 Pure computation — `src/lib/utils/pantry-deduction.ts`
 
 ```ts
 export type PantryDeductionRow =
@@ -551,8 +551,8 @@ export type PantryDeductionRow =
       kind: 'proposed';
       pantryItem: PantryItem;
       ingredientName: string;
-      scaledQuantity: string;   // per display ("300 g")
-      deductQty: number;        // nell'unità della voce dispensa, già clampato a item.qty
+      scaledQuantity: string;   // for display ("300 g")
+      deductQty: number;        // in the pantry entry's unit, already clamped to item.qty
       confidence: 'exact' | 'alias';
     }
   | {
@@ -564,7 +564,7 @@ export type PantryDeductionRow =
     }
   | {
       kind: 'suggestion';
-      candidate: PantryItem;    // il migliore, uno solo
+      candidate: PantryItem;    // the best one, only one
       ingredientName: string;
       scaledQuantity: string;
     };
@@ -577,29 +577,29 @@ export function computePantryDeductions(
 ): PantryDeductionRow[]
 ```
 
-Per ogni ingrediente (saltando `isTrivialIngredient`): `scaled = scaleQuantity(ingredient.quantity, originalServings, cookedServings)`; `matchIngredientToPantry(name, pantryItems)`:
-- match → `comparePantryStock(scaled, item)`: confrontabile → riga `proposed` con `deductQty = min(requiredBase, availableBase)` convertito nell'unità della voce (arrotondato a 1 decimale); non confrontabile → riga `excluded` col motivo;
-- nessun match ma suggestions → riga `suggestion` (solo il primo candidato);
-- nessun match, nessun suggerimento → nessuna riga.
+For each ingredient (skipping `isTrivialIngredient`): `scaled = scaleQuantity(ingredient.quantity, originalServings, cookedServings)`; `matchIngredientToPantry(name, pantryItems)`:
+- match → `comparePantryStock(scaled, item)`: comparable → `proposed` row with `deductQty = min(requiredBase, availableBase)` converted into the entry's unit (rounded to 1 decimal); not comparable → `excluded` row with the reason;
+- no match but suggestions → `suggestion` row (first candidate only);
+- no match, no suggestion → no row.
 
-Più ingredienti sulla stessa voce dispensa (ricetta multi-sezione): le righe `proposed` si **fondono sommando** i `deductQty` prima del clamp finale a `item.qty`.
+Several ingredients on the same pantry entry (multi-section recipe): the `proposed` rows **merge by summing** the `deductQty` values before the final clamp to `item.qty`.
 
-#### 4.6.2 Dialog `PantryDeductionDialog` — `src/components/pantry/PantryDeductionDialog.tsx`
+#### 4.6.2 `PantryDeductionDialog` dialog — `src/components/pantry/PantryDeductionDialog.tsx`
 
-Componente controllato costruito sui primitivi `Dialog` Radix (come `ConfirmDialog`, ma con contenuto ricco — `ConfirmDialog` non basta: righe editabili). Titolo **"Scala la dispensa"**, descrizione *"Hai usato questi ingredienti: aggiorno le scorte?"*.
+Controlled component built on the Radix `Dialog` primitives (like `ConfirmDialog`, but with rich content — `ConfirmDialog` is not enough: editable rows). Title **"Scala la dispensa"**, description *"Hai usato questi ingredienti: aggiorno le scorte?"*.
 
-- Righe `proposed`: checkbox include (default **on**), nome ingrediente → nome voce dispensa, input number del decremento nell'unità della voce (`step 0.1`, min 0, max `item.qty`), caption `"{formatQty(item)} → {nuovo valore}"` aggiornata live.
-- Righe `suggestion`: checkbox default **off**, copy *"Forse è {nome voce} — conferma per scalare"*; se inclusa alla conferma, prima si salva l'alias (stesso `updatePantryItem` della parte 3) e poi si applica il decremento **solo se** `comparePantryStock` risulta confrontabile, altrimenti la riga viene ignorata con `console.warn`.
-- Righe `excluded`: visibili, opache, non selezionabili, con motivo in italiano: `unparsable` → *"Quantità non quantificabile (es. q.b.)"*; `dimension-mismatch`/`unit-mismatch` → *"Unità non confrontabili"*; `empty` → *"Scorta già a zero"*.
-- Footer: **"Salta"** (variant outline) e **"Aggiorna e termina"** (primary). Entrambi chiudono il flusso di cottura; "Salta" salta solo lo scalo.
-- Il decremento scrive `qty = Math.max(0, item.qty - deduct)` — **clamp a 0, mai delete automatico** della voce.
+- `proposed` rows: include checkbox (default **on**), ingredient name → pantry entry name, number input for the decrement in the entry's unit (`step 0.1`, min 0, max `item.qty`), caption `"{formatQty(item)} → {nuovo valore}"` updated live.
+- `suggestion` rows: checkbox default **off**, copy *"Forse è {nome voce} — conferma per scalare"*; if included at confirmation, the alias is saved first (same `updatePantryItem` as part 3) and then the decrement is applied **only if** `comparePantryStock` turns out comparable, otherwise the row is ignored with `console.warn`.
+- `excluded` rows: visible, dimmed, not selectable, with the reason in Italian: `unparsable` → *"Quantità non quantificabile (es. q.b.)"*; `dimension-mismatch`/`unit-mismatch` → *"Unità non confrontabili"*; `empty` → *"Scorta già a zero"*.
+- Footer: **"Salta"** (outline variant) and **"Aggiorna e termina"** (primary). Both close the cooking flow; "Salta" only skips the deduction.
+- The decrement writes `qty = Math.max(0, item.qty - deduct)` — **clamp to 0, never an automatic delete** of the entry.
 
 #### 4.6.3 Wiring in `handleFinishCooking` (cooking/page.tsx:278)
 
-La pagina monta `usePantry()` (dati cache ≤ 2 min: accettabile, il dialog è comunque editabile). Nuovo flusso:
+The page mounts `usePantry()` (cached data ≤ 2 min: acceptable, the dialog is editable anyway). New flow:
 
 ```ts
-const pantryDeductedRef = useRef(false);   // guardia anti doppio-scalo su retry
+const pantryDeductedRef = useRef(false);   // guard against double deduction on retry
 
 const handleFinishCooking = () => {
   if (!user || !cookingSession || !recipe) return;
@@ -608,16 +608,16 @@ const handleFinishCooking = () => {
     : computePantryDeductions(recipe.ingredients, recipe.servings || 4, servings, pantryItems);
   if (rows.some(r => r.kind !== 'excluded')) {
     setDeductionRows(rows);
-    setDeductionDialogOpen(true);          // il completamento prosegue da onConfirm/onSkip
+    setDeductionDialogOpen(true);          // completion continues from onConfirm/onSkip
   } else {
-    void finalizeCooking(null);            // nessun match: comportamento identico a oggi
+    void finalizeCooking(null);            // no match: behavior identical to today
   }
 };
 
 const finalizeCooking = async (deductions: ConfirmedDeduction[] | null) => {
   try {
     if (deductions && deductions.length > 0 && !pantryDeductedRef.current) {
-      await applyPantryDeductions(user.uid, deductions);   // writeBatch di updateDoc, clamp a 0
+      await applyPantryDeductions(user.uid, deductions);   // writeBatch of updateDoc, clamp to 0
       pantryDeductedRef.current = true;
       queryClient.invalidateQueries({ queryKey: pantryQueryKey(user.uid) });
     }
@@ -626,7 +626,7 @@ const finalizeCooking = async (deductions: ConfirmedDeduction[] | null) => {
       recipeId: recipe.id,
       recipeTitle: recipe.title,
       servings: servings || null,
-      entryId: cookingSession.id,          // NUOVO — idempotenza, vedi sotto
+      entryId: cookingSession.id,          // NEW — idempotency, see below
     });
     await deleteCookingSession(cookingSession.id);
     queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
@@ -639,181 +639,181 @@ const finalizeCooking = async (deductions: ConfirmedDeduction[] | null) => {
 };
 ```
 
-**Ordine delle scritture e fallimenti parziali** (da documentare in un commento nel codice):
-1. **Batch dispensa per primo**: se fallisce, niente è successo (batch atomico) e la sessione sopravvive — retry pulito.
-2. **History con id deterministico**: `createCookingHistoryEntry` guadagna `entryId?: string`; quando presente usa `setDoc(doc(db, 'cooking_history', entryId), ...)` invece di `addDoc`. L'id di sessione è unico per cottura → un retry **sovrascrive lo stesso documento** invece di duplicarlo. Questo **risolve il bug di duplicazione già esistente oggi** (history via `addDoc` + delete fallita + retry). Le rules attuali permettono sia create sia update al proprietario. I chiamanti senza `entryId` (nessuno oggi oltre la cooking page) mantengono `addDoc`.
-3. **Delete sessione per ultimo**: se fallisce dopo history, il retry riscrive la stessa history (innocuo) e non ri-scala (`pantryDeductedRef`).
-4. **Rischio residuo documentato**: se dopo un batch riuscito l'utente **ricarica la pagina** e ritenta, `pantryDeductedRef` è perso e il dialog ripropone lo scalo → possibile doppio decremento. Mitigazione accettata: il dialog è sempre esplicito e mostra le scorte correnti (già decrementate), quindi l'utente vede numeri già scalati e può premere "Salta". Un flag persistito sulla sessione (`pantryDeducted: boolean` su `cooking_sessions`) è la mitigazione completa: **implementarlo** (un `updateCookingSession(sessionId, { pantryDeducted: true })` subito dopo il batch, e il computo delle righe salta se `cookingSession.pantryDeducted`), aggiungendo il campo opzionale a `CookingSession` (`src/types/index.ts:285`). Costo minimo, chiude il buco del reload.
+**Write order and partial failures** (to be documented in a code comment):
+1. **Pantry batch first**: if it fails, nothing happened (atomic batch) and the session survives — clean retry.
+2. **History with a deterministic id**: `createCookingHistoryEntry` gains `entryId?: string`; when present it uses `setDoc(doc(db, 'cooking_history', entryId), ...)` instead of `addDoc`. The session id is unique per cooking → a retry **overwrites the same document** instead of duplicating it. This **fixes the duplication bug that already exists today** (history via `addDoc` + failed delete + retry). The current rules allow both create and update to the owner. Callers without `entryId` (none today besides the cooking page) keep `addDoc`.
+3. **Session delete last**: if it fails after the history write, the retry rewrites the same history (harmless) and does not deduct again (`pantryDeductedRef`).
+4. **Documented residual risk**: if after a successful batch the user **reloads the page** and retries, `pantryDeductedRef` is lost and the dialog proposes the deduction again → possible double decrement. Accepted mitigation: the dialog is always explicit and shows the current stock (already decremented), so the user sees already-deducted numbers and can press "Salta". A flag persisted on the session (`pantryDeducted: boolean` on `cooking_sessions`) is the complete mitigation: **implement it** (an `updateCookingSession(sessionId, { pantryDeducted: true })` right after the batch, and the row computation is skipped if `cookingSession.pantryDeducted`), adding the optional field to `CookingSession` (`src/types/index.ts:285`). Minimal cost, closes the reload hole.
 
-`applyPantryDeductions` è una thin-wrapper su `applyPantryBatch` (solo update `qty`).
+`applyPantryDeductions` is a thin wrapper over `applyPantryBatch` (`qty` updates only).
 
-**Il percorso abbandono non scala MAI**: `cotture-in-corso/page.tsx:73–87` resta intatto.
+**The abandon path NEVER deducts**: `cotture-in-corso/page.tsx:73–87` stays untouched.
 
-### 4.7 Parte 6 — Micro-fix
+### 4.7 Part 6 — Micro-fixes
 
-1. **"Aggiungi articolo" senza piano** (`ShoppingListContent.tsx:125`): rimuovere il gate `hasPlan &&` attorno al bottone; nell'empty state "Nessun piano" (righe 52–69) aggiungere sotto il CTA "Vai al pianificatore" un bottone secondario "Aggiungi articolo" e montare comunque `AddCustomItemSheet` (spostare il `return` anticipato in un render condizionale che condivide la sheet). La persistenza no-plan esiste già: `useShoppingList.ts:336–338` scrive su localStorage quando `planId` è null. Motivazione: la feature funziona già a livello dati, il gate è solo UI.
-2. **ConfirmDialog sul delete di `PantryItemQuickSheet`** (righe 120–128): stato locale `confirmDeleteOpen`, `ConfirmDialog` renderizzato come fratello della `Sheet` con `title: 'Eliminare {item.name}?'`, `description: 'Il prodotto verrà rimosso dalla dispensa.'`, `confirmLabel: 'Elimina'`, `isConfirming` legato alla mutation; alla conferma `deleteItem.mutateAsync` → chiudi entrambi. Motivazione: regola di progetto (mai delete distruttivi diretti), stesso pattern di `AdHocRecipeGroup`.
-3. **"Consumato" con semantica per unità** (righe 38–43): per unità count (`pz`, `vasetti`, `mazzo`, `testa`) resta il decremento di 1 (clamp a 0). Per `g`/`kg`/`ml`/`L` il bottone si espande in tre chip proporzionali nella stessa sheet: **"Un po' (−25%)"**, **"Metà (−50%)"**, **"Tutto"** (→ 0); arrotondamento a 1 decimale (coerente con `formatQty`), clamp a 0. Motivazione: in cucina non si digita — tre tap proporzionali coprono i casi reali senza tastiera; il valore esatto resta modificabile da "Modifica prodotto".
-4. **Stub morti dispensa**:
-   - **Tab "A voce"**: rimossa del tutto (`Tab` type, entry nell'array, JSX stub, import `Mic`). Motivazione: promessa senza roadmap; se tornerà, tornerà col suo design.
-   - **Tab "Da lista spesa"**: rimossa come tab; con una sola tab rimasta si elimina l'intera tab bar e `PantryAddSheet` diventa un form puro (meno UI, stesso comportamento). L'entry point verso il nuovo flusso batch vive: (a) nella card desktop "Dalla lista spesa" di `PantryDesktopSidebar` (righe 54–71), aggiornandone la copy a: *"Spunta gli articoli in lista e usa 'Aggiungi alla dispensa' per salvarli qui in un passaggio."* (il link a `/lista-spesa` resta); (b) il flusso reale sta nella lista spesa (parte 4), dove l'utente si trova a fine spesa. Motivazione: niente doppioni di implementazione, il signpost sostituisce lo stub.
-   - **"Aggiungi a lista" in `PantryItemQuickSheet` (righe 86–92) e `onAddToList` in `PantryItemRow`**: rimossi. Motivazione: scrivere sul doc del piano da fuori `useShoppingList` andrebbe in **race con i write debounced full-array** del hook (last-write-wins sul medesimo campo) — implementarlo bene richiede un canale condiviso che non vale il costo ora. Meglio nessuna promessa che una promessa rotta.
-   - **`onConsume` desktop mai wired** (`PantryItemRow.tsx:91–99`): rimosso il prop e il bottone. Motivazione: la nuova UX "Consumato" (chip proporzionali) vive nella quick sheet che è `lg:hidden`; un consume desktop `−1` secco reintrodurrebbe la semantica sbagliata appena corretta. Su desktop si usa "Modifica". (Il blocco hover-only resta legittimo perché `lg`-only, gotcha touch rispettato.)
+1. **"Aggiungi articolo" without a plan** (`ShoppingListContent.tsx:125`): remove the `hasPlan &&` gate around the button; in the "Nessun piano" empty state (lines 52–69) add a secondary "Aggiungi articolo" button below the "Vai al pianificatore" CTA and mount `AddCustomItemSheet` anyway (turn the early `return` into a conditional render that shares the sheet). No-plan persistence already exists: `useShoppingList.ts:336–338` writes to localStorage when `planId` is null. Rationale: the feature already works at the data level, the gate is UI only.
+2. **ConfirmDialog on `PantryItemQuickSheet` delete** (lines 120–128): local state `confirmDeleteOpen`, `ConfirmDialog` rendered as a sibling of the `Sheet` with `title: 'Eliminare {item.name}?'`, `description: 'Il prodotto verrà rimosso dalla dispensa.'`, `confirmLabel: 'Elimina'`, `isConfirming` bound to the mutation; on confirm `deleteItem.mutateAsync` → close both. Rationale: project rule (never direct destructive deletes), same pattern as `AdHocRecipeGroup`.
+3. **"Consumato" with per-unit semantics** (lines 38–43): for count units (`pz`, `vasetti`, `mazzo`, `testa`) the decrement by 1 stays (clamp to 0). For `g`/`kg`/`ml`/`L` the button expands into three proportional chips in the same sheet: **"Un po' (−25%)"**, **"Metà (−50%)"**, **"Tutto"** (→ 0); rounding to 1 decimal (consistent with `formatQty`), clamp to 0. Rationale: nobody types in the kitchen — three proportional taps cover the real cases without a keyboard; the exact value stays editable from "Modifica prodotto".
+4. **Dead pantry stubs**:
+   - **"A voce" tab**: removed entirely (`Tab` type, array entry, stub JSX, `Mic` import). Rationale: a promise with no roadmap; if it comes back, it will come back with its own design.
+   - **"Da lista spesa" tab**: removed as a tab; with only one tab left the whole tab bar goes and `PantryAddSheet` becomes a plain form (less UI, same behavior). The entry point to the new batch flow lives: (a) in the "Dalla lista spesa" desktop card of `PantryDesktopSidebar` (lines 54–71), updating its copy to: *"Spunta gli articoli in lista e usa 'Aggiungi alla dispensa' per salvarli qui in un passaggio."* (the link to `/lista-spesa` stays); (b) the real flow is in the shopping list (part 4), where the user is at the end of shopping. Rationale: no duplicate implementations, the signpost replaces the stub.
+   - **"Aggiungi a lista" in `PantryItemQuickSheet` (lines 86–92) and `onAddToList` in `PantryItemRow`**: removed. Rationale: writing to the plan doc from outside `useShoppingList` would **race with the hook's debounced full-array writes** (last-write-wins on the same field) — implementing it properly requires a shared channel that isn't worth the cost now. Better no promise than a broken promise.
+   - **Desktop `onConsume` never wired** (`PantryItemRow.tsx:91–99`): prop and button removed. Rationale: the new "Consumato" UX (proportional chips) lives in the quick sheet, which is `lg:hidden`; a flat `−1` desktop consume would reintroduce the wrong semantics just fixed. On desktop "Modifica" is used. (The hover-only block remains legitimate because it is `lg`-only, touch gotcha respected.)
 
-### 4.8 Indici, regole, query
+### 4.8 Indexes, rules, queries
 
-- **Nessun nuovo indice**: `getPantryItems` resta `where('userId','==',userId)` senza orderBy; nessuna nuova query composita.
-- **Nessuna modifica alle rules**: `aliases`, `shoppingPantryIncludedIds`, `pantryIncluded`, `pantryDeducted` sono campi su documenti esistenti già coperti da ownership; `cooking_history` via `setDoc` è create/update dal proprietario, già permessi.
-- **Nessuna nuova collection**.
-- React Query: nessuna nuova query key; `useShoppingList` riusa `pantryQueryKey` via `usePantry()`; ogni mutazione dispensa invalida quella chiave.
+- **No new index**: `getPantryItems` stays `where('userId','==',userId)` without orderBy; no new composite query.
+- **No rules change**: `aliases`, `shoppingPantryIncludedIds`, `pantryIncluded`, `pantryDeducted` are fields on existing documents already covered by ownership; `cooking_history` via `setDoc` is a create/update by the owner, already allowed.
+- **No new collection**.
+- React Query: no new query key; `useShoppingList` reuses `pantryQueryKey` via `usePantry()`; every pantry mutation invalidates that key.
 
-## 5. Piano di implementazione a fasi
+## 5. Phased implementation plan
 
-Ogni fase lascia `npx tsc --noEmit` e la build verdi. Le fasi 1–3 sono rilasciabili da sole (filtro banali + micro-fix), 4–6 costruiscono sopra.
+Every phase leaves `npx tsc --noEmit` and the build green. Phases 1–3 are releasable on their own (trivial-item filter + micro-fixes), 4–6 build on top.
 
-**Fase 1 — Modulo di matching (nessun cambiamento visibile)**
-- `src/lib/utils/ingredient-aggregator.ts`: `export` su `canonicalIngredientKey`, `singularizeWord`, `parseQuantity`, `UNIT_ALIASES`, `NON_SCALABLE_RE`, `formatQuantity`, `formatItalianNumber`, tipi `ParsedQuantity`/`QuantityDimension`; aggiunta di `TRIVIAL_INGREDIENT_NAMES`/`isTrivialIngredient`/`isTrivialIngredientKey` (definite qui, vicino a `canonicalIngredientKey`).
-- Nuovo `src/lib/utils/ingredient-matching.ts`: ri-esporta il contratto, definisce `matchIngredientToPantry`, `parsePantryQty`, `comparePantryStock`, `PantryMatch`, `PantryStockComparison`.
+**Phase 1 — Matching module (no visible change)**
+- `src/lib/utils/ingredient-aggregator.ts`: `export` on `canonicalIngredientKey`, `singularizeWord`, `parseQuantity`, `UNIT_ALIASES`, `NON_SCALABLE_RE`, `formatQuantity`, `formatItalianNumber`, types `ParsedQuantity`/`QuantityDimension`; addition of `TRIVIAL_INGREDIENT_NAMES`/`isTrivialIngredient`/`isTrivialIngredientKey` (defined here, next to `canonicalIngredientKey`).
+- New `src/lib/utils/ingredient-matching.ts`: re-exports the contract, defines `matchIngredientToPantry`, `parsePantryQty`, `comparePantryStock`, `PantryMatch`, `PantryStockComparison`.
 - `src/types/pantry.ts`: `aliases?: string[]`.
-- Nuovo `src/lib/utils/ingredient-matching.test.ts` (+ estensione `ingredient-aggregator.test.ts` per gli export).
+- New `src/lib/utils/ingredient-matching.test.ts` (+ extension of `ingredient-aggregator.test.ts` for the exports).
 
-**Fase 2 — Filtro banali + "Aggiungi articolo" senza piano**
-- `src/lib/utils/ingredient-aggregator.ts`: skip in `aggregateIngredients` (commento igiene checkedIds).
-- `src/lib/firebase/shopping-adhoc.ts`: filtro in `addRecipeToAdHocShoppingList`.
-- `src/components/shopping-list/ShoppingListContent.tsx`: rimozione gate `hasPlan`, empty state con azione secondaria, sheet sempre montata.
-- Test aggregatore aggiornati.
+**Phase 2 — Trivial-item filter + "Aggiungi articolo" without a plan**
+- `src/lib/utils/ingredient-aggregator.ts`: skip in `aggregateIngredients` (checkedIds hygiene comment).
+- `src/lib/firebase/shopping-adhoc.ts`: filter in `addRecipeToAdHocShoppingList`.
+- `src/components/shopping-list/ShoppingListContent.tsx`: removal of the `hasPlan` gate, empty state with a secondary action, sheet always mounted.
+- Aggregator tests updated.
 
-**Fase 3 — Micro-fix dispensa**
-- `src/components/pantry/PantryItemQuickSheet.tsx`: ConfirmDialog delete, chip "Consumato" per unità, rimozione "Aggiungi a lista".
-- `src/components/pantry/PantryAddSheet.tsx`: rimozione tab bar e stub.
-- `src/components/pantry/PantryItemRow.tsx`: rimozione `onConsume`/`onAddToList`.
-- `src/components/pantry/PantryDesktopSidebar.tsx`: nuova copy card "Dalla lista spesa".
+**Phase 3 — Pantry micro-fixes**
+- `src/components/pantry/PantryItemQuickSheet.tsx`: delete ConfirmDialog, per-unit "Consumato" chips, removal of "Aggiungi a lista".
+- `src/components/pantry/PantryAddSheet.tsx`: removal of the tab bar and stubs.
+- `src/components/pantry/PantryItemRow.tsx`: removal of `onConsume`/`onAddToList`.
+- `src/components/pantry/PantryDesktopSidebar.tsx`: new copy for the "Dalla lista spesa" card.
 
-**Fase 4 — Sezione "Hai già in casa"**
+**Phase 4 — "Hai già in casa" section**
 - `src/types/index.ts`: `MealPlan.shoppingPantryIncludedIds`, `AdHocShoppingItem.pantryIncluded`.
-- `src/lib/firebase/meal-plans.ts`: quarta arg di `updateMealPlanShoppingState`.
-- `src/lib/hooks/useShoppingList.ts`: `usePantry()`, memo `pantryInfoById`, stato/persistenza `pantryIncludedIds` (checklist §4.4.2 punto per punto), `togglePantryIncluded`, `confirmPantryAlias`, `dismissPantrySuggestion`, esclusione dal progress.
-- `src/components/shopping-list/`: nuova `PantryOwnedSection.tsx`, estensioni `ShoppingListContent.tsx`/`ShoppingItemRow.tsx` (footnote badge, riga suggerimento, azione "Ce l'ho già"), `AdHocRecipeGroup.tsx` (stessa partizione per item ad-hoc).
-- `src/app/(dashboard)/lista-spesa/page.tsx`: pass-through delle nuove props.
+- `src/lib/firebase/meal-plans.ts`: fourth arg of `updateMealPlanShoppingState`.
+- `src/lib/hooks/useShoppingList.ts`: `usePantry()`, `pantryInfoById` memo, `pantryIncludedIds` state/persistence (checklist §4.4.2 point by point), `togglePantryIncluded`, `confirmPantryAlias`, `dismissPantrySuggestion`, exclusion from progress.
+- `src/components/shopping-list/`: new `PantryOwnedSection.tsx`, extensions to `ShoppingListContent.tsx`/`ShoppingItemRow.tsx` (badge footnote, suggestion row, "Ce l'ho già" action), `AdHocRecipeGroup.tsx` (same partition for ad-hoc items).
+- `src/app/(dashboard)/lista-spesa/page.tsx`: pass-through of the new props.
 
-**Fase 5 — Batch spunta → dispensa**
-- Nuovo `src/lib/utils/pantry-batch.ts` (+ test).
+**Phase 5 — Batch check → pantry**
+- New `src/lib/utils/pantry-batch.ts` (+ tests).
 - `src/lib/firebase/pantry.ts`: `applyPantryBatch`.
-- Nuovo `src/components/shopping-list/AddCheckedToPantrySheet.tsx`; bottone in `ShoppingListContent.tsx`.
+- New `src/components/shopping-list/AddCheckedToPantrySheet.tsx`; button in `ShoppingListContent.tsx`.
 
-**Fase 6 — Scalo a fine cottura**
-- Nuovo `src/lib/utils/pantry-deduction.ts` (+ test).
-- `src/lib/firebase/cooking-history.ts`: param `entryId` + `setDoc`.
+**Phase 6 — End-of-cooking deduction**
+- New `src/lib/utils/pantry-deduction.ts` (+ tests).
+- `src/lib/firebase/cooking-history.ts`: `entryId` param + `setDoc`.
 - `src/types/index.ts`: `CookingSession.pantryDeducted?: boolean`.
-- Nuovo `src/components/pantry/PantryDeductionDialog.tsx`.
-- `src/app/(dashboard)/ricette/[id]/cooking/page.tsx`: `usePantry()`, split `handleFinishCooking`/`finalizeCooking`, guardie idempotenza.
+- New `src/components/pantry/PantryDeductionDialog.tsx`.
+- `src/app/(dashboard)/ricette/[id]/cooking/page.tsx`: `usePantry()`, `handleFinishCooking`/`finalizeCooking` split, idempotency guards.
 
-A fine lavoro: aggiornare CLAUDE.md (Recent Changes + collezioni/campi), AGENTS.md (gotcha emersi: campo che viaggia nel write esistente ≠ nuovo target ma stessa checklist; `setDoc` idempotente per history), checklist in `specs/00-roadmap.md`.
+When done: update CLAUDE.md (Recent Changes + collections/fields), AGENTS.md (gotchas that emerged: a field traveling in the existing write ≠ a new target but the same checklist; idempotent `setDoc` for history), checklist in `specs/00-roadmap.md`.
 
-## 6. Piano di test
+## 6. Test plan
 
-### 6.1 Unit test (Jest — comando: `npm test`, config `jest.config.js`, stile di `src/lib/utils/ingredient-aggregator.test.ts` con factory di default)
+### 6.1 Unit tests (Jest — command: `npm test`, config `jest.config.js`, style of `src/lib/utils/ingredient-aggregator.test.ts` with default factories)
 
 `ingredient-matching.test.ts`:
-- `canonicalIngredientKey` ri-esportata: pomodoro/pomodori stessa chiave; "pomodori pelati" ≠ "pomodori"; accenti.
-- `isTrivialIngredient`: true per "Acqua", "acqua fredda", "Acqua di cottura", "ghiaccio", "Cubetti di ghiaccio"; **false** per "sale", "olio", "acqua di rose", "acqua di cocco", "sale e acqua" (frase non in lista).
-- `matchIngredientToPantry`: exact su singolare/plurale/accenti; alias vince quando exact assente; exact vince su alias; doppioni → qty maggiore; nessun match → suggestions: "spaghetti"↔"Spaghetti fini" (entrambe le direzioni), "pomodori"↔"Passata di pomodoro"; NON suggerito: "sale"↔"Salsa di soia" (stem disgiunti: "sal" ≠ "sals", mai match per prefisso), "uva"↔"Uva passa" (unico token comune < 4 char), nomi disgiunti; cap a 3 e ordinamento per similarità.
-- `parsePantryQty`/`comparePantryStock`: `'L'` maiuscola; "200 g" vs 1 kg → sufficient; "2 kg" vs 500 g → insufficiente; "2" vs 6 pz → sufficient (equivalenza count); "2 pomodori" vs 500 g → `dimension-mismatch`; "q.b." → `unparsable`; `"200 g + q.b."` → `unparsable`; qty 0 → `empty`; "1 mazzo" vs "2 vasetti" → `unit-mismatch`.
+- re-exported `canonicalIngredientKey`: pomodoro/pomodori same key; "pomodori pelati" ≠ "pomodori"; accents.
+- `isTrivialIngredient`: true for "Acqua", "acqua fredda", "Acqua di cottura", "ghiaccio", "Cubetti di ghiaccio"; **false** for "sale", "olio", "acqua di rose", "acqua di cocco", "sale e acqua" (phrase not in the list).
+- `matchIngredientToPantry`: exact on singular/plural/accents; alias wins when exact is absent; exact wins over alias; duplicates → highest qty; no match → suggestions: "spaghetti"↔"Spaghetti fini" (both directions), "pomodori"↔"Passata di pomodoro"; NOT suggested: "sale"↔"Salsa di soia" (disjoint stems: "sal" ≠ "sals", never prefix matching), "uva"↔"Uva passa" (only common token < 4 chars), disjoint names; cap at 3 and ordering by similarity.
+- `parsePantryQty`/`comparePantryStock`: uppercase `'L'`; "200 g" vs 1 kg → sufficient; "2 kg" vs 500 g → insufficient; "2" vs 6 pz → sufficient (count equivalence); "2 pomodori" vs 500 g → `dimension-mismatch`; "q.b." → `unparsable`; `"200 g + q.b."` → `unparsable`; qty 0 → `empty`; "1 mazzo" vs "2 vasetti" → `unit-mismatch`.
 
-`ingredient-aggregator.test.ts` (estensioni):
-- contributions con "acqua"/"ghiaccio" non producono item; "acqua di rose" sì; il filtro non tocca gli altri gruppi.
-- `parseQuantity`/`formatQuantity` esportate: casi virgola italiana, etti, cl.
+`ingredient-aggregator.test.ts` (extensions):
+- contributions with "acqua"/"ghiaccio" produce no item; "acqua di rose" does; the filter doesn't touch other groups.
+- exported `parseQuantity`/`formatQuantity`: Italian decimal comma cases, etti, cl.
 
 `pantry-batch.test.ts`:
-- precompilazioni (massa→g/kg, volume→ml/L, count→pz, q.b.→1 pz con nota, concatenata con somma segmenti e con fallback);
-- match esistente stessa dimensione → incremento convertito nell'unità della voce; dimensioni diverse → qty 0 + nota;
-- accumulo di due righe sullo stesso item.
+- prefills (mass→g/kg, volume→ml/L, count→pz, q.b.→1 pz with note, concatenated with segment sum and with fallback);
+- existing match same dimension → increment converted into the entry's unit; different dimensions → qty 0 + note;
+- accumulation of two rows on the same item.
 
 `pantry-deduction.test.ts`:
-- scaling alle porzioni (4→6) e conversione all'unità della voce; clamp a `item.qty`;
-- q.b. → `excluded/unparsable`; count vs massa → `excluded/dimension-mismatch`; banali saltati;
-- fusione di più ingredienti sulla stessa voce; suggestion row per il fuzzy.
+- scaling to servings (4→6) and conversion to the entry's unit; clamp to `item.qty`;
+- q.b. → `excluded/unparsable`; count vs mass → `excluded/dimension-mismatch`; trivial items skipped;
+- merging of several ingredients on the same entry; suggestion row for fuzzy.
 
-### 6.2 Collaudo guidato (Playwright + emulatori Firebase — vedi "Guided testing tooling" in CLAUDE.md)
+### 6.2 Guided test (Playwright + Firebase emulators — see "Guided testing tooling" in CLAUDE.md)
 
-Script usa-e-getta in `e2e/scratch/` (gitignorata, da cancellare a fine collaudo), `npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev`; seed via script throwaway con spy-word nei nomi (es. "Spaghetti COLLAUDO"). Fasi, una per messaggio, esito atteso dichiarato prima:
+Throwaway script in `e2e/scratch/` (gitignored, to be deleted at the end of the guided test), `npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev`; seed via a throwaway script with spy words in the names (e.g. "Spaghetti COLLAUDO"). Phases, one per message, expected outcome declared first:
 
-1. **Banali**: piano con ricetta contenente "acqua" e "acqua di cottura della pasta" → la lista non li mostra; "Voglio preparare questo" sulla stessa ricetta → il gruppo ad-hoc non li contiene; articolo custom "acqua frizzante" → resta.
-2. **Hai già in casa**: dispensa con "Farina 00" 2 kg; piano che richiede "farina 00 300 g" → item nella sezione collassata con "In dispensa: 2 kg"; tap "Mi serve comunque" → torna in lista; reload → persiste (assert su `meal_plans.shoppingPantryIncludedIds` in Firestore emulato).
-3. **Badge non confrontabile**: dispensa "Uova 6 pz", ricetta "uova 200 g" → resta in lista con badge.
-4. **Alias**: dispensa "Spaghetti fini", ricetta "spaghetti" → riga suggerimento; "Sì, è lo stesso" → assert `aliases` sul doc dispensa + ricategorizzazione immediata.
-5. **Batch**: spunta 3 articoli → "Aggiungi alla dispensa (3)" → sheet con precompilazioni attese → conferma → assert creazioni/incremento su `pantry_items` (un solo incremento se una voce esisteva), toast, spunte intatte.
-6. **Scalo cottura**: sessione al 100% su ricetta con match; "Termina cottura" → dialog con decremento scalato alle porzioni; conferma → assert qty decrementata (clamp a 0), **una sola** entry `cooking_history` con id = session id, sessione cancellata. Ripetere con "Salta" → nessun decremento. Abbandono da /cotture-in-corso → nessun decremento, nessuna history.
-7. **Micro-fix**: settimana senza piano → "Aggiungi articolo" visibile e funzionante (localStorage); delete dispensa → ConfirmDialog; "Consumato" su voce in g → chip −25%/−50%/Tutto.
+1. **Trivial items**: plan with a recipe containing "acqua" and "acqua di cottura della pasta" → the list doesn't show them; "Voglio preparare questo" on the same recipe → the ad-hoc group doesn't contain them; custom item "acqua frizzante" → stays.
+2. **Hai già in casa**: pantry with "Farina 00" 2 kg; plan requiring "farina 00 300 g" → item in the collapsed section with "In dispensa: 2 kg"; tap "Mi serve comunque" → back in the list; reload → persists (assert on `meal_plans.shoppingPantryIncludedIds` in emulated Firestore).
+3. **Non-comparable badge**: pantry "Uova 6 pz", recipe "uova 200 g" → stays in the list with a badge.
+4. **Alias**: pantry "Spaghetti fini", recipe "spaghetti" → suggestion row; "Sì, è lo stesso" → assert `aliases` on the pantry doc + immediate recategorization.
+5. **Batch**: check 3 items → "Aggiungi alla dispensa (3)" → sheet with the expected prefills → confirm → assert creations/increment on `pantry_items` (a single increment if an entry existed), toast, checks intact.
+6. **Cooking deduction**: session at 100% on a recipe with a match; "Termina cottura" → dialog with the decrement scaled to servings; confirm → assert qty decremented (clamp to 0), **a single** `cooking_history` entry with id = session id, session deleted. Repeat with "Salta" → no decrement. Abandon from /cotture-in-corso → no decrement, no history.
+7. **Micro-fixes**: week without a plan → "Aggiungi articolo" visible and working (localStorage); pantry delete → ConfirmDialog; "Consumato" on an entry in g → −25%/−50%/Tutto chips.
 
-## 7. Gotcha e vincoli pertinenti (AGENTS.md / CLAUDE.md)
+## 7. Relevant gotchas and constraints (AGENTS.md / CLAUDE.md)
 
-- **Mai `undefined` su Firestore** (AGENTS.md riga 23): `aliases` omesso o array; `pantryIncluded` boolean o chiave omessa (spread condizionale); `shoppingPantryIncludedIds` sempre array nel write; `expires`/`purchased` `null` non `''` sul documento.
-- **Nuovo target di persistenza → proprio debounce + registrazione in `flushAll`** (AGENTS.md riga 42): questa spec **evita deliberatamente** nuovi target — `shoppingPantryIncludedIds` viaggia nel write del piano esistente, `pantryIncluded` nell'array ad-hoc esistente. La checklist §4.4.2 (latestStateRef, init, reset, persist effect, flush, localStorage) va eseguita integralmente: dimenticare un punto riproduce il bug delle spunte perse per il solo campo nuovo.
-- **`enabled: !!user`** su ogni query auth-bound (AGENTS.md riga 48): `usePantry` lo fa già; non introdurre query nuove senza.
-- **Niente `onSnapshot`** (CLAUDE.md): il matching è ricalcolo client-side su cache React Query, staleTime dispensa 2 min accettato.
-- **`ConfirmDialog` per azioni distruttive, mai `confirm()`/`alert()`** (AGENTS.md riga 75): delete dispensa (micro-fix 2); lo scalo cottura usa un Dialog dedicato perché non è distruttivo-binario.
-- **Structured outputs / schema JSON**: nessuna route AI in questa spec — vincolo non applicabile (nessun `minItems`/`minimum` da evitare perché non ci sono schema).
-- **Token colore semantici** (AGENTS.md righe 53–62): badge e sezione con `text-accent`/`bg-accent/10`/`text-muted-foreground`/`bg-card`; mai `green-*`/`bg-white`; input/select nativi nelle sheet con `bg-background text-foreground` espliciti.
-- **Controlli mai solo `group-hover` sotto `lg`** (AGENTS.md riga 74): "Mi serve comunque", "Ce l'ho già", chip Consumato e bottoni riga sempre visibili su mobile; area tap ≥ 44px.
-- **`max-lg:portrait:`** invece di `portrait:` (AGENTS.md riga 19) per ogni classe orientamento nelle nuove UI; sheet bottom su mobile e centrata su `lg` (pattern `PantryAddSheet.tsx:111`).
-- **Date `YYYY-MM-DD`**: parse con suffisso `'T00:00:00'` e formattazione con `formatLocalDate` (AGENTS.md righe 34, 47) — mai `toISOString().slice(0,10)` per `purchased`.
-- **Collapsible con `grid-rows`**, non `max-height` (AGENTS.md riga 69) per la sezione "Hai già in casa".
-- **Checkbox native**: `accent-primary` (AGENTS.md riga 80).
-- **Lista spesa = vista derivata cachata** (AGENTS.md riga 60): le mutazioni dispensa non toccano `['shoppingList', ...]` (giusto così: la classificazione dipende da `pantryQueryKey`, che va invalidata); non aggiungere invalidazioni superflue.
-- **Merge conservativo**: non allentare `canonicalIngredientKey`/`singularizeWord` (test esistenti + filosofia non-merge = fallimento sicuro).
-- **`cooking_history` append-only, statistiche leggono solo da lì** (CLAUDE.md): il passaggio a `setDoc` con id deterministico non cambia la forma del documento; i doc legacy restano leggibili.
-- **Cache stale dopo write** (AGENTS.md riga 59): invalidare `pantryQueryKey` dopo alias/batch/scalo e `['cookingSessions', uid]` a fine cottura (già presente).
-- **Build**: `npx tsc --noEmit` + `npx next build --webpack`; `spawn EPERM` in sandbox → rilanciare fuori sandbox (AGENTS.md riga 73). `next lint` non esiste più (riga 81).
+- **Never `undefined` on Firestore** (AGENTS.md line 23): `aliases` omitted or array; `pantryIncluded` boolean or key omitted (conditional spread); `shoppingPantryIncludedIds` always an array in the write; `expires`/`purchased` `null`, not `''`, on the document.
+- **New persistence target → its own debounce + registration in `flushAll`** (AGENTS.md line 42): this spec **deliberately avoids** new targets — `shoppingPantryIncludedIds` travels in the existing plan write, `pantryIncluded` in the existing ad-hoc array. The §4.4.2 checklist (latestStateRef, init, reset, persist effect, flush, localStorage) must be carried out in full: forgetting one point reproduces the lost-checks bug for the new field alone.
+- **`enabled: !!user`** on every auth-bound query (AGENTS.md line 48): `usePantry` already does it; don't introduce new queries without it.
+- **No `onSnapshot`** (CLAUDE.md): matching is a client-side recomputation over the React Query cache, 2 min pantry staleTime accepted.
+- **`ConfirmDialog` for destructive actions, never `confirm()`/`alert()`** (AGENTS.md line 75): pantry delete (micro-fix 2); the cooking deduction uses a dedicated Dialog because it is not binary-destructive.
+- **Structured outputs / JSON schema**: no AI route in this spec — constraint not applicable (no `minItems`/`minimum` to avoid because there are no schemas).
+- **Semantic color tokens** (AGENTS.md lines 53–62): badge and section with `text-accent`/`bg-accent/10`/`text-muted-foreground`/`bg-card`; never `green-*`/`bg-white`; native inputs/selects in the sheets with explicit `bg-background text-foreground`.
+- **Controls never `group-hover`-only below `lg`** (AGENTS.md line 74): "Mi serve comunque", "Ce l'ho già", Consumato chips and row buttons always visible on mobile; tap area ≥ 44px.
+- **`max-lg:portrait:`** instead of `portrait:` (AGENTS.md line 19) for every orientation class in the new UI; bottom sheet on mobile and centered on `lg` (`PantryAddSheet.tsx:111` pattern).
+- **`YYYY-MM-DD` dates**: parse with the `'T00:00:00'` suffix and format with `formatLocalDate` (AGENTS.md lines 34, 47) — never `toISOString().slice(0,10)` for `purchased`.
+- **Collapsible with `grid-rows`**, not `max-height` (AGENTS.md line 69) for the "Hai già in casa" section.
+- **Native checkboxes**: `accent-primary` (AGENTS.md line 80).
+- **Shopping list = cached derived view** (AGENTS.md line 60): pantry mutations don't touch `['shoppingList', ...]` (rightly so: the classification depends on `pantryQueryKey`, which must be invalidated); don't add superfluous invalidations.
+- **Conservative merge**: don't loosen `canonicalIngredientKey`/`singularizeWord` (existing tests + philosophy non-merge = safe failure).
+- **`cooking_history` append-only, statistics read only from there** (CLAUDE.md): switching to `setDoc` with a deterministic id doesn't change the document's shape; legacy docs stay readable.
+- **Stale cache after write** (AGENTS.md line 59): invalidate `pantryQueryKey` after alias/batch/deduction and `['cookingSessions', uid]` at the end of cooking (already present).
+- **Build**: `npx tsc --noEmit` + `npx next build --webpack`; `spawn EPERM` in the sandbox → rerun outside the sandbox (AGENTS.md line 73). `next lint` no longer exists (line 81).
 
-## 8. Fuori scope
+## 8. Out of scope
 
-- Tassonomia reparti e raggruppamento della lista per reparto (**Spec E**, che consuma questo modulo).
-- Tabella densità/peso per convertire count ↔ massa ("2 pomodori" vs "500 g"): il mismatch resta non confrontabile per scelta.
-- Persistenza dei suggerimenti rifiutati (solo sessione).
-- "Aggiungi a lista" dalla dispensa (rimosso, non reimplementato — race coi write debounced).
-- Lista spesa automatica da scorte sotto soglia (card "In arrivo" resta).
-- Inserimento vocale (tab rimossa).
-- Migrazioni batch di dati esistenti (gruppi ad-hoc con banali, checkedIds inerti).
-- Scaling delle quantità ad-hoc alle porzioni (gli item ad-hoc restano copie verbatim non scalate).
-- Qualsiasi endpoint AI o modifica ai prompt.
+- Aisle taxonomy and grouping the list by aisle (**Spec E**, which consumes this module).
+- Density/weight table to convert count ↔ mass ("2 pomodori" vs "500 g"): the mismatch stays non-comparable by choice.
+- Persistence of rejected suggestions (session only).
+- "Aggiungi a lista" from the pantry (removed, not reimplemented — race with the debounced writes).
+- Automatic shopping list from below-threshold stock (the "In arrivo" card stays).
+- Voice entry (tab removed).
+- Batch migrations of existing data (ad-hoc groups with trivial items, inert checkedIds).
+- Scaling ad-hoc quantities to servings (ad-hoc items stay unscaled verbatim copies).
+- Any AI endpoint or prompt change.
 
-## 9. Prompt di implementazione
+## 9. Implementation prompt
 
 ```markdown
-Implementa la Spec D di "Il Mio Ricettario".
+Implement Spec D of "Il Mio Ricettario".
 
-PREPARAZIONE (obbligatoria, nell'ordine):
-1. Leggi e applica CLAUDE.md, AGENTS.md, COMMENTS.md e DEVELOPMENT_GUIDELINES.md (root del repo).
-2. Leggi PER INTERO specs/00-roadmap.md: è il contratto vincolante — non deviare da nomi
-   di moduli/tipi/campi lì definiti (in particolare "Contratti cross-spec §2").
-3. Leggi PER INTERO specs/spec-d-dispensa-matching.md: contiene modello dati esatto,
-   algoritmi, copy italiana, edge case e la checklist di persistenza §4.4.2.
-4. Crea il branch feature/pantry-shopping-integration da develop.
+PREPARATION (mandatory, in order):
+1. Read and apply CLAUDE.md, AGENTS.md, COMMENTS.md and DEVELOPMENT_GUIDELINES.md (repo root).
+2. Read specs/00-roadmap.md IN FULL: it is the binding contract — do not deviate from the names
+   of modules/types/fields defined there (in particular "Cross-spec contracts §2").
+3. Read specs/spec-d-dispensa-matching.md IN FULL: it contains the exact data model,
+   algorithms, Italian copy, edge cases and the §4.4.2 persistence checklist.
+4. Create the branch feature/pantry-shopping-integration from develop.
 
-IMPLEMENTAZIONE:
-- Procedi fase per fase (sezione 5 della spec, Fasi 1→6). Dopo OGNI fase esegui
-  `npx tsc --noEmit` e correggi prima di proseguire.
-- Esegui i test con `npm test` (comando verificato in package.json) dopo le fasi che
-  toccano o aggiungono file .test.ts; i nuovi test sono elencati in sezione 6.1.
-- Rispetta i gotcha di sezione 7 (mai undefined su Firestore; checklist completa per
-  shoppingPantryIncludedIds; enabled: !!user; niente onSnapshot; ConfirmDialog;
-  token semantici; niente controlli hover-only sotto lg; max-lg:portrait:).
-- A fine lavoro: `npx next build --webpack` (se fallisce con spawn EPERM, rilanciala
-  fuori sandbox: non è un errore applicativo).
+IMPLEMENTATION:
+- Proceed phase by phase (section 5 of the spec, Phases 1→6). After EVERY phase run
+  `npx tsc --noEmit` and fix before continuing.
+- Run the tests with `npm test` (command verified in package.json) after the phases that
+  touch or add .test.ts files; the new tests are listed in section 6.1.
+- Respect the gotchas in section 7 (never undefined on Firestore; complete checklist for
+  shoppingPantryIncludedIds; enabled: !!user; no onSnapshot; ConfirmDialog;
+  semantic tokens; no hover-only controls below lg; max-lg:portrait:).
+- When done: `npx next build --webpack` (if it fails with spawn EPERM, rerun it
+  outside the sandbox: it is not an application error).
 
-CHIUSURA:
-- Aggiorna CLAUDE.md (sezione Recent Changes + eventuali campi/collezioni),
-  AGENTS.md (nuovi gotcha se emersi durante il lavoro) e spunta la Spec D nella
-  checklist di specs/00-roadmap.md.
-- NON committare MAI senza OK esplicito dell'utente (regola di sessione:
-  un branch/commit per sessione).
-- Al termine proponi un collaudo guidato fase-per-fase con Playwright + emulatori
-  Firebase (script usa-e-getta in e2e/scratch/, protocollo in CLAUDE.md sezione
-  "Guided testing tooling" e sezione 6.2 della spec), dichiarando per ogni fase
-  l'esito atteso prima di eseguirla.
+CLOSING:
+- Update CLAUDE.md (Recent Changes section + any fields/collections),
+  AGENTS.md (new gotchas if they emerged during the work) and check off Spec D in the
+  specs/00-roadmap.md checklist.
+- NEVER commit without the user's explicit OK (session rule:
+  one branch/commit per session).
+- At the end propose a phase-by-phase guided test with Playwright + Firebase
+  emulators (throwaway scripts in e2e/scratch/, protocol in CLAUDE.md section
+  "Guided testing tooling" and section 6.2 of the spec), declaring for each phase
+  the expected outcome before running it.
 ```
 
-## 10. Modello e effort consigliati
+## 10. Recommended model and effort
 
-**Opus · effort xhigh** — motore nuovo con molte cuciture (lista spesa, dispensa, cottura), scelte conservative da rispettare e persistenza delicata (debounce/flush).
+**Opus · effort xhigh** — a new engine with many seams (shopping list, pantry, cooking), conservative choices to respect and delicate persistence (debounce/flush).

@@ -1,104 +1,104 @@
 # AI Agent Guidelines - Il Mio Ricettario
 
-**Focus**: solo gotcha che possono causare debug >30min. Per contesto architetturale: [CLAUDE.md](CLAUDE.md). Per regole di sessione e collaudo guidato: [WORKFLOW.md](WORKFLOW.md)
+**Focus**: only gotchas that can cause >30min of debugging. For architectural context: [CLAUDE.md](CLAUDE.md). For session rules and guided testing: [WORKFLOW.md](WORKFLOW.md)
 
 ---
 
 ## Quick Reference
 
-| Gotcha | Problema | Soluzione |
-|--------|----------|-----------|
-| Custom `@keyframes` in `@layer` | `@keyframes` definiti dentro `@layer utilities` vengono ignorati da Tailwind Animate | Definire `@keyframes` a root level in `globals.css`, PRIMA dei blocchi `@layer`; le classi utility che li usano vanno dentro `@layer utilities` |
-| Stagger con Tailwind | `animation-delay-[--delay]` e `[animation-delay:var(--delay)]` non funzionano come classi arbitrarie su tutti i build | Usare `style={{ animationDelay: '...' }}` inline; cap delay a 350ms su collection grandi |
-| `[QTY:n]` residuo in step AI | Claude resetta la numerazione `[ING:n]` per sezione su ricette multi-sezione; il parser lascia `[QTY:n]` raw in Firestore; `renderStepDescription` non lo gestisce → visibile all'utente | Parser: restituire `''` invece di `match` in `replaceAiQuantityReferences`; renderer: aggiungere `.replace(/\[QTY:\d+\]/gi, '')` in coda per backward compat con dati già salvati |
-| Nav fissa semi-trasparente su palette chiara | `bg-background/92` su sfondo crema è percettivamente identico al contenuto sottostante — sembra trasparente. Su iOS, `backdrop-filter` può non compositarsi con layer `will-change-transform` delle card | Usare `bg-background` (100% opaco) su qualsiasi nav fissa con palette chiara; tenere `backdrop-blur` per chi lo supporta |
-| `will-change-transform` statico su card | Crea un compositing layer GPU per ogni card. Con 20+ ricette esaurisce la memoria GPU mobile → scroll jank. Su touch, `hover` non scatta mai, il costo è solo passivo | Usare `group-hover:will-change-transform` per promuovere il layer solo al momento dell'hover (desktop). Mai usare `will-change-transform` statico su liste di card |
-| `shadow` in `transition-[...]` su mobile | La transizione `shadow` è sempre CPU-bound (nessun browser la GPU-composita) — repaint a ogni frame anche se `hover` non scatta su touch | Rimuovere `shadow` dalla lista transition; l'ombra può comparire istantaneamente su hover senza costo animazione |
-| `background-attachment: fixed` su body | Su iOS Safari e mobile Chrome disabilita il GPU-composited scroll path (il browser non può delegare lo scroll al compositor thread perché il BG deve restare fisso) → scroll CPU-bound → jank, peggiore in portrait dove i documenti sono alti | Non usare mai su mobile; se il BG deve restare visivamente fisso, usare un elemento o pseudo-elemento con `position: fixed; z-index: -1` separato dal contenuto scrollabile |
-| `min-h-screen` su layout top-level mobile | `100vh` è statico — non reagisce alla barra indirizzi del browser che appare/scompare durante lo scroll → micro-shift di layout | Usare `min-h-[100dvh]` sui container top-level su mobile; su desktop `calc(100vh - X)` rimane corretto perché la barra indirizzi non cambia |
-| Orientation classes | `portrait:` applica anche a desktop | Usare `max-lg:portrait:` |
-| Page self-padding | Pagina interna aggiunge `p-4 lg:p-8` su layout che già fornisce `portrait:p-4` / `lg:px-10` | Pagine dentro dashboard layout non devono aggiungere padding esterno; usare `max-w-*` solo per centrare contenuto |
-| Flex tab bar overflow | Tab con `px-5` fisso in `flex` container traboccano su ≤375px (3 tab ≈ 420px > 343px disponibili) | `px-3 sm:px-5` + `flex-shrink-0` + `overflow-x-auto` sul container |
-| CSS grid su landscape stretto | `repeat(N, 1fr)` con N=7 su iPhone SE landscape (~568px) = ~65px per colonna — celle illeggibili | `repeat(N, minmax(72px, 1fr))` + `overflow-x-auto` sul wrapper |
-| Firebase optional | `undefined` causa errori silenziosi in scrittura | Per campi opzionali persistiti usare `null` oppure omettere proprio la chiave; mai passare `undefined` a Firestore |
-| Firestore composite index | query `where + orderBy` fallisce o rompe in runtime | Aggiungere indice in `firebase/firestore.indexes.json` e deployare |
-| Firestore deploy drift | Rules/indexes aggiornati nel repo ma non in Firebase | Eseguire `firebase deploy --only firestore` |
-| Cooking sessions | Duplicate se create in `useEffect` | Usare setup screen pattern |
-| Cooking history | Statistiche vuote se si esce senza CTA finale | Registrare completamento solo da `Termina cottura` |
-| Quantity format | Frazioni confuse (`1 1/2`) | Decimali (`1,5`) |
-| useState prop | `useState(prop)` non reagisce ai cambi | Aggiungere `useEffect` di sync |
-| AI route auth | Route AI protette falliscono con `401` | Inviare sempre `Authorization: Bearer <idToken>` con token aggiornato |
-| Firebase Admin env | AI route protette falliscono anche con utente loggato | Configurare credenziali Firebase Admin lato server, non bastano le `NEXT_PUBLIC_FIREBASE_*` |
-| Firebase Admin base64 | `FIREBASE_ADMIN_CREDENTIALS_BASE64` sembra valida ma il bootstrap fallisce | Il JSON service account usa chiavi snake_case (`project_id`, `client_email`, `private_key`) |
-| Docker env | `docker compose` non legge `.env.local` | Usare `docker compose --env-file .env.local ...` |
-| Local week dates | `toISOString().slice(0, 10)` slitta di giorno in `Europe/Rome` | Usare formatter locale (`formatLocalDate`, `getWeekMonday`) |
-| Dynamic step quantities | Quantita' negli step restano statiche o finiscono disallineate | Usare token `{{qty:ingredientId}}` risolti a runtime |
-| AI quantity references | L'AI non conosce gli `ingredientId` finali | Far emettere `[ING:n]` e `[QTY:n]`, poi convertirli nel parser |
-| Parametri Sonnet 5 → 400 | `temperature`/`top_p`/`top_k`/`budget_tokens` (o prefill sull'ultimo turno assistant) danno **400** su Sonnet 5, con errore poco esplicito lato route (500 generico) | Non impostarli mai; per controllare la profondità usare `thinking: {type:'adaptive'}` + `output_config.effort`. `effort` richiede `@anthropic-ai/sdk >= ~0.100` |
-| AI model literal drift | Cambiare modello dimenticando uno degli endpoint → route su versioni diverse | Il modello è la costante `AI_MODEL` (`lib/utils/constants.ts`): cambiarlo lì soltanto, mai literal per-route |
-| Family profile persistence | Si pensa di dover deployare rules o creare una collection nuova | Salvare in `users/{uid}.familyProfile`; le rules owner-based esistenti bastano |
-| Family context scope | Il contesto famiglia altera flussi che devono restare fedeli all'input | Usarlo solo nei flussi generativi/adattivi (`chat`, `testo libero`), NON in `Carica PDF` né nel pianificatore (ora locale, senza AI) |
-| Shopping list debounce non-flushed | La scrittura Firestore delle spunte è debounced 500ms; se il componente smonta o la tab va in background entro 500ms il timer veniva annullato senza salvare → spunte "ricompaiono" non spuntate giorni dopo | Flush della scrittura pendente su `unmount` + `visibilitychange(hidden)` + `pagehide`, leggendo da un `latestStateRef` (no stale closure); azzerare il ref del timer quando scatta |
-| Nuovo target di persistenza dimenticato nel flush | `useShoppingList` scrive su due documenti indipendenti (piano su `meal_plans`, ad-hoc su `users/{uid}`): aggiungere un terzo target con un proprio debounce ma dimenticare di richiamarlo dagli handler `unmount`/`visibilitychange`/`pagehide` esistenti riproduce silenziosamente lo stesso bug delle spunte perse, ma solo per il nuovo campo | Ogni nuovo target di persistenza vuole il proprio timer/ref **e** deve essere aggiunto esplicitamente alla funzione di flush condivisa (`flushAll()` in `useShoppingList`) |
-| Spunte lista spesa "resettate" al remount | `useShoppingList` vive dentro il componente pagina (`lista-spesa/page.tsx`): uscire dalla pagina e tornarci smonta/rimonta l'hook. La query del piano ha `staleTime: 2min`, quindi un remount entro quella finestra riusa lo snapshot cachato dal **primo** fetch — e l'effetto di init si fidava ciecamente di quello snapshot, sovrascrivendo lo stato locale con le spunte vecchie anche se la scrittura Firestore nel frattempo era già andata a buon fine | Ogni cambio di `checkedIdsList`/`customItems` aggiorna subito anche la cache React Query (`queryClient.setQueryData` sulla query key del piano), non solo Firestore — così un remount entro `staleTime` rilegge lo stato corrente e non quello del fetch originale |
-| Fallback `localStorage` lista spesa non riletto | Se una scrittura Firestore fallisce e scatta il fallback `localStorage`, quel fallback non viene mai riletto finché `shoppingCheckedIds` su Firestore non è vuoto — l'init controlla solo vuoto/non-vuoto, non quale dei due sia più recente | Non risolto (casistica rara): da affrontare separatamente se si ripresenta, confrontando un timestamp invece del solo stato vuoto/non-vuoto |
-| Shuffle `preferredCategoryId` hard filter | Impostare una categoria preferita per portata limita lo shuffle a SOLO quella categoria per quel pasto (tutti i pranzi uguali) | Per avere varietà evitando certe portate usare `excludedCategoryIds` (Escludi), non `preferredCategoryId` |
-| Planner per-meal config invisibile | La sezione "Categorie per portata" compare solo nello step *setup* (nuovo piano) e solo con `categories.length > 0` | Se non si vede: esiste già un piano per quella settimana (sei sul calendario → "Nuovo piano") oppure non hai categorie (viene mostrato un hint) |
-| Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggera auto-close di sezioni già complete al mount | Inizializzare `prevCheckedRef` con il valore corrente di `checked*`, non con `[]` |
-| isToday timezone | Confronto con timestamp slitta di giorno in `Europe/Rome` | Usare `getFullYear()/getMonth()/getDate()` (locale), non timestamp |
-| YYYY-MM-DD string parsing | `new Date('2026-05-06')` interpretata come UTC mezzanotte → in `Europe/Rome` (+1/+2) risulta nel giorno precedente | Aggiungere sempre il suffisso locale: `new Date(dateStr + 'T00:00:00')` — applicato in `expiryStatus()`, `formatLocalDate`, `getWeekMonday` |
-| React Query + user null | Query eseguita prima che l'auth sia pronta | Aggiungere sempre `enabled: !!user` (e `!!recipeId` dove serve) |
-| React Query DevTools | L'icona non appare pur avendo QueryClientProvider | Serve il package separato `@tanstack/react-query-devtools` |
-| React Query + useEffect init | Cache revalidation ri-esegue `useEffect([recipe])` | Usare un ref `sessionInitialized` per guard one-time init |
-| Step duration max | Browser validation error su step con molte ore | Usare `max={9999}` non `max={999}` — 24h = 1440 min |
-| Timer multipli | Singolo `setInterval` + singolo stato non supporta parallelo | Usare `Map<stepId, setInterval>` in un ref + `Record<stepId, secondsLeft>` nello stato |
-| `bg-white` hardcoded | `bg-white` è sempre `#ffffff` — ignora il token `--background` | Usare `bg-background`, `bg-card`, `bg-muted`, `bg-secondary` |
-| OKLCH color scale inesistente | `bg-primary-100`, `border-primary-200`, `text-primary-700` non esistono con palette OKLCH custom — Tailwind genera scale solo per colori statici, non per CSS vars | Usare opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary` |
-| Elementi HTML nativi senza `bg` | `<textarea>`, `<select>`, `<input>` mostrano sfondo bianco anche con tema OKLCH | Aggiungere sempre `bg-background text-foreground` esplicitamente — il browser non eredita CSS custom properties dal tema |
-| Side-stripe design ban | `border-l-[2px+]` su card/list item è AI slop tell — vietato anche se semantico | Sostituire con badge `absolute top-1.5 left-1.5` (icona + colore) o background tint; mai side-stripe |
-| `animate-bounce` datato | Bounce easing su typing indicator o bottoni appare datato | Usare `animate-pulse` per indicatori di attività; easing `ease-out` per motion intenzionale |
-| Delight state drift | Loading/empty/error box creati ad hoc pagina per pagina rompono coerenza visiva e portano classi colore hardcoded | Riutilizzare `EditorialLoader`, `EditorialEmptyState`, `StatusBanner`; se serve un toast `react-hot-toast`, stilizzarlo globalmente in `providers.tsx`, non localmente |
-| React Query stale cache dopo write | Dopo `createCookingSession` / `deleteCookingSession` (o qualsiasi write Firestore), navigare su una list-page mostra dati stale finché `staleTime` non scade | Chiamare sempre `queryClient.invalidateQueries({ queryKey: [...] })` dopo ogni write che impatta una query su un'altra pagina |
-| Lista spesa stale dopo una modifica al piano | Caso concreto e particolarmente insidioso del gotcha sopra: la lista della spesa è una **vista derivata** cachata su `['shoppingList', uid, weekStartDate]`. Scrivere sugli slot non tocca quella cache, quindi per 2 minuti (`staleTime`) la lista continua a chiedere la spesa per una portata rimossa, e sembra corretta finché non fai un hard refresh | **Ogni** mutatore del piano deve chiamare `invalidateShoppingList()` (`useMealPlanner`), inclusa l'eliminazione del piano che vive in `pianificatore/page.tsx`. Match parziale sulla chiave (senza `weekStartDate`): `copyPlanToWeek` scrive su una settimana diversa da quella a schermo |
-| `next/dynamic` su componenti UI tab | `dynamic()` con `loading` fallback mostra un loader visibile al primo cambio tab — inaccettabile per componenti piccoli sulla stessa route | Usare import statici normali; `next/dynamic` ha senso solo per componenti pesanti a livello di pagina intera |
-| Colori Tailwind raw fuori design system | `green-*`, `orange-*`, `purple-*` usati per stati (completamento, validazione, AI) sono visivamente incoerenti — il token `accent` del progetto è già verde salvia | Per stati di completamento: `text-accent`, `bg-accent/10`, `border-accent/40`; per warning: `text-primary`; mai `purple-*` |
-| Conteggi filtri calcolati sul set completo | `useMemo` di badge categoria che dipende da `recipes` invece che dal subset upstream: cambiare stagione non aggiorna i conteggi di categoria | Calcolare `recipeCountByCategoryId` su `recipesForCategoryFilter` (post-stagione); una ricetta multi-categoria incrementa **ogni** id restituito da `getRecipeCategoryIds(recipe)`; i conteggi stagione restano su `recipes` full |
-| Ricetta multi-categoria: lettura diretta di `categoryId` | `recipe.categoryId` da solo ignora `categoryIds[]` (nuovo formato) e salta le ricette multi-categoria in filtri/conteggi/badge | Leggere **sempre** tramite `getRecipeCategoryIds(recipe)` (`lib/utils/recipe-categories.ts`, dual-read: preferisce `categoryIds[]`, fallback a `categoryId` legacy per ricette pre-migrazione). Mai accedere a `recipe.categoryId` direttamente fuori da quell'helper |
-| Badge multi-colore da `category.color` (hex) | Serve un tint di sfondo dal colore hex salvato senza scale OKLCH inesistenti (`bg-primary-100` ecc. non esistono, vedi sopra) | Alpha hex inline sul colore salvato: `style={{ color: category.color, backgroundColor: `${category.color}1a` }}` (10% alpha) — non tailwind arbitrary class con colore dinamico |
-| Credenziali test invisibili | Si pensa che il pannello login sia sparito, ma la UI è corretta | Le credenziali test nel login compaiono solo con `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`; dopo cambio env riavviare `npm run dev` |
-| `jest.setup.js` vs `.ts` | `@testing-library/jest-dom` v6 usa module augmentation per estendere i matcher Jest; TypeScript ignora i file `.js` → `toBeInTheDocument` e simili risultano tipizzati come inesistenti | Il setup file Jest che fa side-effect import di tipi (`import '@testing-library/jest-dom'`) deve avere estensione `.ts`; aggiornare anche `jest.config.js` (`setupFilesAfterEnv`). Vale per qualsiasi package che estende matcher Jest (es. `jest-extended`) |
-| `next/font` in `'use client'` | Errore runtime — `next/font/google` funziona solo in Server Components | Root layout deve essere server component; estrarre QueryClient+Auth in `src/components/providers.tsx` |
-| Collapsible `max-h` animation | `max-h-[2000px]` thrash layout/paint ad ogni frame (non GPU-accelerated) | Usare `grid-rows-[0fr] → grid-rows-[1fr]` con wrapper `overflow-hidden`; aggiungere `motion-reduce:transition-none` |
-| `container mx-auto` non configurato | `container` di Tailwind si espande senza limiti se non configurato in `tailwind.config.js` | Usare `max-w-*` espliciti (`max-w-4xl`, `max-w-5xl`) invece di `container` |
-| `max-w-*` senza `mx-auto` | Contenuto rimane allineato a sinistra su desktop wide anche con `max-w` | Aggiungere sempre `mx-auto` insieme a `max-w-*` su pagine con contenuto centrato |
-| Step editor actions inline on mobile | Toolbar `su/giu/elimina` nella stessa riga del contenuto riduce la larghezza utile della textarea e fa sembrare lo step "schiacciato" | Su mobile mettere i controlli in una riga separata sotto il contenuto; da `sm` in su possono stare in alto a destra |
-| Build sandbox `spawn EPERM` | `npx next build --webpack` può fallire nel sandbox anche se il codice è corretto | Se compare `spawn EPERM`, rilanciare la build fuori sandbox; non trattarlo come errore applicativo |
-| Azione nascosta in `group-hover` su touch | `opacity-0 group-hover:opacity-100` su un controllo (es. tasto ↺ rimescola slot) lo rende **invisibile su mobile**: il touch non scatena `hover`, l'azione sembra non esistere | Rendere il controllo sempre visibile sotto `lg` e nascondere solo da desktop: `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100`; aggiungere `aria-label` (un `title=` non basta per screen reader) |
-| `confirm()`/`alert()` nativi | I dialog di sistema del browser sono fuori brand, non stilizzabili né focus-trappabili | Per le conferme distruttive usare `ConfirmDialog` (`components/ui/confirm-dialog.tsx`, controllato, costruito sul `Dialog` Radix); per validazioni/errori usare `react-hot-toast`. Mai `window.confirm`/`window.alert` |
-| `position: sticky` dentro `overflow:hidden` | Un antenato con `overflow:hidden` (es. `.shell-stage`) diventa scroll container e **annulla `sticky`** rispetto allo scroll finestra: l'elemento non si aggancia e scorre via (sintomo: header `sticky top-0` che sparisce scrollando, footer sidebar irraggiungibile) | Non affidarsi a `sticky` dentro `.shell-stage`. Su desktop il dashboard usa **app-shell con scroll interno** (`<main>` con `lg:overflow-y-auto`, shell ad altezza viewport fissa) così header/sidebar/footer restano fermi senza `sticky`. Alternativa: `overflow: clip` (non crea scroll container, preserva `sticky`) |
-| Dark mode — blocco `.dark` | Riscrivere i token con `oklch()` completo (es. `oklch(1 0 0)`) rompe l'alpha inline `oklch(var(--x) / a)` usato ovunque | Nel blocco `.dark` (`globals.css`) sovrascrivere SOLO i componenti OKLCH (`16% 0.012 65`), mai con wrapper/alpha. Le superfici con literal chiari "cotti" in classi arbitrarie (gradiente `body`, `.shell-stage`, `.shell-panel`, sidebar drawer, `more-sheet`, `status-banner` warning, auth pages) richiedono override `.dark`/`dark:` espliciti |
-| next-themes hydration mismatch | next-themes scrive la classe `.dark` su `<html>` lato client → warning/mismatch di idratazione | `suppressHydrationWarning` su `<html>`; i componenti che mostrano lo stato tema (es. `ThemePicker`) usano il pattern `mounted` (`useEffect`) per non divergere tra SSR e CSR |
-| Contenuto dentro `shell-panel` sotto l'overlay | `.shell-panel::before` è `position:absolute; inset:0` (gradiente decorativo): il contenuto in flusso normale finisce **sotto** l'overlay e appare slavato | Avvolgere il contenuto del pannello in `relative z-10` (stesso pattern di `recipe-card`, `EditorialEmptyState`, `StatusBanner`) |
-| Checkbox/`<input type=checkbox>` nativa blu | Senza `accent-color`, la checkbox usa il blu di sistema → rompe la "Regola Anti-Freddo" su palette crema (frequente nelle checklist cottura) | Aggiungere sempre `accent-primary` alla checkbox; per i controlli più toccati area ≥44px e `tabIndex={-1}` se la riga è già `role="button"` (evita doppio tab-stop) |
-| `next lint` rimosso in Next 16 | `npx next lint` interpreta `lint` come directory e fallisce; non esiste config ESLint in repo | Validare con `npx tsc --noEmit` + `npx next build --webpack`; non affidarsi a `next lint` |
-| `pause_turn` silenzioso con server tool | Con un tool server-side (web search) l'API si ferma a 10 iterazioni e torna `stop_reason: 'pause_turn'` su **HTTP 200**: nessun errore. Nel formato `[RISPOSTA]`/`[RICETTE]` il testo tronca dopo che `[/RISPOSTA]` ha chiuso ma prima di `[/RICETTE]` → l'utente vede una risposta normale e **le ricette sono semplicemente sparite** | Passare sempre da `createMessageWithToolLoop()` (`lib/api/claude-tool-loop.ts`): rimanda la conversazione con il turno assistant in pausa in coda e **nessun nuovo messaggio user** (un "Continua." rompe la ripresa perché legge come nuova istruzione) |
-| Web search error = `content` oggetto, non array | Un errore di ricerca (`max_uses_exceeded`, ecc.) torna **HTTP 200** con `web_search_tool_result.content` che è un *oggetto* `{error_code}` invece del solito *array* di risultati: `.map()` su quello lancia, o si leggono `undefined` | `Array.isArray(content)` prima di iterare (fatto in `extractWebSearchSources`, `lib/utils/claude-blocks.ts`). Un errore di ricerca è qualità degradata, non richiesta fallita: `console.warn` e lascia passare la risposta, che il modello ha già prodotto e che è già stata pagata |
-| Foto da telefono ruotate | `createImageBitmap(file)` senza opzioni ignora l'orientamento EXIF: le foto scattate in verticale arrivano girate di 90°, e un'etichetta di traverso è illeggibile per il modello — cioè esattamente il caso d'uso | `createImageBitmap(file, { imageOrientation: 'from-image' })`. Inoltre `toBlob` (non `toDataURL`): serve `blob.size` prima dell'espansione base64. E `bitmap.close()` + processing **sequenziale**: Safari mobile va in OOM con più decodifiche da 12 MP in parallelo |
-| Immagini replicate nella history | Ogni foto costa fino a ~4784 token: 3 foto rimandate su 20 turni sono ~280k token di input in **una** richiesta | Nella history salvare solo un marcatore testuale (`[L'utente ha allegato N foto...]`); la descrizione che il modello fa delle foto (imposta da `VISION_GUIDANCE`) è ciò che porta avanti il contesto. Evita anche di ristrutturare `ApiHistoryMessage.content` da `string` ad array di blocchi |
-| `image/*` accetta HEIC | Gli iPhone consegnano HEIC, che non è un media type valido per l'API **e** che Chrome su Android non decodifica nemmeno in canvas | Elencare i tipi espliciti (`image/jpeg,image/png,image/webp`) su `accept` e validarli lato client e server. Fallire subito con un messaggio chiaro è meglio che fallire dopo in decodifica o con un 400 |
-| Union non discriminata → narrowing perso | Un helper che torna `{blocks: X[]; error: null} \| {blocks: null; error: string}` non viene ristretto da `if (result.error)`: TS continua a vedere `blocks` come possibilmente `null` | Usare un discriminante letterale (`{ok: true, ...} \| {ok: false, ...}`) e ramificare su quello |
-| kcal totali invece che per porzione | Un totale di ricetta si disallinea in silenzio appena `servings` cambia nel form o la cottura lo scala a runtime | `caloriesPerServing` è **sempre** per porzione. Il totale si ricava moltiplicando, mai il contrario |
-| Campo numerico opzionale come `number` nello stato | `useState(recipe?.caloriesPerServing || 0)` non distingue "vuoto" da `0`: svuotare il campo scrive `0` e la stima diventa incancellabile | Tenere lo stato come **stringa** e convertire in salvataggio; in `updateDoc` il vuoto deve diventare `deleteField()`, perché omettere la chiave fa merge e lascia il valore precedente |
-| `json_schema` con vincoli di lunghezza | Le structured outputs **non** supportano `minItems`/`maxItems` sugli array (né `minimum`/`maximum`, `minLength`/`maxLength`, `multipleOf`): l'API risponde **400** e la richiesta fallisce del tutto — `output_config.format.schema: For 'array' type, property 'maxItems' is not supported`. Il sintomo a valle è ingannevole: il client cattura l'errore e ritorna `null`, quindi la feature sembra solo "non funzionare" invece di segnalare uno schema invalido | Nello schema mettere solo forma e tipi (`type`, `enum`, `required`, `additionalProperties: false`). I vincoli di quantità vanno nel **prompt**, e se serve una garanzia si applica lato server sul risultato (`.slice(0, 3)`): troncare è un degrado accettabile, un 400 sull'intera richiesta no |
-| Slot orfani dopo la rimozione di una portata | `buildContributions` (`ingredient-aggregator.ts`) itera **tutti** gli slot senza filtrare per `activeMealTypes`: togliere la portata da `activeMealTypes` senza cancellarne gli slot lascia i suoi ingredienti nella lista della spesa, per una portata che il calendario non mostra più | `removeMealType` (come `removeDay`) cancella `activeMealTypes` **e** gli slot in un'unica `updateMealPlan` |
-| `activeMealTypes` disordinato | L'array persistito È l'ordine di render (griglia, chips, form): scritture puntuali (`addMealType`, toggle nel setup) che fanno solo append rompono l'ordine canonico della giornata (es. aggiungere colazione a un piano esistente la mostra per ultima) | Passare sempre l'array attraverso `sortMealTypes()` (`lib/constants/meal-types.ts`) sia in scrittura sia in lettura: ordina per indice in `SELECTABLE_MEAL_TYPES`, tipi legacy in coda (sort stabile) — la lettura auto-corregge anche i piani Firestore salvati prima del fix, senza migrazione |
-| Gruppo opzionale + ancora `$` in una regex di header | `/##\s+Ingredienti(?:\s+(per\s+.+))?$/i` sembra "cattura il nome se c'è": in realtà su `## Ingredienti La pasta` il gruppo opzionale non matcha, l'ancora `$` fa fallire **l'intera** regex, `sectionMatch` è `null` → sezione `null`. La riga è comunque consumata dal guard `startsWith`, quindi **la sezione sparisce senza errore** e gli item finiscono nel gruppo flat | Rendere permissiva la cattura (`(.+?)` lazy + `[\s:]*$` per spazi/`:` finali) e tenerla in una costante condivisa (`SECTION_HEADER_PATTERNS`, `recipe-parser.ts`). Regola generale: se un guard `startsWith` consuma la riga a prescindere, una regex che fallisce degrada in silenzio — l'unico modo di accorgersene è un test per ogni forma che il prompt può produrre. **Fissata** (2026-09-11): `recipe-parser.test.ts` → `describe('recipe-parser section headers')`, un caso per forma |
-| Sort alfabetico su sezioni di ricetta | Le sezioni sono l'ordine di **preparazione**: ordinare `localeCompare` mette "Per la crema" prima di "Per la base" e la ricetta si legge al contrario | Ordine di prima apparizione nell'array (una `Map` conserva l'ordine di inserzione = ordine documento); sezione `null` sempre prima. Vale sia per gli ingredienti sia per il fallback degli step senza `sectionOrder`. **Fissata** (2026-09-11): `ingredient-list-collapsible.tsx` e `steps-list-collapsible.tsx` |
-| Fallback `?? 999` come chiave di sort | Un valore-sentinella condiviso non è un ordinamento: **collassa tutti** gli elementi senza chiave in un unico pareggio, e finiscono in coda in ordine arbitrario (caso concreto: gli step creati dal form non hanno `sectionOrder`) | Usare l'indice di prima apparizione, che sta sulla stessa scala della chiave vera e cresce con l'ordine documento. `Array.prototype.sort` è stabile (ES2019+), quindi i pareggi residui mantengono l'ordine di apparizione. **Fissata** (2026-09-11): `steps-list-collapsible.tsx`, `sectionSortKeys` |
-| Ordine di sezione implicito nell'array dopo una riassegnazione | `Ingredient` non ha un campo d'ordine: l'ordine delle sezioni è quello di prima apparizione nell'array. Regge finché l'array viene dal parser (segue il documento), ma **cade** appena le sezioni vengono assegnate a una lista già piatta: la lasagna riorganizzata apriva gli Ingredienti con "Per l'assemblaggio" (il primo ingrediente era le sfoglie) mentre il Procedimento, ordinato per `sectionOrder`, partiva giustamente dal ragù — due colonne della stessa ricetta che si contraddicono | Gli step hanno `sectionOrder`, che è l'ordine in cui si cucina: farlo guidare entrambe le colonne con `orderedSectionNamesFromSteps()` (`lib/utils/section-assignments.ts`), passato come `orderedSections` a `IngredientListCollapsible` e usato anche da `summarizeSectionProposal` per l'anteprima. Solo ordine di render — nessun array riscritto, nessun campo nuovo sul tipo. Lezione più generale: **un invariante che lega due viste va asserito fra le due, non dentro ciascuna** — qui entrambe le liste erano corrette da sole e sbagliate insieme, e sei fasi automatiche verdi non l'hanno visto. **Fissata** (2026-09-11): `section-assignments.test.ts` → `orderedSectionNamesFromSteps` e `summarizeSectionProposal` |
-| Jest e Playwright si contendono `*.spec.ts` | `npm run test` (Jest) e `npm run test:e2e` (Playwright) matchano lo stesso pattern: qualunque spec Playwright in `e2e/` — compresi gli script usa-e-getta di un collaudo in `e2e/scratch/` — fa fallire la suite unit con `TypeError: Class extends value undefined`, che sembra un test rotto e non un file raccolto per sbaglio | `testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/e2e/', '<rootDir>/.next/']` in `jest.config.js`. **Fissata** (2026-09-11): `jest.config.js` |
-| Script di collaudo Playwright + env Next | Uno script in `e2e/scratch/` che importa un modulo di `lib/utils` tira dentro `lib/firebase/config.ts` per via delle catene di import, e Playwright **non** carica `.env.local` come fa Next: fallisce con `FirebaseError: auth/invalid-api-key` prima ancora di eseguire il test | Lanciare con l'env esportato a mano: `set -a; . ./.env.local; set +a; FIRESTORE_EMULATOR_HOST=... npx playwright test ...` — non risolvibile in config, va nel comando (2026-09-11) |
-| Playwright + scrittura Firestore async: falso positivo | Un'asserzione su un testo già presente nello step **precedente** del flusso (es. un'etichetta di form visibile prima ancora del submit) risolve `toBeVisible()` a `true` subito, anche se il click che doveva scatenare una scrittura Firestore non ha ancora completato — il test "passa" e il browser context si chiude a metà scrittura, abortendo la richiesta in corso | Attendere sempre un marker visibile **solo nello step successivo** (es. un titolo presente solo nella vista calendario, non nel form di setup), mai un testo che esiste già prima dell'azione da verificare |
+| Gotcha | Problem | Solution |
+|--------|---------|----------|
+| Custom `@keyframes` in `@layer` | `@keyframes` defined inside `@layer utilities` are ignored by Tailwind Animate | Define `@keyframes` at root level in `globals.css`, BEFORE the `@layer` blocks; the utility classes that use them go inside `@layer utilities` |
+| Stagger with Tailwind | `animation-delay-[--delay]` and `[animation-delay:var(--delay)]` don't work as arbitrary classes on every build | Use inline `style={{ animationDelay: '...' }}`; cap delay at 350ms on large collections |
+| Leftover `[QTY:n]` in AI steps | Claude resets the `[ING:n]` numbering per section on multi-section recipes; the parser leaves raw `[QTY:n]` in Firestore; `renderStepDescription` doesn't handle it → visible to the user | Parser: return `''` instead of `match` in `replaceAiQuantityReferences`; renderer: append `.replace(/\[QTY:\d+\]/gi, '')` at the end for backward compat with already-saved data |
+| Semi-transparent fixed nav on light palette | `bg-background/92` on a cream background is perceptually identical to the content underneath — it looks transparent. On iOS, `backdrop-filter` may fail to composite with the cards' `will-change-transform` layers | Use `bg-background` (100% opaque) on any fixed nav with a light palette; keep `backdrop-blur` for those who support it |
+| Static `will-change-transform` on cards | Creates a GPU compositing layer for every card. With 20+ recipes it exhausts mobile GPU memory → scroll jank. On touch, `hover` never fires, so the cost is purely passive | Use `group-hover:will-change-transform` to promote the layer only at hover time (desktop). Never use static `will-change-transform` on card lists |
+| `shadow` in `transition-[...]` on mobile | The `shadow` transition is always CPU-bound (no browser GPU-composites it) — repaint on every frame even though `hover` doesn't fire on touch | Remove `shadow` from the transition list; the shadow can appear instantly on hover with no animation cost |
+| `background-attachment: fixed` on body | On iOS Safari and mobile Chrome it disables the GPU-composited scroll path (the browser can't delegate scrolling to the compositor thread because the BG must stay fixed) → CPU-bound scroll → jank, worse in portrait where documents are tall | Never use it on mobile; if the BG must stay visually fixed, use an element or pseudo-element with `position: fixed; z-index: -1` separate from the scrollable content |
+| `min-h-screen` on top-level mobile layout | `100vh` is static — it doesn't react to the browser address bar appearing/disappearing while scrolling → layout micro-shift | Use `min-h-[100dvh]` on top-level containers on mobile; on desktop `calc(100vh - X)` stays correct because the address bar doesn't change |
+| Orientation classes | `portrait:` also applies to desktop | Use `max-lg:portrait:` |
+| Page self-padding | Inner page adds `p-4 lg:p-8` on a layout that already provides `portrait:p-4` / `lg:px-10` | Pages inside the dashboard layout must not add outer padding; use `max-w-*` only to center content |
+| Flex tab bar overflow | Tabs with fixed `px-5` in a `flex` container overflow at ≤375px (3 tabs ≈ 420px > 343px available) | `px-3 sm:px-5` + `flex-shrink-0` + `overflow-x-auto` on the container |
+| CSS grid on narrow landscape | `repeat(N, 1fr)` with N=7 on iPhone SE landscape (~568px) = ~65px per column — unreadable cells | `repeat(N, minmax(72px, 1fr))` + `overflow-x-auto` on the wrapper |
+| Firebase optional | `undefined` causes silent write errors | For persisted optional fields use `null` or omit the key entirely; never pass `undefined` to Firestore |
+| Firestore composite index | `where + orderBy` query fails or breaks at runtime | Add the index in `firebase/firestore.indexes.json` and deploy |
+| Firestore deploy drift | Rules/indexes updated in the repo but not in Firebase | Run `firebase deploy --only firestore` |
+| Cooking sessions | Duplicated if created in `useEffect` | Use the setup screen pattern |
+| Cooking history | Empty statistics if the user leaves without the final CTA | Record completion only from `Termina cottura` |
+| Quantity format | Confusing fractions (`1 1/2`) | Decimals (`1,5`) |
+| useState prop | `useState(prop)` doesn't react to changes | Add a sync `useEffect` |
+| AI route auth | Protected AI routes fail with `401` | Always send `Authorization: Bearer <idToken>` with a refreshed token |
+| Firebase Admin env | Protected AI routes fail even with a logged-in user | Configure Firebase Admin credentials server-side; `NEXT_PUBLIC_FIREBASE_*` alone is not enough |
+| Firebase Admin base64 | `FIREBASE_ADMIN_CREDENTIALS_BASE64` looks valid but bootstrap fails | The service account JSON uses snake_case keys (`project_id`, `client_email`, `private_key`) |
+| Docker env | `docker compose` doesn't read `.env.local` | Use `docker compose --env-file .env.local ...` |
+| Local week dates | `toISOString().slice(0, 10)` shifts by a day in `Europe/Rome` | Use local formatters (`formatLocalDate`, `getWeekMonday`) |
+| Dynamic step quantities | Quantities in steps stay static or end up misaligned | Use `{{qty:ingredientId}}` tokens resolved at runtime |
+| AI quantity references | The AI doesn't know the final `ingredientId`s | Have it emit `[ING:n]` and `[QTY:n]`, then convert them in the parser |
+| Sonnet 5 parameters → 400 | `temperature`/`top_p`/`top_k`/`budget_tokens` (or prefill on the last assistant turn) return **400** on Sonnet 5, with an unhelpful error on the route side (generic 500) | Never set them; to control depth use `thinking: {type:'adaptive'}` + `output_config.effort`. `effort` requires `@anthropic-ai/sdk >= ~0.100` |
+| AI model literal drift | Changing the model but forgetting one of the endpoints → routes on different versions | The model is the `AI_MODEL` constant (`lib/utils/constants.ts`): change it there only, never a per-route literal |
+| Family profile persistence | You think you need to deploy rules or create a new collection | Save to `users/{uid}.familyProfile`; the existing owner-based rules are enough |
+| Family context scope | The family context alters flows that must stay faithful to the input | Use it only in generative/adaptive flows (`chat`, `testo libero`), NOT in `Carica PDF` nor in the planner (now local, no AI) |
+| Shopping list debounce non-flushed | The Firestore write of the check marks is debounced 500ms; if the component unmounts or the tab goes to background within 500ms the timer was cancelled without saving → check marks "reappear" unchecked days later | Flush the pending write on `unmount` + `visibilitychange(hidden)` + `pagehide`, reading from a `latestStateRef` (no stale closure); reset the timer ref when it fires |
+| New persistence target forgotten in the flush | `useShoppingList` writes to two independent documents (plan on `meal_plans`, ad-hoc on `users/{uid}`): adding a third target with its own debounce but forgetting to call it from the existing `unmount`/`visibilitychange`/`pagehide` handlers silently reproduces the same lost-check-marks bug, but only for the new field | Every new persistence target needs its own timer/ref **and** must be explicitly added to the shared flush function (`flushAll()` in `useShoppingList`) |
+| Shopping list check marks "reset" on remount | `useShoppingList` lives inside the page component (`lista-spesa/page.tsx`): leaving the page and coming back unmounts/remounts the hook. The plan query has `staleTime: 2min`, so a remount within that window reuses the snapshot cached by the **first** fetch — and the init effect blindly trusted that snapshot, overwriting local state with the old check marks even though the Firestore write had already succeeded in the meantime | Every change to `checkedIdsList`/`customItems` also immediately updates the React Query cache (`queryClient.setQueryData` on the plan's query key), not just Firestore — so a remount within `staleTime` re-reads the current state and not the one from the original fetch |
+| Shopping list `localStorage` fallback never re-read | If a Firestore write fails and the `localStorage` fallback kicks in, that fallback is never re-read as long as `shoppingCheckedIds` on Firestore is not empty — init only checks empty/non-empty, not which of the two is more recent | Not fixed (rare case): to be handled separately if it comes back, by comparing a timestamp instead of just the empty/non-empty state |
+| Shuffle `preferredCategoryId` hard filter | Setting a preferred category per meal type limits the shuffle to ONLY that category for that meal (all lunches the same) | To get variety while avoiding certain dishes use `excludedCategoryIds` (Escludi), not `preferredCategoryId` |
+| Planner per-meal config invisible | The "Categorie per portata" section appears only in the *setup* step (new plan) and only with `categories.length > 0` | If you can't see it: a plan already exists for that week (you're on the calendar → "Nuovo piano") or you have no categories (a hint is shown) |
+| Collapsible auto-close mount | `prevCheckedRef = useRef([])` triggers auto-close of already-complete sections on mount | Initialize `prevCheckedRef` with the current value of `checked*`, not with `[]` |
+| isToday timezone | Timestamp comparison shifts by a day in `Europe/Rome` | Use `getFullYear()/getMonth()/getDate()` (local), not timestamps |
+| YYYY-MM-DD string parsing | `new Date('2026-05-06')` is interpreted as UTC midnight → in `Europe/Rome` (+1/+2) it lands on the previous day | Always add the local suffix: `new Date(dateStr + 'T00:00:00')` — applied in `expiryStatus()`, `formatLocalDate`, `getWeekMonday` |
+| React Query + user null | Query runs before auth is ready | Always add `enabled: !!user` (and `!!recipeId` where needed) |
+| React Query DevTools | The icon doesn't appear despite having QueryClientProvider | The separate `@tanstack/react-query-devtools` package is required |
+| React Query + useEffect init | Cache revalidation re-runs `useEffect([recipe])` | Use a `sessionInitialized` ref to guard one-time init |
+| Step duration max | Browser validation error on steps lasting many hours | Use `max={9999}` not `max={999}` — 24h = 1440 min |
+| Multiple timers | A single `setInterval` + single state doesn't support parallel timers | Use `Map<stepId, setInterval>` in a ref + `Record<stepId, secondsLeft>` in state |
+| Hardcoded `bg-white` | `bg-white` is always `#ffffff` — it ignores the `--background` token | Use `bg-background`, `bg-card`, `bg-muted`, `bg-secondary` |
+| Nonexistent OKLCH color scale | `bg-primary-100`, `border-primary-200`, `text-primary-700` don't exist with a custom OKLCH palette — Tailwind generates scales only for static colors, not for CSS vars | Use the opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary` |
+| Native HTML elements without `bg` | `<textarea>`, `<select>`, `<input>` show a white background even with the OKLCH theme | Always add `bg-background text-foreground` explicitly — the browser doesn't inherit CSS custom properties from the theme |
+| Side-stripe design ban | `border-l-[2px+]` on card/list item is an AI slop tell — banned even when semantic | Replace with an `absolute top-1.5 left-1.5` badge (icon + color) or a background tint; never side-stripe |
+| Dated `animate-bounce` | Bounce easing on a typing indicator or buttons looks dated | Use `animate-pulse` for activity indicators; `ease-out` easing for intentional motion |
+| Delight state drift | Loading/empty/error boxes built ad hoc page by page break visual consistency and bring hardcoded color classes | Reuse `EditorialLoader`, `EditorialEmptyState`, `StatusBanner`; if a `react-hot-toast` toast is needed, style it globally in `providers.tsx`, not locally |
+| React Query stale cache after write | After `createCookingSession` / `deleteCookingSession` (or any Firestore write), navigating to a list page shows stale data until `staleTime` expires | Always call `queryClient.invalidateQueries({ queryKey: [...] })` after every write that affects a query on another page |
+| Stale shopping list after a plan change | A concrete and particularly insidious case of the gotcha above: the shopping list is a **derived view** cached on `['shoppingList', uid, weekStartDate]`. Writing to the slots doesn't touch that cache, so for 2 minutes (`staleTime`) the list keeps asking you to shop for a removed meal, and it looks correct until you do a hard refresh | **Every** plan mutator must call `invalidateShoppingList()` (`useMealPlanner`), including plan deletion, which lives in `pianificatore/page.tsx`. Partial match on the key (without `weekStartDate`): `copyPlanToWeek` writes to a different week than the one on screen |
+| `next/dynamic` on tab UI components | `dynamic()` with a `loading` fallback shows a visible loader on the first tab switch — unacceptable for small components on the same route | Use normal static imports; `next/dynamic` only makes sense for heavy components at whole-page level |
+| Raw Tailwind colors outside the design system | `green-*`, `orange-*`, `purple-*` used for states (completion, validation, AI) are visually inconsistent — the project's `accent` token is already sage green | For completion states: `text-accent`, `bg-accent/10`, `border-accent/40`; for warnings: `text-primary`; never `purple-*` |
+| Filter counts computed on the full set | A category badge `useMemo` that depends on `recipes` instead of the upstream subset: changing season doesn't update the category counts | Compute `recipeCountByCategoryId` on `recipesForCategoryFilter` (post-season); a multi-category recipe increments **every** id returned by `getRecipeCategoryIds(recipe)`; season counts stay on the full `recipes` |
+| Multi-category recipe: reading `categoryId` directly | `recipe.categoryId` alone ignores `categoryIds[]` (new format) and skips multi-category recipes in filters/counts/badges | **Always** read through `getRecipeCategoryIds(recipe)` (`lib/utils/recipe-categories.ts`, dual-read: prefers `categoryIds[]`, falls back to legacy `categoryId` for pre-migration recipes). Never access `recipe.categoryId` directly outside that helper |
+| Multi-color badge from `category.color` (hex) | You need a background tint from the saved hex color without nonexistent OKLCH scales (`bg-primary-100` etc. don't exist, see above) | Inline hex alpha on the saved color: `style={{ color: category.color, backgroundColor: `${category.color}1a` }}` (10% alpha) — not a tailwind arbitrary class with a dynamic color |
+| Invisible test credentials | You think the login panel has disappeared, but the UI is correct | Test credentials in the login appear only with `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true`; after changing env restart `npm run dev` |
+| `jest.setup.js` vs `.ts` | `@testing-library/jest-dom` v6 uses module augmentation to extend Jest matchers; TypeScript ignores `.js` files → `toBeInTheDocument` and similar are typed as nonexistent | The Jest setup file that does a side-effect type import (`import '@testing-library/jest-dom'`) must have a `.ts` extension; also update `jest.config.js` (`setupFilesAfterEnv`). Applies to any package that extends Jest matchers (e.g. `jest-extended`) |
+| `next/font` in `'use client'` | Runtime error — `next/font/google` works only in Server Components | Root layout must be a server component; extract QueryClient+Auth into `src/components/providers.tsx` |
+| Collapsible `max-h` animation | `max-h-[2000px]` thrashes layout/paint on every frame (not GPU-accelerated) | Use `grid-rows-[0fr] → grid-rows-[1fr]` with an `overflow-hidden` wrapper; add `motion-reduce:transition-none` |
+| Unconfigured `container mx-auto` | Tailwind's `container` expands without limits if not configured in `tailwind.config.js` | Use explicit `max-w-*` (`max-w-4xl`, `max-w-5xl`) instead of `container` |
+| `max-w-*` without `mx-auto` | Content stays left-aligned on wide desktop even with `max-w` | Always add `mx-auto` together with `max-w-*` on pages with centered content |
+| Step editor actions inline on mobile | A `su/giu/elimina` toolbar on the same row as the content reduces the textarea's usable width and makes the step look "squashed" | On mobile put the controls on a separate row below the content; from `sm` up they can sit at the top right |
+| Sandbox build `spawn EPERM` | `npx next build --webpack` can fail in the sandbox even when the code is correct | If `spawn EPERM` appears, rerun the build outside the sandbox; don't treat it as an application error |
+| Action hidden in `group-hover` on touch | `opacity-0 group-hover:opacity-100` on a control (e.g. the ↺ reshuffle-slot button) makes it **invisible on mobile**: touch doesn't trigger `hover`, the action seems not to exist | Keep the control always visible below `lg` and hide it only from desktop: `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100`; add `aria-label` (a `title=` isn't enough for screen readers) |
+| Native `confirm()`/`alert()` | The browser's system dialogs are off-brand, neither stylable nor focus-trappable | For destructive confirmations use `ConfirmDialog` (`components/ui/confirm-dialog.tsx`, controlled, built on Radix `Dialog`); for validation/errors use `react-hot-toast`. Never `window.confirm`/`window.alert` |
+| `position: sticky` inside `overflow:hidden` | An ancestor with `overflow:hidden` (e.g. `.shell-stage`) becomes a scroll container and **cancels `sticky`** relative to window scroll: the element doesn't stick and scrolls away (symptom: `sticky top-0` header disappearing on scroll, unreachable sidebar footer) | Don't rely on `sticky` inside `.shell-stage`. On desktop the dashboard uses an **app-shell with internal scroll** (`<main>` with `lg:overflow-y-auto`, fixed viewport-height shell) so header/sidebar/footer stay put without `sticky`. Alternative: `overflow: clip` (doesn't create a scroll container, preserves `sticky`) |
+| Dark mode — `.dark` block | Rewriting tokens with a full `oklch()` (e.g. `oklch(1 0 0)`) breaks the inline alpha `oklch(var(--x) / a)` used everywhere | In the `.dark` block (`globals.css`) override ONLY the OKLCH components (`16% 0.012 65`), never with wrapper/alpha. Surfaces with light literals "baked" into arbitrary classes (`body` gradient, `.shell-stage`, `.shell-panel`, sidebar drawer, `more-sheet`, `status-banner` warning, auth pages) need explicit `.dark`/`dark:` overrides |
+| next-themes hydration mismatch | next-themes writes the `.dark` class on `<html>` client-side → hydration warning/mismatch | `suppressHydrationWarning` on `<html>`; components that display the theme state (e.g. `ThemePicker`) use the `mounted` pattern (`useEffect`) so SSR and CSR don't diverge |
+| Content inside `shell-panel` under the overlay | `.shell-panel::before` is `position:absolute; inset:0` (decorative gradient): content in normal flow ends up **under** the overlay and looks washed out | Wrap the panel content in `relative z-10` (same pattern as `recipe-card`, `EditorialEmptyState`, `StatusBanner`) |
+| Blue native checkbox/`<input type=checkbox>` | Without `accent-color`, the checkbox uses the system blue → breaks DESIGN.md's "Anti-Cold Rule" on the cream palette (common in cooking checklists) | Always add `accent-primary` to the checkbox; for the most-touched controls a ≥44px area and `tabIndex={-1}` if the row is already `role="button"` (avoids a double tab stop) |
+| `next lint` removed in Next 16 | `npx next lint` interprets `lint` as a directory and fails; there's no ESLint config in the repo | Validate with `npx tsc --noEmit` + `npx next build --webpack`; don't rely on `next lint` |
+| Silent `pause_turn` with server tools | With a server-side tool (web search) the API stops at 10 iterations and returns `stop_reason: 'pause_turn'` on **HTTP 200**: no error. In the `[RISPOSTA]`/`[RICETTE]` format the text truncates after `[/RISPOSTA]` has closed but before `[/RICETTE]` → the user sees a normal reply and **the recipes have simply vanished** | Always go through `createMessageWithToolLoop()` (`lib/api/claude-tool-loop.ts`): it resends the conversation with the paused assistant turn at the end and **no new user message** (a "Continua." breaks the resumption because it reads as a new instruction) |
+| Web search error = `content` object, not array | A search error (`max_uses_exceeded`, etc.) returns **HTTP 200** with `web_search_tool_result.content` being an *object* `{error_code}` instead of the usual *array* of results: `.map()` on it throws, or you read `undefined` | `Array.isArray(content)` before iterating (done in `extractWebSearchSources`, `lib/utils/claude-blocks.ts`). A search error is degraded quality, not a failed request: `console.warn` and let the reply through, since the model has already produced it and it has already been paid for |
+| Rotated phone photos | `createImageBitmap(file)` without options ignores EXIF orientation: photos taken in portrait arrive rotated by 90°, and a sideways label is unreadable for the model — which is exactly the use case | `createImageBitmap(file, { imageOrientation: 'from-image' })`. Also `toBlob` (not `toDataURL`): you need `blob.size` before the base64 expansion. And `bitmap.close()` + **sequential** processing: mobile Safari goes OOM with several 12 MP decodes in parallel |
+| Images replayed in the history | Each photo costs up to ~4784 tokens: 3 photos resent over 20 turns are ~280k input tokens in **one** request | In the history store only a text marker (`[L'utente ha allegato N foto...]`); the model's own description of the photos (required by `VISION_GUIDANCE`) is what carries the context forward. It also avoids restructuring `ApiHistoryMessage.content` from `string` to a block array |
+| `image/*` accepts HEIC | iPhones deliver HEIC, which isn't a valid media type for the API **and** which Chrome on Android can't even decode in canvas | List the explicit types (`image/jpeg,image/png,image/webp`) in `accept` and validate them client- and server-side. Failing immediately with a clear message is better than failing later during decoding or with a 400 |
+| Non-discriminated union → lost narrowing | A helper returning `{blocks: X[]; error: null} \| {blocks: null; error: string}` isn't narrowed by `if (result.error)`: TS still sees `blocks` as possibly `null` | Use a literal discriminant (`{ok: true, ...} \| {ok: false, ...}`) and branch on that |
+| Total kcal instead of per serving | A recipe total silently goes out of sync as soon as `servings` changes in the form or cooking mode scales it at runtime | `caloriesPerServing` is **always** per serving. The total is derived by multiplying, never the other way around |
+| Optional numeric field as `number` in state | `useState(recipe?.caloriesPerServing || 0)` doesn't distinguish "empty" from `0`: clearing the field writes `0` and the estimate becomes impossible to delete | Keep the state as a **string** and convert on save; in `updateDoc` an empty value must become `deleteField()`, because omitting the key merges and keeps the previous value |
+| `json_schema` with length constraints | Structured outputs do **not** support `minItems`/`maxItems` on arrays (nor `minimum`/`maximum`, `minLength`/`maxLength`, `multipleOf`): the API responds **400** and the request fails entirely — `output_config.format.schema: For 'array' type, property 'maxItems' is not supported`. The downstream symptom is misleading: the client catches the error and returns `null`, so the feature just seems to "not work" instead of reporting an invalid schema | Put only shape and types in the schema (`type`, `enum`, `required`, `additionalProperties: false`). Quantity constraints go in the **prompt**, and if a guarantee is needed it's applied server-side on the result (`.slice(0, 3)`): truncating is an acceptable degradation, a 400 on the whole request is not |
+| Orphan slots after removing a meal type | `buildContributions` (`ingredient-aggregator.ts`) iterates **all** slots without filtering by `activeMealTypes`: removing the meal type from `activeMealTypes` without deleting its slots leaves its ingredients in the shopping list, for a meal the calendar no longer shows | `removeMealType` (like `removeDay`) clears `activeMealTypes` **and** the slots in a single `updateMealPlan` |
+| Unordered `activeMealTypes` | The persisted array IS the render order (grid, chips, form): point writes (`addMealType`, setup toggle) that only append break the canonical order of the day (e.g. adding colazione to an existing plan shows it last) | Always pass the array through `sortMealTypes()` (`lib/constants/meal-types.ts`) both on write and on read: it sorts by index in `SELECTABLE_MEAL_TYPES`, legacy types at the end (stable sort) — reading also self-corrects Firestore plans saved before the fix, without a migration |
+| Optional group + `$` anchor in a header regex | `/##\s+Ingredienti(?:\s+(per\s+.+))?$/i` looks like "capture the name if present": actually on `## Ingredienti La pasta` the optional group doesn't match, the `$` anchor makes **the whole** regex fail, `sectionMatch` is `null` → section `null`. The line is consumed by the `startsWith` guard anyway, so **the section disappears without an error** and the items end up in the flat group | Make the capture permissive (lazy `(.+?)` + `[\s:]*$` for trailing spaces/`:`) and keep it in a shared constant (`SECTION_HEADER_PATTERNS`, `recipe-parser.ts`). General rule: if a `startsWith` guard consumes the line regardless, a failing regex degrades silently — the only way to notice is a test for every form the prompt can produce. **Fixed** (2026-09-11): `recipe-parser.test.ts` → `describe('recipe-parser section headers')`, one case per form |
+| Alphabetical sort on recipe sections | Sections are the order of **preparation**: sorting with `localeCompare` puts "Per la crema" before "Per la base" and the recipe reads backwards | Order of first appearance in the array (a `Map` preserves insertion order = document order); section `null` always first. Applies both to ingredients and to the fallback for steps without `sectionOrder`. **Fixed** (2026-09-11): `ingredient-list-collapsible.tsx` and `steps-list-collapsible.tsx` |
+| `?? 999` fallback as sort key | A shared sentinel value isn't an ordering: it **collapses all** keyless elements into a single tie, and they end up at the end in arbitrary order (concrete case: steps created from the form have no `sectionOrder`) | Use the index of first appearance, which is on the same scale as the real key and grows with document order. `Array.prototype.sort` is stable (ES2019+), so remaining ties keep their order of appearance. **Fixed** (2026-09-11): `steps-list-collapsible.tsx`, `sectionSortKeys` |
+| Section order implicit in the array after a reassignment | `Ingredient` has no order field: the section order is the order of first appearance in the array. That holds as long as the array comes from the parser (it follows the document), but **breaks** as soon as sections are assigned to an already-flat list: the reorganized lasagna opened the Ingredients column with "Per l'assemblaggio" (the first ingredient was the pasta sheets) while the Procedure column, sorted by `sectionOrder`, rightly started from the ragù — two columns of the same recipe contradicting each other | Steps have `sectionOrder`, which is the order you cook in: let it drive both columns with `orderedSectionNamesFromSteps()` (`lib/utils/section-assignments.ts`), passed as `orderedSections` to `IngredientListCollapsible` and also used by `summarizeSectionProposal` for the preview. Render order only — no array rewritten, no new field on the type. More general lesson: **an invariant linking two views must be asserted across the two, not inside each** — here both lists were correct on their own and wrong together, and six green automated phases didn't catch it. **Fixed** (2026-09-11): `section-assignments.test.ts` → `orderedSectionNamesFromSteps` and `summarizeSectionProposal` |
+| Jest and Playwright competing for `*.spec.ts` | `npm run test` (Jest) and `npm run test:e2e` (Playwright) match the same pattern: any Playwright spec in `e2e/` — including a guided test's throwaway scripts in `e2e/scratch/` — makes the unit suite fail with `TypeError: Class extends value undefined`, which looks like a broken test rather than a file picked up by mistake | `testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/e2e/', '<rootDir>/.next/']` in `jest.config.js`. **Fixed** (2026-09-11): `jest.config.js` |
+| Playwright guided-test script + Next env | A script in `e2e/scratch/` that imports a module from `lib/utils` pulls in `lib/firebase/config.ts` through import chains, and Playwright does **not** load `.env.local` the way Next does: it fails with `FirebaseError: auth/invalid-api-key` before the test even runs | Launch with the env exported by hand: `set -a; . ./.env.local; set +a; FIRESTORE_EMULATOR_HOST=... npx playwright test ...` — can't be solved in config, it goes in the command (2026-09-11) |
+| Playwright + async Firestore write: false positive | An assertion on text already present in the **previous** step of the flow (e.g. a form label visible even before submit) resolves `toBeVisible()` to `true` immediately, even if the click that was supposed to trigger a Firestore write hasn't completed yet — the test "passes" and the browser context closes mid-write, aborting the in-flight request | Always wait for a marker visible **only in the next step** (e.g. a title present only in the calendar view, not in the setup form), never a text that already exists before the action under test |
 
 ---
 
@@ -108,40 +108,40 @@
 
 ```tsx
 className="max-lg:portrait:flex max-lg:landscape:hidden"  // ✅
-className="portrait:flex landscape:hidden"                 // ❌ applica a desktop
+className="portrait:flex landscape:hidden"                 // ❌ applies to desktop
 ```
 
-- Desktop (≥1440px): sidebar sempre visibile
+- Desktop (≥1440px): sidebar always visible
 - Mobile portrait: bottom navigation
 - Mobile landscape: hamburger + sidebar drawer
 
-**Modello di scroll (desktop ≥1440px) = app-shell**: lo `.shell-stage` è ad altezza viewport fissa (`lg:h-[calc(100vh-2rem)]`) e a scorrere è solo `<main>` (`lg:overflow-y-auto`, riga flex `lg:min-h-0`). Header, sidebar e footer restano fermi (nessun `sticky` — non funzionerebbe dentro `overflow:hidden`, vedi Quick Reference). Il selettore tema vive nel footer della sidebar (lista voci in un wrapper `min-h-0 flex-1 overflow-y-auto`, picker ancorato sotto). Sotto 1440px resta lo scroll-finestra. L'effetto `--shell-focus` legge `mainRef.scrollTop`, non `window.scrollY`.
+**Scroll model (desktop ≥1440px) = app-shell**: `.shell-stage` has a fixed viewport height (`lg:h-[calc(100vh-2rem)]`) and only `<main>` scrolls (`lg:overflow-y-auto`, flex row `lg:min-h-0`). Header, sidebar and footer stay put (no `sticky` — it wouldn't work inside `overflow:hidden`, see Quick Reference). The theme picker lives in the sidebar footer (item list in a `min-h-0 flex-1 overflow-y-auto` wrapper, picker anchored below). Below 1440px window scroll remains. The `--shell-focus` effect reads `mainRef.scrollTop`, not `window.scrollY`.
 
-**Sticky button sopra la bottom nav:**
+**Sticky button above the bottom nav:**
 ```tsx
 <div className="sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10">
 ```
 
-**Le pagine non devono aggiungere il proprio padding esterno:**
-Il `<main>` nel dashboard layout fornisce già tutti i padding per viewport:
+**Pages must not add their own outer padding:**
+The `<main>` in the dashboard layout already provides all per-viewport padding:
 - `lg:px-10 lg:py-8` — desktop
 - `max-lg:portrait:p-4 max-lg:portrait:pb-20` — mobile portrait
 - `max-lg:landscape:p-4` — mobile landscape
 
 ```tsx
-// ❌ SBAGLIATO — crea doppio padding (es. 32px su portrait invece di 16px)
+// ❌ WRONG — creates double padding (e.g. 32px on portrait instead of 16px)
 return <div className="p-4 sm:p-6 lg:p-8">...</div>
 
-// ✅ CORRETTO — usa max-w solo per centrare contenuto, non per padding di pagina
+// ✅ CORRECT — uses max-w only to center content, not for page padding
 return <div className="max-w-2xl mx-auto">...</div>
 ```
 
-**Grid con colonne a larghezza minima + scroll orizzontale:**
+**Grid with minimum-width columns + horizontal scroll:**
 ```tsx
-// ❌ SBAGLIATO — su 7 colonne in 568px landscape = ~65px per colonna (illeggibile)
+// ❌ WRONG — 7 columns in 568px landscape = ~65px per column (unreadable)
 style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
 
-// ✅ CORRETTO — mantiene un minimo leggibile, scroll se necessario
+// ✅ CORRECT — keeps a readable minimum, scrolls if needed
 <div className="overflow-x-auto">
   <div style={{ gridTemplateColumns: `80px repeat(7, minmax(72px, 1fr))` }}>
 ```
@@ -150,50 +150,50 @@ style={{ gridTemplateColumns: `80px repeat(7, 1fr)` }}
 
 ## 2. Firebase Patterns
 
-**`null` vs `undefined`**: Firebase rifiuta `undefined` in scrittura. Per campi opzionali persistiti:
-- usare `null` quando il modello dati lo prevede esplicitamente
-- oppure omettere la chiave con spread condizionale (`...(value ? { field: value } : {})`)
-- mai passare `undefined` a `addDoc()` / `updateDoc()`
+**`null` vs `undefined`**: Firebase rejects `undefined` on write. For persisted optional fields:
+- use `null` when the data model explicitly expects it
+- or omit the key with a conditional spread (`...(value ? { field: value } : {})`)
+- never pass `undefined` to `addDoc()` / `updateDoc()`
 
-**Composite Index**: query `where(...) + orderBy(...)` richiedono indice in `firebase/firestore.indexes.json`. Se l'errore è catturato in un `catch` generico, lato UI sembra solo "nessun dato". Dopo ogni modifica: `firebase deploy --only firestore`.
+**Composite Index**: `where(...) + orderBy(...)` queries require an index in `firebase/firestore.indexes.json`. If the error is caught in a generic `catch`, on the UI side it just looks like "no data". After every change: `firebase deploy --only firestore`.
 
-Indici attivi:
+Active indexes:
 - `categories`: `userId ASC, order ASC`
 - `cooking_history`: `userId ASC, completedAt DESC`
 - `cooking_sessions`: `userId ASC, lastUpdatedAt DESC`
 - `meal_plans`: `userId ASC, weekStartDate DESC`
 - `recipes`: `userId ASC, createdAt DESC`
 
-**User Profile Extensions**: per preferenze utente che non richiedono query dedicate, usare `users/{uid}` esistente anziché aprire una nuova collection (es. `familyProfile`).
+**User Profile Extensions**: for user preferences that don't need dedicated queries, use the existing `users/{uid}` instead of opening a new collection (e.g. `familyProfile`).
 
-**Cooking History**: `cooking_sessions` = stato effimero; `cooking_history` = evento append-only creato solo da `Termina cottura`. Statistiche leggono solo da `cooking_history`.
+**Cooking History**: `cooking_sessions` = ephemeral state; `cooking_history` = append-only event created only by `Termina cottura`. Statistics read only from `cooking_history`.
 
 ---
 
 ## 3. React Query Patterns
 
 ```ts
-// ✅ Disabilitata finché l'auth non è pronta
+// ✅ Disabled until auth is ready
 useQuery({ queryKey: ['recipes', user?.uid ?? ''], queryFn: ..., enabled: !!user });
-// ❌ NON usare onSnapshot — evitato per costi Firestore
+// ❌ DO NOT use onSnapshot — avoided because of Firestore costs
 ```
 
-**Query keys standard:**
+**Standard query keys:**
 
-| Key | Uso |
-|-----|-----|
-| `['recipes', uid]` | Lista ricette utente |
-| `['recipe', id, uid]` | Singola ricetta (shared tra detail/edit/cooking) |
-| `['categories', uid]` | Categorie |
-| `['cookingSessions', uid]` | Sessioni attive |
-| `['cookingHistory', uid]` | Storico cotture (statistiche) |
-| `['familyProfile', uid]` | Profilo famiglia (staleTime 5min) |
-| `['shoppingList', uid, weekStartDate]` | Lista della spesa (derivata da MealPlan) |
-| `['adHocShopping', uid]` | Gruppi "Voglio preparare questo" (globali, su `users/{uid}`, non per settimana) |
+| Key | Usage |
+|-----|-------|
+| `['recipes', uid]` | User recipe list |
+| `['recipe', id, uid]` | Single recipe (shared between detail/edit/cooking) |
+| `['categories', uid]` | Categories |
+| `['cookingSessions', uid]` | Active sessions |
+| `['cookingHistory', uid]` | Cooking history (statistics) |
+| `['familyProfile', uid]` | Family profile (staleTime 5min) |
+| `['shoppingList', uid, weekStartDate]` | Shopping list (derived from MealPlan) |
+| `['adHocShopping', uid]` | "Voglio preparare questo" groups (global, on `users/{uid}`, not per week) |
 
-Stale time: 2min globale, 5min per familyProfile.
+Stale time: 2min global, 5min for familyProfile.
 
-**Guard per init one-time** (evita ri-esecuzione su cache revalidation):
+**Guard for one-time init** (avoids re-running on cache revalidation):
 ```ts
 const sessionInitialized = useRef(false);
 useEffect(() => {
@@ -206,23 +206,23 @@ useEffect(() => {
 
 ## 4. Cooking Mode
 
-**Setup Screen Pattern**: non creare sessioni in `useEffect`.
+**Setup Screen Pattern**: don't create sessions in `useEffect`.
 ```ts
 useEffect(() => { setIsSetupMode(!await getCookingSession(recipeId, userId)); }, []);
-const handleStart = () => createCookingSession(recipeId, userId, servings); // solo da click
+const handleStart = () => createCookingSession(recipeId, userId, servings); // only from a click
 ```
 
-**Completion Pattern**: non auto-eliminare la sessione al 100%. Mostrare `Termina cottura` esplicitamente → solo allora: creare `cooking_history` + cancellare `cooking_session`.
+**Completion Pattern**: don't auto-delete the session at 100%. Show `Termina cottura` explicitly → only then: create `cooking_history` + delete `cooking_session`.
 
-**Timer multipli in parallelo:**
+**Multiple timers in parallel:**
 ```ts
 const intervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 const [secondsMap, setSecondsMap] = useState<Record<string, number>>({});
-// Cleanup obbligatorio:
+// Mandatory cleanup:
 useEffect(() => () => { intervalsRef.current.forEach(clearInterval); }, []);
 ```
 
-**Section Auto-Close**: inizializzare `prevCheckedRef` con il valore corrente, non con `[]`, altrimenti le sezioni già complete al mount si chiudono al caricamento. Animare il collapse con `grid-template-rows` (non `max-height`) — il div deve essere sempre nel DOM affinché l'animazione e il global step counter restino corretti:
+**Section Auto-Close**: initialize `prevCheckedRef` with the current value, not with `[]`, otherwise sections already complete at mount close on load. Animate the collapse with `grid-template-rows` (not `max-height`) — the div must always be in the DOM so that the animation and the global step counter stay correct:
 ```tsx
 <div className={cn(
   'grid transition-[grid-template-rows] duration-300 ease-in-out motion-reduce:transition-none',
@@ -241,70 +241,70 @@ interface Ingredient { id; name; quantity; section?: string | null; }
 interface Step { id; order; description; section?: string | null; sectionOrder?: number | null; duration?: number | null; }
 ```
 
-**Step Duration**: `duration?: number | null` — `null` = nessun timer. Form: `max={9999}`. `extractStepDuration()` esportata da `recipe-parser.ts` (usata sia dal parser che dall'auto-detect).
+**Step Duration**: `duration?: number | null` — `null` = no timer. Form: `max={9999}`. `extractStepDuration()` exported from `recipe-parser.ts` (used both by the parser and by auto-detect).
 
-**Ingredienti orfani (estrazione/formattazione)**: `EXTRACTION_PROMPT` e `FORMAT_RECIPE_PROMPT` includono la regola "COERENZA INGREDIENTI ↔ PROCEDIMENTO" che fa **omettere** all'AI gli ingredienti mai usati/menzionati in nessuno step (refusi della fonte, es. arancia candita nelle sfogliatelle). Regola **conservativa fail-safe**: NON rimuove nulla se il procedimento è sintetico/generico ("aggiungere i restanti ingredienti", "unire il tutto", ecc.). Da mantenere in **entrambi** i prompt (convenzione mirror). `chat-recipe` non ha la regola (genera ricette nuove, non estrae).
+**Orphan ingredients (extraction/formatting)**: `EXTRACTION_PROMPT` and `FORMAT_RECIPE_PROMPT` include the "COERENZA INGREDIENTI ↔ PROCEDIMENTO" rule, which makes the AI **omit** ingredients never used/mentioned in any step (typos in the source, e.g. candied orange in sfogliatelle). **Conservative fail-safe** rule: it removes NOTHING if the procedure is terse/generic ("aggiungere i restanti ingredienti", "unire il tutto", etc.). Keep it in **both** prompts (mirror convention). `chat-recipe` doesn't have the rule (it generates new recipes, it doesn't extract).
 
-**AI Duration Token**: su tutti i prompt AI nella sezione PROCEDIMENTO:
+**AI Duration Token**: in every AI prompt, in the PROCEDIMENTO section:
 ```
 Se uno step ha UN SOLO tempo chiaramente identificabile, aggiungi [DUR:N] alla fine (N = minuti interi).
 NON aggiungere se il tempo è un range, ambiguo, o lo step ha più tempi.
 ```
-Consistente con `[ING:n]` e `[QTY:n]`.
+Consistent with `[ING:n]` and `[QTY:n]`.
 
-**Dynamic Step Quantities**: storage `{{qty:ingredientId}}`, risolto a runtime. AI emette `[ING:n]`/`[QTY:n]`, convertiti nel parser. Ricette legacy: usare il pulsante auto-adapt in modifica, solo match ad alta confidenza.
+**Dynamic Step Quantities**: stored as `{{qty:ingredientId}}`, resolved at runtime. The AI emits `[ING:n]`/`[QTY:n]`, converted in the parser. Legacy recipes: use the auto-adapt button in edit mode, high-confidence matches only.
 
-**`renderStepDescription` — name fallback**: se le keyword del nome ingrediente non sono nel testo circostante, appende automaticamente `"di {simplifiedName}"`. Se cambi `getIngredientKeywords`, impatta sia il rendering che `adaptStepsToDynamicQuantities`.
+**`renderStepDescription` — name fallback**: if the ingredient name keywords aren't in the surrounding text, it automatically appends `"di {simplifiedName}"`. If you change `getIngredientKeywords`, it affects both rendering and `adaptStepsToDynamicQuantities`.
 
-**Step Ordering**: riordino globale (non per sezione); rinormalizzare sempre `order` a `1..n`.
+**Step Ordering**: global reordering (not per section); always renormalize `order` to `1..n`.
 
-**Ordine delle sezioni fra le due colonne**: gli step sono l'autorità. `orderedSectionNamesFromSteps(recipe.steps)` va passato come `orderedSections` a `IngredientListCollapsible` ovunque ingredienti e passaggi della stessa ricetta siano mostrati insieme (`recipe-detail.tsx`, `ricette/[id]/cooking/page.tsx`) — vedi gotcha in Quick Reference.
+**Section order across the two columns**: steps are the authority. `orderedSectionNamesFromSteps(recipe.steps)` must be passed as `orderedSections` to `IngredientListCollapsible` wherever a recipe's ingredients and steps are shown together (`recipe-detail.tsx`, `ricette/[id]/cooking/page.tsx`) — see the gotcha in Quick Reference.
 
-**Sezioni**: gli header accettano **qualsiasi** nome (`## Ingredienti La pasta`, `## Procedimento per il ragù`), `## Ingredienti` nudo → sezione `null`; pattern in `SECTION_HEADER_PATTERNS` (`recipe-parser.ts`). Il render ordina per **prima apparizione**, mai alfabeticamente (vedi Quick Reference). `POST /api/reorganize-recipe` propone sezioni per una ricetta flat esistente restituendo **solo** assegnazioni `id → sezione`: nessun testo e nessun id viene riscritto, quindi cotture attive (checked per id) e token `{{qty:ingredientId}}` restano validi per costruzione. La proposta si applica con `applySectionAssignments()` (`lib/utils/section-assignments.ts`), che scrive `null` esplicito sugli item non assegnati. La sezione unica `"Ingredienti"` è l'artefatto del round-trip del form (`recipe-form.tsx` rinomina `null` → `'Ingredienti'` al load e la persiste al save): `hasNamedSections()` la conta come "nessuna sezione", altrimenti il pulsante sparirebbe proprio dalle ricette che ne hanno bisogno.
+**Sections**: headers accept **any** name (`## Ingredienti La pasta`, `## Procedimento per il ragù`), a bare `## Ingredienti` → section `null`; patterns in `SECTION_HEADER_PATTERNS` (`recipe-parser.ts`). Rendering sorts by **first appearance**, never alphabetically (see Quick Reference). `POST /api/reorganize-recipe` proposes sections for an existing flat recipe by returning **only** `id → section` assignments: no text and no id is rewritten, so active cooking sessions (checked by id) and `{{qty:ingredientId}}` tokens stay valid by construction. The proposal is applied with `applySectionAssignments()` (`lib/utils/section-assignments.ts`), which writes explicit `null` on unassigned items. The single `"Ingredienti"` section is an artifact of the form round-trip (`recipe-form.tsx` renames `null` → `'Ingredienti'` on load and persists it on save): `hasNamedSections()` counts it as "no sections", otherwise the button would disappear precisely from the recipes that need it.
 
-**Recipe Categories (multi)**: `categoryIds?: string[]` sostituisce il vecchio `categoryId?: string` (ora `@deprecated`, mantenuto solo come fallback di lettura). Stesso schema di migrazione già usato per `season` → `seasons[]`: dual-read + migrazione lazy on-edit, nessuna migrazione batch. Leggere **sempre** tramite `getRecipeCategoryIds(recipe)` (`lib/utils/recipe-categories.ts`); mai `recipe.categoryId` diretto. In salvataggio (edit), il legacy `categoryId` viene esplicitamente rimosso con `categoryId: deleteField()` (import da `firebase/firestore`) per evitare drift — richiede un cast (`as unknown as Partial<Recipe>`) perché `FieldValue` non è assegnabile al tipo `string`. Le **sottocategorie sono state rimosse del tutto** (tipo, helper Firebase, UI, regola e indice Firestore): i documenti già presenti nella collection `subcategories` restano inerti e non vengono letti da nessuna query.
+**Recipe Categories (multi)**: `categoryIds?: string[]` replaces the old `categoryId?: string` (now `@deprecated`, kept only as a read fallback). Same migration scheme already used for `season` → `seasons[]`: dual-read + lazy on-edit migration, no batch migration. **Always** read through `getRecipeCategoryIds(recipe)` (`lib/utils/recipe-categories.ts`); never `recipe.categoryId` directly. On save (edit), the legacy `categoryId` is explicitly removed with `categoryId: deleteField()` (imported from `firebase/firestore`) to avoid drift — this requires a cast (`as unknown as Partial<Recipe>`) because `FieldValue` isn't assignable to `string`. **Subcategories have been removed entirely** (type, Firebase helpers, UI, Firestore rule and index): documents already in the `subcategories` collection stay inert and aren't read by any query.
 
 ---
 
 ## 6. UI Components & Theming
 
-**Color tokens — mai usare `bg-white`**: `bg-white` è hardcoded `#ffffff` in Tailwind e ignora il token `--background`. Usare sempre:
-- `bg-background` per sfondi pagina/layout
-- `bg-card` per card e pannelli
-- `bg-muted` per stato disabilitato o hover passivo
-- `bg-secondary` per sfondi secondari (sezioni, filtri)
+**Color tokens — never use `bg-white`**: `bg-white` is hardcoded `#ffffff` in Tailwind and ignores the `--background` token. Always use:
+- `bg-background` for page/layout backgrounds
+- `bg-card` for cards and panels
+- `bg-muted` for disabled state or passive hover
+- `bg-secondary` for secondary backgrounds (sections, filters)
 
-**Elementi HTML nativi**: `<textarea>`, `<select>`, `<input>` NON ereditano `--background` automaticamente — il browser usa `white` di default. Aggiungere sempre `bg-background text-foreground placeholder:text-muted-foreground` esplicitamente. Il componente shadcn `Input` lo fa già; gli elementi nativi no.
+**Native HTML elements**: `<textarea>`, `<select>`, `<input>` do NOT inherit `--background` automatically — the browser uses `white` by default. Always add `bg-background text-foreground placeholder:text-muted-foreground` explicitly. The shadcn `Input` component already does; native elements don't.
 
-**OKLCH color scale**: `bg-primary-100`, `border-primary-200`, `text-primary-700` non funzionano — Tailwind genera scale numeriche solo per colori statici. Con CSS vars OKLCH usare sempre l'opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary`.
+**OKLCH color scale**: `bg-primary-100`, `border-primary-200`, `text-primary-700` don't work — Tailwind generates numeric scales only for static colors. With OKLCH CSS vars always use the opacity modifier: `bg-primary/10`, `border-primary/20`, `text-primary`.
 
-**Side-stripe ban**: `border-l-2` o superiore con colore su card/list item è vietato da impeccable guidelines indipendentemente dall'intenzione semantica. Sostituire con badge angolare `absolute top-1.5 left-1.5` (icona + tint) che porta la stessa informazione senza il pattern visivo da AI slop.
+**Side-stripe ban**: `border-l-2` or thicker with a color on card/list item is banned by the impeccable guidelines regardless of semantic intent. Replace with a corner badge `absolute top-1.5 left-1.5` (icon + tint) that carries the same information without the AI-slop visual pattern.
 
-**Palette OKLCH**: i token CSS contengono solo i parametri (`--background: 97% 0.01 75`), il wrapper `oklch()` è nel `tailwind.config.js`. Questo è lo stesso pattern del vecchio `hsl()`. Tutti i browser moderni supportano `oklch()`.
+**OKLCH palette**: CSS tokens contain only the parameters (`--background: 97% 0.01 75`), the `oklch()` wrapper is in `tailwind.config.js`. This is the same pattern as the old `hsl()`. All modern browsers support `oklch()`.
 
-**Dark mode (light / dark / system)**: gestita da `next-themes` (`darkMode: 'class'`, classe `.dark` su `<html>`, persistenza + anti-flash pre-paint inclusi). Il blocco `.dark` in `globals.css` riscrive gli **stessi token** (solo componenti OKLCH, vedi gotcha) — i componenti che usano `bg-background`/`text-foreground`/`bg-card`/`border-border` ecc. si adattano da soli. NON aggiungere `bg-white dark:bg-black` sparsi: usare i token. Le superfici decorative con literal chiari hardcoded richiedono override `.dark`/`dark:` espliciti. `ThemePicker` (`components/ui/theme-picker.tsx`) è montato in `Sidebar` e `MoreSheet`; il root layout deve avere `suppressHydrationWarning`.
+**Dark mode (light / dark / system)**: handled by `next-themes` (`darkMode: 'class'`, `.dark` class on `<html>`, persistence + pre-paint anti-flash included). The `.dark` block in `globals.css` rewrites the **same tokens** (OKLCH components only, see gotcha) — components using `bg-background`/`text-foreground`/`bg-card`/`border-border` etc. adapt on their own. DO NOT add scattered `bg-white dark:bg-black`: use the tokens. Decorative surfaces with hardcoded light literals need explicit `.dark`/`dark:` overrides. `ThemePicker` (`components/ui/theme-picker.tsx`) is mounted in `Sidebar` and `MoreSheet`; the root layout must have `suppressHydrationWarning`.
 
-**Delight shared states**: per loading, empty state e feedback cross-app usare i wrapper condivisi:
-- `EditorialLoader` per attese importanti (auth bootstrap, dashboard load, AI generation)
-- `EditorialEmptyState` per primo uso / nessun risultato
-- `StatusBanner` per info/success/warning/error inline
-- `ConfirmDialog` per ogni conferma distruttiva (elimina piano/ricetta/sessione) — controllato, riusa il `Dialog` Radix; mai `window.confirm`/`window.alert`
-Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
+**Delight shared states**: for loading, empty states and cross-app feedback use the shared wrappers:
+- `EditorialLoader` for significant waits (auth bootstrap, dashboard load, AI generation)
+- `EditorialEmptyState` for first use / no results
+- `StatusBanner` for inline info/success/warning/error
+- `ConfirmDialog` for every destructive confirmation (delete plan/recipe/session) — controlled, reuses Radix `Dialog`; never `window.confirm`/`window.alert`
+This avoids duplicated classes, hardcoded blues/greens/reds and drift between pages.
 
-**Hot toast styling**: se una pagina usa `react-hot-toast`, il look va definito in `src/components/providers.tsx`; nelle pagine si cambia solo il contenuto del messaggio.
+**Hot toast styling**: if a page uses `react-hot-toast`, the look is defined in `src/components/providers.tsx`; pages only change the message content.
 
-**Sheet Accessibility**: Radix richiede `<SheetDescription className="sr-only">` altrimenti warning a11y in console.
+**Sheet Accessibility**: Radix requires `<SheetDescription className="sr-only">`, otherwise an a11y warning shows in the console.
 
-**Category Colors**: usare la palette preset `CATEGORY_COLOR_PRESETS` (`color-palette-picker.tsx`), non `input[type=color]` — UX più stabile su mobile. La palette è composta di toni terrosi on-brand (terracotta, ocra, oliva, salvia, cacao); niente neon blu/viola/teal. Le categorie esistenti mantengono il colore salvato anche se non più tra i preset (nessuna migrazione).
+**Category Colors**: use the preset palette `CATEGORY_COLOR_PRESETS` (`color-palette-picker.tsx`), not `input[type=color]` — a more stable UX on mobile. The palette is made of on-brand earthy tones (terracotta, ochre, olive, sage, cocoa); no neon blue/violet/teal. Existing categories keep their saved color even if it's no longer among the presets (no migration).
 
-**Layout max-width per tipo di pagina**:
-- Pagine con griglia card (ricette, categorie, cotture): **nessun max-w** — la grid gestisce già la responsività
-- Pagine a contenuto testuale stretto (statistiche, profilo, lista spesa): `max-w-Xrem mx-auto` per leggibilità
-- Pagine miste/centrate (pianificatore): `max-w-[1200px] mx-auto`; i sotto-pannelli di form usano `max-w-lg mx-auto`
+**Layout max-width per page type**:
+- Card-grid pages (recipes, categories, cooking sessions): **no max-w** — the grid already handles responsiveness
+- Narrow text-content pages (statistics, profile, shopping list): `max-w-Xrem mx-auto` for readability
+- Mixed/centered pages (planner): `max-w-[1200px] mx-auto`; form sub-panels use `max-w-lg mx-auto`
 
-**Editorial cinema shell**: i wrapper condivisi `shell-stage` e `shell-panel` vivono in `globals.css` e portano pseudo-elementi, gradienti e shadow già incorporati. Usarli su shell e pannelli chiave, non impilarli in profondità senza motivo; il parent che ospita lo stage deve restare `relative`/`isolation:isolate` e il motion deve sempre avere fallback `motion-reduce`.
+**Editorial cinema shell**: the shared `shell-stage` and `shell-panel` wrappers live in `globals.css` and come with built-in pseudo-elements, gradients and shadows. Use them on key shells and panels, don't nest them deeply without reason; the parent hosting the stage must stay `relative`/`isolation:isolate` and motion must always have a `motion-reduce` fallback.
 
-**Step editor mobile**: il badge numero step deve restare leggero e integrato nella card. Evitare badge assoluti che escono dal bordo o toolbar rigide nello stesso asse della textarea: su telefoni riducono troppo la larghezza e fanno sembrare gli step spostati a destra.
+**Step editor mobile**: the step number badge must stay light and integrated into the card. Avoid absolute badges that stick out of the border or rigid toolbars on the same axis as the textarea: on phones they reduce the width too much and make the steps look shifted to the right.
 
 ---
 
@@ -315,61 +315,61 @@ Questo evita classi duplicate, hardcoded blu/verdi/rossi e drift tra pagine.
 const idToken = await auth.currentUser?.getIdToken(true);
 fetch('/api/...', { headers: { Authorization: `Bearer ${idToken}` } });
 ```
-- `NEXT_PUBLIC_FIREBASE_*` bastano per il client, NON per la verifica server-side
-- In locale: `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY`
-- Su Vercel: preferire `FIREBASE_ADMIN_CREDENTIALS_BASE64`
-- JSON Firebase Admin usa snake_case (`project_id`, `client_email`, `private_key`)
+- `NEXT_PUBLIC_FIREBASE_*` are enough for the client, NOT for server-side verification
+- Locally: `FIREBASE_ADMIN_PROJECT_ID` + `FIREBASE_ADMIN_CLIENT_EMAIL` + `FIREBASE_ADMIN_PRIVATE_KEY`
+- On Vercel: prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64`
+- Firebase Admin JSON uses snake_case (`project_id`, `client_email`, `private_key`)
 
-**File Limit**: upload AI max 4.4MB (limite Vercel). Validare client-side.
+**File Limit**: AI upload max 4.4MB (Vercel limit). Validate client-side.
 
-**Family Context Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Carica PDF` ✗ (estrazione pura) · `Pianificatore` ✗ (ora locale, niente AI).
+**Family Context Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Carica PDF` ✗ (pure extraction) · `Pianificatore` ✗ (now local, no AI).
 
-**Prescriptive Sections Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Carica PDF` ✗ · `Pianificatore` ✗. La regola "se il piatto ha componenti logicamente distinte DEVI creare sezioni" vive in `CHAT_SYSTEM_PROMPT` e in `FORMAT_RECIPE_PROMPT` §4 (convenzione mirror: modificarne una vuol dire modificare l'altra) ed è **deliberatamente assente** da `EXTRACTION_PROMPT`. Stessa dottrina del family context: estrarre promette fedeltà alla fonte, quindi inventare una struttura che il PDF non ha restituirebbe in silenzio una ricetta diversa da quella caricata. `EXTRACTION_PROMPT` §3 si limita a **preservare** i nomi di sezione già presenti (`"La pasta"`, `"Il ragù"`) — ed è proprio quella regola che il bug della regex del parser tradiva (vedi Quick Reference). Non "correggere" l'asimmetria: c'è uno scope note in cima al file della route che lo dice.
+**Prescriptive Sections Scope**: `Chat AI` ✓ · `Testo libero` ✓ · `Carica PDF` ✗ · `Pianificatore` ✗. The rule "if the dish has logically distinct components you MUST create sections" lives in `CHAT_SYSTEM_PROMPT` and in `FORMAT_RECIPE_PROMPT` §4 (mirror convention: changing one means changing the other) and is **deliberately absent** from `EXTRACTION_PROMPT`. Same doctrine as the family context: extraction promises fidelity to the source, so inventing a structure the PDF doesn't have would silently return a recipe different from the one uploaded. `EXTRACTION_PROMPT` §3 only **preserves** section names already present (`"La pasta"`, `"Il ragù"`) — and that's exactly the rule the parser regex bug was betraying (see Quick Reference). Don't "fix" the asymmetry: there's a scope note at the top of the route file that says so.
 
-**Web Search & Vision Scope**: `Chat AI` ✓ (opt-in per messaggio) · `Testo libero` ✗ · `Carica PDF` ✗ · `Pianificatore` ✗. Stessa dottrina del family context, una tacca più stretta: `extract-recipes` e `format-recipe` promettono fedeltà alla fonte ("riporta le quantità esattamente come nel documento"), quindi una seconda fonte di verità produrrebbe una sostituzione silenziosa e infalsificabile — l'output resta una ricetta valida, solo non è più la tua. La provenienza di una ricetta da chat resta `{ type: 'manual', name: 'Generata con Chat AI' }`: `source.type` è un'unione chiusa e `source.url` è singolare, mentre una chat può sintetizzare da 0, 1 o 4 pagine — e `'url'` significa *importata da*, non *generata*.
+**Web Search & Vision Scope**: `Chat AI` ✓ (opt-in per message) · `Testo libero` ✗ · `Carica PDF` ✗ · `Pianificatore` ✗. Same doctrine as the family context, one notch stricter: `extract-recipes` and `format-recipe` promise fidelity to the source ("riporta le quantità esattamente come nel documento"), so a second source of truth would produce a silent and unfalsifiable substitution — the output is still a valid recipe, just no longer yours. The provenance of a chat recipe stays `{ type: 'manual', name: 'Generata con Chat AI' }`: `source.type` is a closed union and `source.url` is singular, while a chat can synthesize from 0, 1 or 4 pages — and `'url'` means *imported from*, not *generated*.
 
-**Model**: `claude-sonnet-5` sugli endpoint AI (`chat-recipe`, `extract-recipes`, `format-recipe`, `suggest-category`, `estimate-calories`, `reorganize-recipe`). La stringa è centralizzata nella costante `AI_MODEL` (`src/lib/utils/constants.ts`): per cambiare modello si modifica **solo lì** (+ tech stack in README/CLAUDE.md/AGENTS.md). Config thinking per endpoint: `extract-recipes` e `format-recipe` usano `thinking: { type: 'adaptive' }` + `output_config: { effort: 'low' }` (ragionamento leggero per la coerenza ingredienti↔procedimento, costo/latenza vicini al no-thinking); `suggest-category` usa `thinking: { type: 'disabled' }` (classifica JSON banale, serve latenza minima); `estimate-calories` e `reorganize-recipe` usano `adaptive` + `effort: 'low'` (aritmetica su più ingredienti / raggruppamento con un po' di sequencing, non problemi difficili); `chat-recipe` lascia adaptive default. `suggest-category`, `estimate-calories` e `reorganize-recipe` usano `output_config.format` con `json_schema` (`additionalProperties: false` + `required`) invece di ripulire i backtick a mano. `output_config.effort` richiede `@anthropic-ai/sdk >= ~0.100` (nel repo `^0.110.0`). Nessun `temperature`/`top_p`/`top_k`/prefill (romperebbero con 400 su Sonnet 5).
+**Model**: `claude-sonnet-5` on the AI endpoints (`chat-recipe`, `extract-recipes`, `format-recipe`, `suggest-category`, `estimate-calories`, `reorganize-recipe`). The string is centralized in the `AI_MODEL` constant (`src/lib/utils/constants.ts`): to change model edit **only there** (+ tech stack in README/CLAUDE.md/AGENTS.md). Thinking config per endpoint: `extract-recipes` and `format-recipe` use `thinking: { type: 'adaptive' }` + `output_config: { effort: 'low' }` (light reasoning for ingredient↔procedure consistency, cost/latency close to no-thinking); `suggest-category` uses `thinking: { type: 'disabled' }` (trivial JSON classification, needs minimal latency); `estimate-calories` and `reorganize-recipe` use `adaptive` + `effort: 'low'` (arithmetic over several ingredients / grouping with a bit of sequencing, not hard problems); `chat-recipe` leaves adaptive default. `suggest-category`, `estimate-calories` and `reorganize-recipe` use `output_config.format` with `json_schema` (`additionalProperties: false` + `required`) instead of stripping backticks by hand. `output_config.effort` requires `@anthropic-ai/sdk >= ~0.100` (the repo has `^0.110.0`). No `temperature`/`top_p`/`top_k`/prefill (they would break with a 400 on Sonnet 5).
 
 ---
 
 ## 8. Deployment
 
-- Docker Compose: sempre `--env-file .env.local` (non legge `.env.local` automaticamente)
-- Build affidabile in sandbox: `npx next build --webpack` (evita problemi Turbopack)
-- Se `npx next build --webpack` fallisce con `spawn EPERM` nel sandbox, rilanciare fuori sandbox prima di indagare il codice
-- Dopo `npm audit fix`: allineare `package.json` se il lockfile aggiorna una dipendenza diretta già validata
-- Per mostrare il pannello credenziali di test nel login in locale: `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true` e riavvio del dev server
+- Docker Compose: always `--env-file .env.local` (it doesn't read `.env.local` automatically)
+- Reliable build in sandbox: `npx next build --webpack` (avoids Turbopack issues)
+- If `npx next build --webpack` fails with `spawn EPERM` in the sandbox, rerun outside the sandbox before investigating the code
+- After `npm audit fix`: align `package.json` if the lockfile updates an already-validated direct dependency
+- To show the test credentials panel in the login locally: `NEXT_PUBLIC_SHOW_TEST_CREDENTIALS=true` and restart the dev server
 
 ---
 
 ## 9. Meal Planner Patterns
 
-**Portate e ordine canonico**: `MealType` include `colazione`/`spuntino`/`pranzo`/`merenda`/`cena` (in questo ordine, `SELECTABLE_MEAL_TYPES` in `lib/constants/meal-types.ts`) più i tipi legacy `primo`/`secondo`/`contorno`/`dolce` (non selezionabili, solo render di piani storici). `sortMealTypes(types)` ordina un array di `MealType` per indice in `SELECTABLE_MEAL_TYPES` (legacy in coda, sort stabile) e va applicato **sia in scrittura** (`addMealType`/`copyPlanToWeek` in `useMealPlanner.ts`, `toggleMealType` in `MealPlanSetupForm.tsx`) **sia in lettura** (`WeeklyCalendarGrid.tsx`, `PlanStructureCard.tsx`, `MealPlanSetupForm.tsx`) — vedi gotcha `activeMealTypes` disordinato in Quick Reference.
+**Meal types and canonical order**: `MealType` includes `colazione`/`spuntino`/`pranzo`/`merenda`/`cena` (in this order, `SELECTABLE_MEAL_TYPES` in `lib/constants/meal-types.ts`) plus the legacy types `primo`/`secondo`/`contorno`/`dolce` (not selectable, only for rendering historical plans). `sortMealTypes(types)` sorts a `MealType` array by index in `SELECTABLE_MEAL_TYPES` (legacy at the end, stable sort) and must be applied **both on write** (`addMealType`/`copyPlanToWeek` in `useMealPlanner.ts`, `toggleMealType` in `MealPlanSetupForm.tsx`) **and on read** (`WeeklyCalendarGrid.tsx`, `PlanStructureCard.tsx`, `MealPlanSetupForm.tsx`) — see the unordered `activeMealTypes` gotcha in Quick Reference.
 
-**No AI / shuffle locale**: il pianificatore non chiama più Claude e `/api/plan-meals` non esiste più. La generazione è locale e gratuita via `buildShuffledSlots()` in `meal-plan-shuffle.ts`. `family-context` resta usato SOLO da chat/testo libero/extract, non dal planner.
+**No AI / local shuffle**: the planner no longer calls Claude and `/api/plan-meals` no longer exists. Generation is local and free via `buildShuffledSlots()` in `meal-plan-shuffle.ts`. `family-context` is still used ONLY by chat/free text/extract, not by the planner.
 
-**`buildShuffledSlots(recipes, config)`** (pura, testata): assegna ricette esistenti per ogni `(dayIndex, mealType)` rispettando:
-- stagione (`matchesSeason`: include la stagione, `tutte_stagioni`, o ricetta senza stagione); fallback al pool completo se < 5 ricette stagionali per quella portata
-- `mealTypeConfigs[mealType]`: `excludedCategoryIds` sempre rimosse; `preferredCategoryId` = filtro **secco** (solo quella categoria) se produce almeno una ricetta
-- niente ripetizioni nella settimana finché il pool lo permette; portate senza pool restano slot vuoti e sono riportate in `unfilledMealTypes` (la UI mostra un avviso)
+**`buildShuffledSlots(recipes, config)`** (pure, tested): assigns existing recipes to each `(dayIndex, mealType)` respecting:
+- season (`matchesSeason`: includes the season, `tutte_stagioni`, or a recipe without a season); falls back to the full pool if < 5 seasonal recipes for that meal type
+- `mealTypeConfigs[mealType]`: `excludedCategoryIds` always removed; `preferredCategoryId` = **hard** filter (only that category) if it yields at least one recipe
+- no repeats within the week as long as the pool allows; meal types without a pool stay empty slots and are reported in `unfilledMealTypes` (the UI shows a warning)
 
-**`pickReshuffledRecipe(...)`**: re-roll locale di un singolo slot — sceglie una ricetta diversa della **stessa categoria**, in stagione, non già usata nella settimana; poi rilassa stagione e infine categoria. Sostituisce la vecchia rigenerazione AI; il pulsante ↺ sullo slot chiama questo.
+**`pickReshuffledRecipe(...)`**: local re-roll of a single slot — picks a different recipe from the **same category**, in season, not already used in the week; then relaxes season and finally category. Replaces the old AI regeneration; the ↺ button on the slot calls this.
 
-**`MealTypeConfig`** (`preferredCategoryId` + `excludedCategoryIds`): UI "Categorie per portata" **sempre visibile** nello step setup (non più sotto "avanzate"), solo se `categories.length > 0`. Una categoria non può essere sia preferita che esclusa (`setMealPreferred` la rimuove da excluded).
+**`MealTypeConfig`** (`preferredCategoryId` + `excludedCategoryIds`): "Categorie per portata" UI **always visible** in the setup step (no longer under "avanzate"), only if `categories.length > 0`. A category can't be both preferred and excluded (`setMealPreferred` removes it from excluded).
 
-**Copy plan**: `copyPlanToWeek(targetWeek)` riusa `createMealPlan`; **blocca** (throw) se la settimana target ha già un piano. Copia solo `slots`/`activeMealTypes`/`season`/`activeDays`, NON lo stato lista spesa. La data scelta va normalizzata al lunedì (`getWeekMonday`).
+**Copy plan**: `copyPlanToWeek(targetWeek)` reuses `createMealPlan`; it **blocks** (throws) if the target week already has a plan. It copies only `slots`/`activeMealTypes`/`season`/`activeDays`, NOT the shopping list state. The chosen date must be normalized to Monday (`getWeekMonday`).
 
-**Backward-compat**: i piani AI legacy con slot `newRecipe` (ParsedRecipe inline) restano visualizzabili e salvabili nel ricettario; lo shuffle non genera mai `newRecipe`. Il flag `generatedByAI` resta nel tipo per compat (nuovi piani sempre `false`).
+**Backward-compat**: legacy AI plans with `newRecipe` slots (inline ParsedRecipe) stay viewable and savable into the recipe book; the shuffle never generates `newRecipe`. The `generatedByAI` flag stays in the type for compat (new plans always `false`).
 
-**Shopping List — Derived View**: lista derivata dal `MealPlan`, nessuna collection Firestore separata.
-- Slot `existingRecipeId` → `getRecipesByIds()` (batch, deduplicato); slot `newRecipe` → ingredienti inline, zero read extra
-- Stato spunte e articoli custom → campi `shoppingCheckedIds` + `shoppingCustomItems` sul documento `meal_plans` (Firestore, cross-device). Fallback localStorage solo se non esiste un piano per quella settimana. Scritture debounced 500ms (vedi gotcha *flush* in Quick Reference)
-- Ad ogni cambio locale, lo stato viene specchiato anche nella cache React Query della query del piano (`queryClient.setQueryData`), non solo scritto su Firestore — altrimenti un remount della pagina entro i 2 minuti di `staleTime` rilegge lo snapshot del primo fetch e "resetta" le spunte fatte nel frattempo (vedi gotcha in Quick Reference)
-- Aggregazione (`ingredient-aggregator.ts`): chiave canonica accent-insensitive + singolare/plurale IT conservativi (`canonicalIngredientKey`); quantità sommate per dimensione convertibile (massa→g, volume→ml) e riformattate (g↔kg, ml↔l), fallback `" + "` per unità non convertibili o miste. Nomi ambigui o multi-parola restano separati (non-merge = scelta sicura)
+**Shopping List — Derived View**: list derived from the `MealPlan`, no separate Firestore collection.
+- `existingRecipeId` slot → `getRecipesByIds()` (batched, deduplicated); `newRecipe` slot → inline ingredients, zero extra reads
+- Check mark state and custom items → `shoppingCheckedIds` + `shoppingCustomItems` fields on the `meal_plans` document (Firestore, cross-device). localStorage fallback only if no plan exists for that week. Writes debounced 500ms (see the *flush* gotcha in Quick Reference)
+- On every local change, the state is also mirrored into the React Query cache of the plan query (`queryClient.setQueryData`), not just written to Firestore — otherwise a page remount within the 2 minutes of `staleTime` re-reads the first fetch's snapshot and "resets" the check marks made in the meantime (see gotcha in Quick Reference)
+- Aggregation (`ingredient-aggregator.ts`): accent-insensitive canonical key + conservative Italian singular/plural (`canonicalIngredientKey`); quantities summed per convertible dimension (mass→g, volume→ml) and reformatted (g↔kg, ml↔l), `" + "` fallback for non-convertible or mixed units. Ambiguous or multi-word names stay separate (non-merge = safe choice)
 
-**Ad-hoc Shopping List ("Voglio preparare questo")**: meccanismo separato dalla vista derivata dal piano sopra — un bottone sul dettaglio ricetta (`recipe-detail.tsx`) aggiunge i soli ingredienti di quella ricetta a un gruppo ad-hoc, salvato globalmente su `users/{uid}.adHocShoppingRecipes` (`lib/firebase/shopping-adhoc.ts`, stesso pattern di `familyProfile` — nessuna nuova collection/regola/indice), **non** legato a `weekStartDate`.
-- **Dedup su `recipeId`**: ri-aggiungere la stessa ricetta **sostituisce** il gruppo esistente (refresh ingredienti), non lo somma né lo duplica — comportamento intenzionale, non un bug
-- **Checked state globale**: vive in `AdHocShoppingItem.checked`, cross-settimana; mai riusare `shoppingCheckedIds` del piano (che è per-settimana) per gli item ad-hoc
-- `useShoppingList` legge la query `['adHocShopping', uid]` e persiste con un **secondo timer/ref di debounce indipendente** da quello del piano (vedi gotcha "Nuovo target di persistenza dimenticato nel flush" in Quick Reference)
-- **Nessun merge cross-blocco**: stesso ingrediente in ad-hoc e nel piano restano sezioni separate, per scelta esplicita
-- `ShoppingItemRow` prende props esplicite (`name`/`quantity`/`checked`/`footnote`/`onToggle`/`onRemove`) invece di un `ShoppingItem` intero, così serve sia le righe piano/custom (`ShoppingSection`) sia quelle ad-hoc (`AdHocRecipeGroup`) senza ramificare su `isCustom`
+**Ad-hoc Shopping List ("Voglio preparare questo")**: a mechanism separate from the plan-derived view above — a button on the recipe detail (`recipe-detail.tsx`) adds only that recipe's ingredients to an ad-hoc group, saved globally on `users/{uid}.adHocShoppingRecipes` (`lib/firebase/shopping-adhoc.ts`, same pattern as `familyProfile` — no new collection/rule/index), **not** tied to `weekStartDate`.
+- **Dedup on `recipeId`**: re-adding the same recipe **replaces** the existing group (ingredient refresh), it doesn't add to it or duplicate it — intentional behavior, not a bug
+- **Global checked state**: lives in `AdHocShoppingItem.checked`, cross-week; never reuse the plan's `shoppingCheckedIds` (which is per week) for ad-hoc items
+- `useShoppingList` reads the `['adHocShopping', uid]` query and persists with a **second debounce timer/ref independent** of the plan's (see the "New persistence target forgotten in the flush" gotcha in Quick Reference)
+- **No cross-block merge**: the same ingredient in ad-hoc and in the plan stays in separate sections, by explicit choice
+- `ShoppingItemRow` takes explicit props (`name`/`quantity`/`checked`/`footnote`/`onToggle`/`onRemove`) instead of a whole `ShoppingItem`, so it serves both the plan/custom rows (`ShoppingSection`) and the ad-hoc ones (`AdHocRecipeGroup`) without branching on `isCustom`

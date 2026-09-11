@@ -1,138 +1,138 @@
-# Spec C — Nutrizione completa: peso porzione, kcal/100g, macronutrienti
+# Spec C — Complete nutrition: serving weight, kcal/100g, macronutrients
 
-> Note coperte: 2 (kcal/100g, peso porzione), 5 (macronutrienti) | Dipendenze: nessuna (consumata da Spec F per i macro nel planner) | Branch: `feature/nutrition-macros`
+> Notes covered: 2 (kcal/100g, serving weight), 5 (macronutrients) | Dependencies: none (consumed by Spec F for macros in the planner) | Branch: `feature/nutrition-macros`
 
-## 1. Obiettivo
+## 1. Goal
 
-Oggi l'app stima e mostra solo le kcal per porzione. Con questa spec ogni ricetta può avere
-anche il **peso stimato di una porzione** (grammi) e i **macronutrienti per porzione**
-(proteine, carboidrati, grassi in grammi). Da questi si deriva a video la densità
-**kcal/100g**. L'utente li ottiene in tre modi: (1) la stima AI, che passa dall'unico
-endpoint `/api/estimate-calories` esteso — stessa singola chiamata di oggi, nessuna chiamata
-in più nemmeno nell'enrichment 2N-parallelo dell'assistente AI; (2) il bottone sul dettaglio
-ricetta, che diventa "Stima valori nutrizionali" e sa completare i campi mancanti anche
-quando le kcal ci sono già; (3) i campi manuali nel form. La visualizzazione copre dettaglio
-ricetta (riga nutrizionale), anteprima estrazione (chip), form (campi) e pianificatore
-(totali giornalieri di macro accanto alle kcal). La card ricetta resta com'è (solo kcal).
+Today the app only estimates and shows kcal per serving. With this spec every recipe can also
+have the **estimated weight of one serving** (grams) and the **macronutrients per serving**
+(protein, carbohydrates, fat in grams). From these the **kcal/100g** density is derived on
+screen. The user obtains them in three ways: (1) the AI estimate, which goes through the single
+extended `/api/estimate-calories` endpoint — the same single call as today, no extra call
+even in the AI assistant's 2N-parallel enrichment; (2) the button on the recipe detail page,
+which becomes "Stima valori nutrizionali" and can fill in the missing fields even when kcal
+are already present; (3) the manual fields in the form. Display covers the recipe detail
+(nutrition row), extraction preview (chips), form (fields) and planner (daily macro totals
+next to kcal). The recipe card stays as it is (kcal only).
 
-## 2. Stato attuale
+## 2. Current state
 
-Verificato sul codice al commit `c99e86e` (branch `develop`).
+Verified against the code at commit `c99e86e` (branch `develop`).
 
-### Modello dati
+### Data model
 
-- `Recipe.caloriesPerServing?: number` — `src/types/index.ts:227`, con doc comment (220-226)
-  che fissa l'invariante per-porzione ("Per serving rather than per recipe because
+- `Recipe.caloriesPerServing?: number` — `src/types/index.ts:227`, with a doc comment (220-226)
+  that fixes the per-serving invariant ("Per serving rather than per recipe because
   `servings` is editable in the form and is already scaled at runtime by cooking mode").
-- `ParsedRecipe` esiste in **due** dichiarazioni strutturalmente compatibili:
-  - `src/types/index.ts:353-365` (canonica: usata da `MealSlot.newRecipe`,
-    `meal-plan-calories.ts`, `ingredient-aggregator.ts`), con `caloriesPerServing?: number`
-    alla riga 361;
-  - `src/lib/utils/recipe-parser.ts:6-17` (variante parser: usata da `/assistente-ai` e
-    `ExtractedRecipePreview`), con `caloriesPerServing?: number` alla riga 15. Non ha
+- `ParsedRecipe` exists in **two** structurally compatible declarations:
+  - `src/types/index.ts:353-365` (canonical: used by `MealSlot.newRecipe`,
+    `meal-plan-calories.ts`, `ingredient-aggregator.ts`), with `caloriesPerServing?: number`
+    at line 361;
+  - `src/lib/utils/recipe-parser.ts:6-17` (parser variant: used by `/assistente-ai` and
+    `ExtractedRecipePreview`), with `caloriesPerServing?: number` at line 15. It has no
     `description`.
 
 ### Route `/api/estimate-calories` (`src/app/api/estimate-calories/route.ts`)
 
-- Bound di plausibilità: `MIN_PLAUSIBLE_KCAL = 20` (riga 25), `MAX_PLAUSIBLE_KCAL = 3000`
-  (riga 28).
-- Prompt costruito da `createCalorieEstimationPrompt` (righe 42-74), citato verbatim in §4.b.
-- Schema `CALORIE_ESTIMATION_SCHEMA` (righe 82-97), citato verbatim in §4.b. Nessun
-  `minimum`/`maximum` (che darebbero 400).
-- Guardia porzioni (righe 136-142): `Number(servings)` finito e `>= 1`, altrimenti 400
+- Plausibility bounds: `MIN_PLAUSIBLE_KCAL = 20` (line 25), `MAX_PLAUSIBLE_KCAL = 3000`
+  (line 28).
+- Prompt built by `createCalorieEstimationPrompt` (lines 42-74), quoted verbatim in §4.b.
+- Schema `CALORIE_ESTIMATION_SCHEMA` (lines 82-97), quoted verbatim in §4.b. No
+  `minimum`/`maximum` (they would return 400).
+- Servings guard (lines 136-142): `Number(servings)` finite and `>= 1`, otherwise 400
   `'Numero di porzioni non valido: serve almeno 1 porzione'`.
-- Chiamata Anthropic (righe 146-162): `model: AI_MODEL`, `max_tokens: 900`,
+- Anthropic call (lines 146-162): `model: AI_MODEL`, `max_tokens: 900`,
   `thinking: { type: 'adaptive' }`, `output_config: { effort: 'low', format: { type:
   'json_schema', schema } }`.
-- Clamp finale (righe 175-185): valori fuori 20-3000 → `caloriesPerServing: null` (mai
-  errore); risposta `{ success: true, caloriesPerServing, confidence }`.
+- Final clamp (lines 175-185): values outside 20-3000 → `caloriesPerServing: null` (never
+  an error); response `{ success: true, caloriesPerServing, confidence }`.
 
 ### Client
 
 - `getAICalorieEstimateForRecipe(recipeTitle, ingredients, servings)` —
-  `src/lib/utils/recipe-parser.ts:579-618`: salta la chiamata se `!servings || servings < 1`
-  (righe 586-588), ritorna `Promise<number | null>`, scarta `confidence` (riga 613:
+  `src/lib/utils/recipe-parser.ts:579-618`: skips the call if `!servings || servings < 1`
+  (lines 586-588), returns `Promise<number | null>`, discards `confidence` (line 613:
   `typeof data.caloriesPerServing === 'number' ? data.caloriesPerServing : null`).
-- `useEstimateCalories` — `src/lib/hooks/useEstimateCalories.ts:23-62`: mutation che su
-  numero scrive `updateRecipe(recipe.id, { caloriesPerServing })` (riga 41) e invalida
-  `['recipe', id, uid]` + `recipesQueryKey(uid)` (righe 54-55); su `null` mostra toast info
-  "Ingredienti troppo vaghi per una stima affidabile…" (riga 48) e non scrive nulla.
-- Enrichment assistente AI — `src/app/(dashboard)/assistente-ai/page.tsx:157-176`
-  (`enrichRecipesWithAI`): per ogni ricetta `Promise.all([getAISuggestionForRecipe,
-  getAICalorieEstimateForRecipe])` (righe 160-167), spread condizionale
-  `...(caloriesPerServing !== null ? { caloriesPerServing } : {})` (riga 172). Usato da PDF,
-  testo libero (via `processExtractedMarkdown`, riga 178) e chat (via
-  `handleChatRecipesExtracted`, riga 206).
+- `useEstimateCalories` — `src/lib/hooks/useEstimateCalories.ts:23-62`: mutation that on a
+  number writes `updateRecipe(recipe.id, { caloriesPerServing })` (line 41) and invalidates
+  `['recipe', id, uid]` + `recipesQueryKey(uid)` (lines 54-55); on `null` it shows the info toast
+  "Ingredienti troppo vaghi per una stima affidabile…" (line 48) and writes nothing.
+- AI assistant enrichment — `src/app/(dashboard)/assistente-ai/page.tsx:157-176`
+  (`enrichRecipesWithAI`): for each recipe `Promise.all([getAISuggestionForRecipe,
+  getAICalorieEstimateForRecipe])` (lines 160-167), conditional spread
+  `...(caloriesPerServing !== null ? { caloriesPerServing } : {})` (line 172). Used by PDF,
+  free text (via `processExtractedMarkdown`, line 178) and chat (via
+  `handleChatRecipesExtracted`, line 206).
 
-### I tre siti di scrittura di `caloriesPerServing`
+### The three write sites of `caloriesPerServing`
 
-1. `handleSaveRecipe` — `assistente-ai/page.tsx:358-423`, spread in create (riga 396):
+1. `handleSaveRecipe` — `assistente-ai/page.tsx:358-423`, spread in create (line 396):
    ```ts
    // Omit the key entirely when the estimate is missing — Firestore rejects undefined.
    ...(recipe.caloriesPerServing ? { caloriesPerServing: recipe.caloriesPerServing } : {}),
    ```
-2. `saveNewRecipeToCookbook` — `src/lib/hooks/useMealPlanner.ts:509-571`, spread identico
-   alla riga 545.
-3. `RecipeForm` — `src/components/recipe/recipe-form.tsx`: stato **stringa** (righe 72-74,
-   "Held as a string, not a number, so 'empty' stays distinguishable from 0"); parse in
-   submit (righe 425-430: `caloriesPerServing.trim() !== '' && Number.isFinite(...) &&
-   caloriesInput > 0 ? Math.round(...) : null`); spread in create (riga 450); in edit
-   `...(parsedCalories === null ? { caloriesPerServing: deleteField() } : {})` (riga 466)
-   perché `updateDoc` fa merge; input UI righe 555-565, label "kcal / porz.".
+2. `saveNewRecipeToCookbook` — `src/lib/hooks/useMealPlanner.ts:509-571`, identical spread
+   at line 545.
+3. `RecipeForm` — `src/components/recipe/recipe-form.tsx`: **string** state (lines 72-74,
+   "Held as a string, not a number, so 'empty' stays distinguishable from 0"); parse on
+   submit (lines 425-430: `caloriesPerServing.trim() !== '' && Number.isFinite(...) &&
+   caloriesInput > 0 ? Math.round(...) : null`); spread in create (line 450); in edit
+   `...(parsedCalories === null ? { caloriesPerServing: deleteField() } : {})` (line 466)
+   because `updateDoc` merges; UI input lines 555-565, label "kcal / porz.".
 
 ### Display
 
-- Dettaglio — `src/components/recipe/recipe-detail.tsx:79-135`: riga meta flex-wrap con
-  slot grandi `text-2xl font-bold tabular-nums` (porzioni/prep/cottura/totali/kcal). Lo slot
-  kcal è **truthy-gated** (riga 106: `recipe.caloriesPerServing ? (...)`) e in assenza mostra
-  il ghost button "Stima calorie" (righe 112-133, `Flame` + spinner, visibile solo con
+- Detail — `src/components/recipe/recipe-detail.tsx:79-135`: flex-wrap meta row with
+  large `text-2xl font-bold tabular-nums` slots (servings/prep/cooking/total/kcal). The kcal
+  slot is **truthy-gated** (line 106: `recipe.caloriesPerServing ? (...)`) and when absent shows
+  the ghost button "Stima calorie" (lines 112-133, `Flame` + spinner, visible only with
   `hasIngredients && user`).
-- Card — `src/components/recipe/recipe-card.tsx:126-131`: "{n} kcal" con `Flame`, truthy-gated,
-  nessun bottone (la card è un `<Link>`, righe 107-109).
-- Anteprima — `src/components/recipe/extracted-recipe-preview.tsx:135-142`: chip
-  "{n} kcal / porz." con `Flame`, truthy-gated (riga 137).
-- Planner — `src/lib/utils/meal-plan-calories.ts`: `DayCalories` (righe 18-27, campi
-  `total/countedSlots/uncountedSlots/isPartial`), `readSlotCalories` (37-48, ricetta salvata
-  per id poi `newRecipe` inline), `computeDayCalories` (62-92), `computeWeekCalories`
-  (100-112, solo `activeDays`). Consumato solo da
-  `src/components/meal-planner/WeeklyCalendarGrid.tsx`: memo alla riga 56-59,
-  `renderDayCalories` (72-88: nasconde con `total === 0`, prefisso `≥` se `isPartial`,
-  tooltip `title`), render nell'header desktop (riga 129, colonna
-  `minmax(150px, 1fr)`, riga 121) e nell'header giorno mobile (riga 189, `ml-auto`).
-- Test esistenti: `src/lib/utils/meal-plan-calories.test.ts` (8 test: 6 su
-  `computeDayCalories`, 2 su `computeWeekCalories`).
+- Card — `src/components/recipe/recipe-card.tsx:126-131`: "{n} kcal" with `Flame`, truthy-gated,
+  no button (the card is a `<Link>`, lines 107-109).
+- Preview — `src/components/recipe/extracted-recipe-preview.tsx:135-142`: chip
+  "{n} kcal / porz." with `Flame`, truthy-gated (line 137).
+- Planner — `src/lib/utils/meal-plan-calories.ts`: `DayCalories` (lines 18-27, fields
+  `total/countedSlots/uncountedSlots/isPartial`), `readSlotCalories` (37-48, saved recipe
+  by id then inline `newRecipe`), `computeDayCalories` (62-92), `computeWeekCalories`
+  (100-112, `activeDays` only). Consumed only by
+  `src/components/meal-planner/WeeklyCalendarGrid.tsx`: memo at lines 56-59,
+  `renderDayCalories` (72-88: hides when `total === 0`, `≥` prefix if `isPartial`,
+  `title` tooltip), rendered in the desktop header (line 129, column
+  `minmax(150px, 1fr)`, line 121) and in the mobile day header (line 189, `ml-auto`).
+- Existing tests: `src/lib/utils/meal-plan-calories.test.ts` (8 tests: 6 on
+  `computeDayCalories`, 2 on `computeWeekCalories`).
 
-## 3. Decisioni di prodotto (dal roadmap, vincolanti)
+## 3. Product decisions (from the roadmap, binding)
 
-Dal contratto cross-spec 4 di `specs/00-roadmap.md` e dalla decisione utente 7:
+From cross-spec contract 4 in `specs/00-roadmap.md` and user decision 7:
 
-- `Recipe` e **entrambe** le `ParsedRecipe` guadagnano `servingWeightGrams?: number` e
+- `Recipe` and **both** `ParsedRecipe`s gain `servingWeightGrams?: number` and
   `macrosPerServing?: { proteinGrams: number; carbsGrams: number; fatGrams: number }`.
-- Si persiste **solo il per-porzione**: kcal/100g e ogni altro derivato si calcolano a
-  render time (`caloriesPerServing / servingWeightGrams * 100`). Nessun campo derivato salvato.
-- `/api/estimate-calories` si estende nella **stessa singola chiamata AI**: il modello stima
-  peso totale + macro totali, il **server** divide per le porzioni, applica clamp in stile
-  MIN/MAX_PLAUSIBLE_KCAL e il sanity check `4·prot + 4·carb + 9·grassi ≈ kcal`.
-- Vincoli numerici nel prompt + clamp server, **mai** nello schema JSON (`minimum`/`maximum`
+- **Only the per-serving values** are persisted: kcal/100g and every other derived value is computed at
+  render time (`caloriesPerServing / servingWeightGrams * 100`). No derived field is saved.
+- `/api/estimate-calories` is extended within the **same single AI call**: the model estimates
+  total weight + total macros, the **server** divides by servings, applies MIN/MAX_PLAUSIBLE_KCAL-style
+  clamps and the sanity check `4·prot + 4·carb + 9·fat ≈ kcal`.
+- Numeric constraints in the prompt + server clamp, **never** in the JSON schema (`minimum`/`maximum`
   → 400).
-- Copertura display: dettaglio ricetta (riga nutrizionale: kcal/porz, ≈ peso porzione,
-  kcal/100g, P/C/G), form (campi manuali), planner (totali giornalieri kcal + macro).
-- kcal e macro **non** entrano nella lista della spesa (scelta già documentata in CLAUDE.md).
-- Nessuna migrazione: le ricette esistenti semplicemente non hanno i nuovi campi.
+- Display coverage: recipe detail (nutrition row: kcal/serving, ≈ serving weight,
+  kcal/100g, P/C/F), form (manual fields), planner (daily kcal + macro totals).
+- kcal and macros do **not** go into the shopping list (a choice already documented in CLAUDE.md).
+- No migration: existing recipes simply don't have the new fields.
 
-## 4. Design proposto
+## 4. Proposed design
 
-### 4.a Modello dati
+### 4.a Data model
 
-Nuovo tipo esportato in `src/types/index.ts` (sopra `Recipe`):
+New exported type in `src/types/index.ts` (above `Recipe`):
 
 ```ts
 /**
- * Macronutrienti stimati per UNA porzione, in grammi.
+ * Estimated macronutrients for ONE serving, in grams.
  *
- * Sempre il trio completo: una stima parziale (solo proteine, ecc.) non è esprimibile
- * né persistibile — o tutti e tre o il campo è assente. 0 è un valore legittimo
- * (es. 0 g di grassi): i gate di visualizzazione devono usare `!= null`, mai truthiness.
+ * Always the complete trio: a partial estimate (protein only, etc.) cannot be expressed
+ * or persisted — either all three or the field is absent. 0 is a legitimate value
+ * (e.g. 0 g of fat): display gates must use `!= null`, never truthiness.
  */
 export interface MacrosPerServing {
   proteinGrams: number;
@@ -141,7 +141,7 @@ export interface MacrosPerServing {
 }
 ```
 
-`Recipe` (`src/types/index.ts`, subito dopo `caloriesPerServing` riga 227) — prima:
+`Recipe` (`src/types/index.ts`, right after `caloriesPerServing` line 227) — before:
 
 ```ts
   caloriesPerServing?: number;
@@ -149,50 +149,50 @@ export interface MacrosPerServing {
   notes?: string;
 ```
 
-dopo:
+after:
 
 ```ts
   caloriesPerServing?: number;
 
   /**
-   * Peso stimato di UNA porzione della ricetta PRONTA, in grammi (AI o manuale).
-   * Per porzione per lo stesso motivo di caloriesPerServing. kcal/100g si deriva
-   * a render time: mai persistere valori derivati.
+   * Estimated weight of ONE serving of the FINISHED recipe, in grams (AI or manual).
+   * Per serving for the same reason as caloriesPerServing. kcal/100g is derived
+   * at render time: never persist derived values.
    */
   servingWeightGrams?: number;
 
-  /** Macronutrienti stimati per UNA porzione (vedi MacrosPerServing). */
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
   macrosPerServing?: MacrosPerServing;
 
   notes?: string;
 ```
 
-Le stesse due proprietà opzionali (stessi commenti abbreviati) vanno aggiunte a **entrambe**
-le `ParsedRecipe`, dopo `caloriesPerServing`:
+The same two optional properties (same abbreviated comments) must be added to **both**
+`ParsedRecipe`s, after `caloriesPerServing`:
 - `src/types/index.ts:361`;
-- `src/lib/utils/recipe-parser.ts:15` (qui `MacrosPerServing` va aggiunto all'import da
-  `@/types` alla riga 2).
+- `src/lib/utils/recipe-parser.ts:15` (here `MacrosPerServing` must be added to the import from
+  `@/types` at line 2).
 
-Nessuna nuova collection, regola o indice Firestore: i campi vivono sui documenti `recipes`
-esistenti (e dentro `meal_plans.slots[].newRecipe` per i piani legacy, dove semplicemente
-non ci saranno).
+No new Firestore collection, rule or index: the fields live on the existing `recipes`
+documents (and inside `meal_plans.slots[].newRecipe` for legacy plans, where they simply
+won't be present).
 
 ### 4.b Route `/api/estimate-calories`
 
-Request **invariata**: `{ recipeTitle: string, ingredients: {name, quantity}[],
-servings: number }`. Response estesa:
+Request **unchanged**: `{ recipeTitle: string, ingredients: {name, quantity}[],
+servings: number }`. Extended response:
 
 ```ts
 {
   success: true,
   caloriesPerServing: number | null,
-  servingWeightGrams: number | null,          // per porzione, derivato dal server
-  macrosPerServing: MacrosPerServing | null,  // per porzione, derivato dal server
+  servingWeightGrams: number | null,          // per serving, derived by the server
+  macrosPerServing: MacrosPerServing | null,  // per serving, derived by the server
   confidence: 'alta' | 'media' | 'bassa',
 }
 ```
 
-**Prompt attuale verbatim** (`route.ts:51-73`, template literal; `ingredientList` =
+**Current prompt verbatim** (`route.ts:51-73`, template literal; `ingredientList` =
 `ingredients.map(i => \`- ${i.quantity} ${i.name}\`.trim()).join('\n')`):
 
 ```
@@ -221,10 +221,10 @@ ${ingredientList}
 - "bassa": molte quantità mancanti o ambigue
 ```
 
-**Prompt proposto** (la funzione si rinomina `createNutritionEstimationPrompt`; per kcal la
-staging "totale poi dividi" resta al modello com'è oggi; per peso e macro il modello produce
-**totali** e la divisione la fa il server — total-first anche qui, ma con un grado in più di
-protezione dall'errore tipico "divisione saltata"):
+**Proposed prompt** (the function is renamed `createNutritionEstimationPrompt`; for kcal the
+"total then divide" staging stays with the model as it is today; for weight and macros the model produces
+**totals** and the server does the division — total-first here too, but with one extra degree of
+protection against the typical "skipped division" error):
 
 ```
 Stima i valori nutrizionali di questa ricetta italiana.
@@ -261,7 +261,7 @@ ${ingredientList}
 - "bassa": molte quantità mancanti o ambigue
 ```
 
-**Schema attuale verbatim** (`route.ts:82-97`):
+**Current schema verbatim** (`route.ts:82-97`):
 
 ```ts
 const CALORIE_ESTIMATION_SCHEMA = {
@@ -282,8 +282,8 @@ const CALORIE_ESTIMATION_SCHEMA = {
 } as const;
 ```
 
-**Schema proposto** (rinominato `NUTRITION_ESTIMATION_SCHEMA`; SOLO forma e tipi — niente
-`minimum`/`maximum`/`multipleOf`, che fanno fallire l'intera richiesta con 400):
+**Proposed schema** (renamed `NUTRITION_ESTIMATION_SCHEMA`; ONLY shape and types — no
+`minimum`/`maximum`/`multipleOf`, which make the whole request fail with 400):
 
 ```ts
 const NUTRITION_ESTIMATION_SCHEMA = {
@@ -319,34 +319,34 @@ const NUTRITION_ESTIMATION_SCHEMA = {
 } as const;
 ```
 
-**`max_tokens`: 900 → 1400.** Motivazione: con `thinking: adaptive` i token di ragionamento
-contano dentro `max_tokens`; il lavoro aritmetico quadruplica (kcal + 3 macro + peso per
-ogni ingrediente) e il JSON di output cresce di ~10 campi. 1400 dà headroom senza costo
-aggiuntivo a riposo (i token di output si pagano solo se prodotti). `thinking: adaptive` +
-`output_config.effort: 'low'` restano invariati; mai `temperature`/`top_p`/`top_k`/
-`budget_tokens` (400 su Sonnet 5).
+**`max_tokens`: 900 → 1400.** Rationale: with `thinking: adaptive` the reasoning tokens
+count within `max_tokens`; the arithmetic work quadruples (kcal + 3 macros + weight for
+each ingredient) and the output JSON grows by ~10 fields. 1400 gives headroom with no
+added cost at rest (output tokens are paid only when produced). `thinking: adaptive` +
+`output_config.effort: 'low'` stay unchanged; never `temperature`/`top_p`/`top_k`/
+`budget_tokens` (400 on Sonnet 5).
 
-**Derivazione e clamp server-side.** Estrarre la logica pura in un nuovo modulo
-`src/lib/utils/nutrition-estimate.ts` (testabile con Jest senza montare la route):
+**Server-side derivation and clamp.** Extract the pure logic into a new module
+`src/lib/utils/nutrition-estimate.ts` (testable with Jest without mounting the route):
 
 ```ts
 import { MacrosPerServing } from '@/types';
 
-/** Sotto: guarnizione o errore. Sopra: quasi certamente un totale non diviso. */
+/** Below: garnish or error. Above: almost certainly an undivided total. */
 export const MIN_PLAUSIBLE_KCAL = 20;
 export const MAX_PLAUSIBLE_KCAL = 3000;
 
-/** Peso plausibile di UNA porzione pronta: sotto i 30 g è una guarnizione,
- *  sopra 1,5 kg è quasi certamente il peso dell'intera ricetta non diviso. */
+/** Plausible weight of ONE finished serving: under 30 g it's a garnish,
+ *  over 1.5 kg it's almost certainly the weight of the whole undivided recipe. */
 export const MIN_PLAUSIBLE_SERVING_WEIGHT_G = 30;
 export const MAX_PLAUSIBLE_SERVING_WEIGHT_G = 1500;
 
-/** Nessun macro per porzione supera plausibilmente questo tetto. */
+/** No per-serving macro plausibly exceeds this ceiling. */
 export const MAX_PLAUSIBLE_MACRO_G = 300;
 
-/** Tolleranza del check di Atwater 4p+4c+9g ≈ kcal: ±30%.
- *  Copre fibra, alcol, arrotondamenti e tabelle nutrizionali divergenti;
- *  oltre, i macro sono incoerenti con le kcal e vanno scartati (kcal preservate). */
+/** Tolerance of the Atwater check 4p+4c+9f ≈ kcal: ±30%.
+ *  Covers fiber, alcohol, rounding and diverging nutrition tables;
+ *  beyond it, macros are inconsistent with kcal and get discarded (kcal preserved). */
 export const MACRO_KCAL_TOLERANCE = 0.3;
 
 export interface DerivedNutrition {
@@ -356,14 +356,14 @@ export interface DerivedNutrition {
 }
 
 /**
- * Deriva i valori per-porzione dal payload grezzo del modello (totali) e applica
- * i clamp di plausibilità. Ogni campo degrada a null indipendentemente; i macro
- * richiedono kcal plausibili perché senza kcal il check di coerenza è impossibile.
+ * Derives per-serving values from the model's raw payload (totals) and applies
+ * the plausibility clamps. Each field degrades to null independently; macros
+ * require plausible kcal because without kcal the consistency check is impossible.
  */
 export function deriveNutritionPerServing(raw: unknown, servings: number): DerivedNutrition {
   const estimate = (raw ?? {}) as Record<string, unknown>;
 
-  // kcal: identico a oggi (il modello divide, il server valida 20-3000)
+  // kcal: identical to today (the model divides, the server validates 20-3000)
   const rawCalories = estimate.caloriesPerServing;
   const caloriesPerServing =
     typeof rawCalories === 'number' &&
@@ -373,7 +373,7 @@ export function deriveNutritionPerServing(raw: unknown, servings: number): Deriv
       ? Math.round(rawCalories)
       : null;
 
-  // Peso: il modello dà il totale, il server divide e valida il per-porzione
+  // Weight: the model gives the total, the server divides and validates the per-serving value
   let servingWeightGrams: number | null = null;
   const rawWeight = estimate.totalWeightGrams;
   if (typeof rawWeight === 'number' && Number.isFinite(rawWeight)) {
@@ -383,8 +383,8 @@ export function deriveNutritionPerServing(raw: unknown, servings: number): Deriv
     }
   }
 
-  // Macro: totale → per porzione, poi bound [0, 300] e check di Atwater vs kcal.
-  // Se il check fallisce: macro null, kcal preservate (l'errore più probabile è nei macro).
+  // Macros: total → per serving, then bound [0, 300] and Atwater check vs kcal.
+  // If the check fails: macros null, kcal preserved (the likeliest error is in the macros).
   let macrosPerServing: MacrosPerServing | null = null;
   const rawMacros = estimate.totalMacros as Record<string, unknown> | null | undefined;
   if (caloriesPerServing !== null && rawMacros && typeof rawMacros === 'object') {
@@ -412,7 +412,7 @@ export function deriveNutritionPerServing(raw: unknown, servings: number): Deriv
 }
 ```
 
-La route sostituisce il blocco righe 170-185 con:
+The route replaces the block at lines 170-185 with:
 
 ```ts
 const estimate = JSON.parse(responseText);
@@ -425,16 +425,16 @@ return NextResponse.json({
 });
 ```
 
-`MIN_PLAUSIBLE_KCAL`/`MAX_PLAUSIBLE_KCAL` locali alla route (righe 24-28) vengono rimossi
-(vivono ora in `nutrition-estimate.ts`). Guardie di input (recipeTitle/ingredients/servings)
-invariate. `confidence` continua a essere restituita e ignorata dai client (nessuna
-provenienza AI-vs-manuale sui campi salvati: mostrarla suggerirebbe una affidabilità
-per-campo che non abbiamo — resta fuori dalla UI).
+The route-local `MIN_PLAUSIBLE_KCAL`/`MAX_PLAUSIBLE_KCAL` (lines 24-28) are removed
+(they now live in `nutrition-estimate.ts`). Input guards (recipeTitle/ingredients/servings)
+unchanged. `confidence` keeps being returned and ignored by clients (no AI-vs-manual
+provenance on the saved fields: showing it would suggest a per-field reliability
+we don't have — it stays out of the UI).
 
-### 4.c Client — wrapper e hook
+### 4.c Client — wrapper and hook
 
 **`getAICalorieEstimateForRecipe` → `getAINutritionEstimateForRecipe`**
-(`src/lib/utils/recipe-parser.ts:579-618`). Nuova firma:
+(`src/lib/utils/recipe-parser.ts:579-618`). New signature:
 
 ```ts
 export interface RecipeNutritionEstimate {
@@ -450,18 +450,18 @@ export async function getAINutritionEstimateForRecipe(
 ): Promise<RecipeNutritionEstimate | null>
 ```
 
-Comportamento: stesso guard `!servings || servings < 1` → `null`; stessa fetch; su risposta
-ok legge i tre campi validando i tipi (`typeof x === 'number'` per i numeri; per
-`macrosPerServing` verifica che sia un oggetto con i tre numeri finiti, altrimenti `null`);
-su errore/HTTP non-ok → `null` (invariato: tutti i fallimenti degradano a null, mai throw).
-Il vecchio nome sparisce; i due call site (`assistente-ai/page.tsx:14,166` e
-`useEstimateCalories.ts:7,31`) si aggiornano.
+Behavior: same `!servings || servings < 1` guard → `null`; same fetch; on an ok response
+it reads the three fields validating their types (`typeof x === 'number'` for numbers; for
+`macrosPerServing` it checks it's an object with the three finite numbers, otherwise `null`);
+on error/non-ok HTTP → `null` (unchanged: every failure degrades to null, never throws).
+The old name disappears; the two call sites (`assistente-ai/page.tsx:14,166` and
+`useEstimateCalories.ts:7,31`) get updated.
 
-**`enrichRecipesWithAI`** (`assistente-ai/page.tsx:157-176`) — il return diventa:
+**`enrichRecipesWithAI`** (`assistente-ai/page.tsx:157-176`) — the return becomes:
 
 ```ts
 const [suggestion, nutrition] = await Promise.all([
-  getAISuggestionForRecipe(...),                                    // invariato
+  getAISuggestionForRecipe(...),                                    // unchanged
   getAINutritionEstimateForRecipe(recipe.title, recipe.ingredients, recipe.servings),
 ]);
 
@@ -474,13 +474,13 @@ return {
 };
 ```
 
-Sempre **una** chiamata AI per ricetta per la nutrizione: il costo dell'enrichment resta
+Always **one** AI call per recipe for nutrition: the enrichment cost stays
 1 + 2N.
 
-**`useEstimateCalories` → `useEstimateNutrition`** (rinominare il file in
-`src/lib/hooks/useEstimateNutrition.ts`). La mutation diventa **fill-the-gaps**: scrive solo
-i campi che la ricetta non ha ancora, così una ri-stima non sovrascrive mai un valore già
-presente (in particolare kcal inserite a mano):
+**`useEstimateCalories` → `useEstimateNutrition`** (rename the file to
+`src/lib/hooks/useEstimateNutrition.ts`). The mutation becomes **fill-the-gaps**: it writes only
+the fields the recipe doesn't have yet, so a re-estimate never overwrites a value already
+present (in particular hand-entered kcal):
 
 ```ts
 mutationFn: async (recipe: Recipe) => {
@@ -490,8 +490,8 @@ mutationFn: async (recipe: Recipe) => {
     recipe.title, recipe.ingredients, recipe.servings
   );
 
-  // Solo i campi mancanti sulla ricetta E presenti nella stima.
-  // ATTENZIONE: gate `== null`, mai truthiness — 0 g di grassi è legittimo.
+  // Only fields missing on the recipe AND present in the estimate.
+  // CAUTION: `== null` gate, never truthiness — 0 g of fat is legitimate.
   const updates: Partial<Recipe> = {};
   if (recipe.caloriesPerServing == null && estimate?.caloriesPerServing != null) {
     updates.caloriesPerServing = estimate.caloriesPerServing;
@@ -512,26 +512,26 @@ mutationFn: async (recipe: Recipe) => {
 },
 ```
 
-`onSuccess`: se `updates === null` → toast info
+`onSuccess`: if `updates === null` → info toast
 `'Ingredienti troppo vaghi per una stima affidabile. Puoi inserire i valori a mano in modifica.'`
-e nessuna invalidation; altrimenti invalida `['recipe', recipeId, user.uid]` +
-`recipesQueryKey(user.uid)` e toast success:
-- se `updates.caloriesPerServing != null` → `` `Stima: ${kcal} kcal a porzione` `` (copy attuale);
-- altrimenti (solo campi nutrizionali completati) → `'Valori nutrizionali stimati'`.
+and no invalidation; otherwise invalidate `['recipe', recipeId, user.uid]` +
+`recipesQueryKey(user.uid)` and a success toast:
+- if `updates.caloriesPerServing != null` → `` `Stima: ${kcal} kcal a porzione` `` (current copy);
+- otherwise (only nutrition fields filled in) → `'Valori nutrizionali stimati'`.
 
 `onError`: toast `'Impossibile stimare i valori nutrizionali in questo momento.'`.
 
-### 4.d I tre siti di scrittura
+### 4.d The three write sites
 
-1. **`handleSaveRecipe`** (`assistente-ai/page.tsx:373-397`) — dopo lo spread kcal esistente
-   (riga 396, che resta com'è) aggiungere:
+1. **`handleSaveRecipe`** (`assistente-ai/page.tsx:373-397`) — after the existing kcal spread
+   (line 396, which stays as is) add:
    ```ts
    ...(recipe.servingWeightGrams != null ? { servingWeightGrams: recipe.servingWeightGrams } : {}),
    ...(recipe.macrosPerServing != null ? { macrosPerServing: recipe.macrosPerServing } : {}),
    ```
-2. **`saveNewRecipeToCookbook`** (`useMealPlanner.ts:524-546`) — stesse due righe dopo la 545.
-3. **`RecipeForm`** — replica **esatta** del pattern kcal per ciascun nuovo campo:
-   - **Stato stringa** (vuoto ≠ 0), accanto a `caloriesPerServing` (righe 72-74):
+2. **`saveNewRecipeToCookbook`** (`useMealPlanner.ts:524-546`) — the same two lines after line 545.
+3. **`RecipeForm`** — **exact** replica of the kcal pattern for each new field:
+   - **String state** (empty ≠ 0), next to `caloriesPerServing` (lines 72-74):
      ```ts
      const [servingWeightGrams, setServingWeightGrams] = useState(
        recipe?.servingWeightGrams != null ? String(recipe.servingWeightGrams) : ''
@@ -539,10 +539,10 @@ e nessuna invalidation; altrimenti invalida `['recipe', recipeId, user.uid]` +
      const [proteinGrams, setProteinGrams] = useState(
        recipe?.macrosPerServing != null ? String(recipe.macrosPerServing.proteinGrams) : ''
      );
-     // idem carbsGrams, fatGrams
+     // same for carbsGrams, fatGrams
      ```
-   - **Parse in `handleSubmit`** (accanto alle righe 425-430). Peso: come le kcal, `> 0`
-     (0 g non è un peso). Macro: **`>= 0`** — qui 0 è legittimo:
+   - **Parse in `handleSubmit`** (next to lines 425-430). Weight: like kcal, `> 0`
+     (0 g is not a weight). Macros: **`>= 0`** — here 0 is legitimate:
      ```ts
      const parseGrams = (value: string, allowZero: boolean): number | null => {
        const n = Number(value);
@@ -555,7 +555,7 @@ e nessuna invalidation; altrimenti invalida `['recipe', recipeId, user.uid]` +
      const parsedCarbs = parseGrams(carbsGrams, true);
      const parsedFat = parseGrams(fatGrams, true);
 
-     // MacrosPerServing è tutto-o-niente: un trio parziale non è persistibile.
+     // MacrosPerServing is all-or-nothing: a partial trio can't be persisted.
      const macroValues = [parsedProtein, parsedCarbs, parsedFat];
      const filledMacros = macroValues.filter(v => v !== null).length;
      if (filledMacros > 0 && filledMacros < 3) {
@@ -568,39 +568,39 @@ e nessuna invalidation; altrimenti invalida `['recipe', recipeId, user.uid]` +
          ? { proteinGrams: parsedProtein!, carbsGrams: parsedCarbs!, fatGrams: parsedFat! }
          : null;
      ```
-   - **Create** (accanto alla riga 450):
+   - **Create** (next to line 450):
      ```ts
      ...(parsedWeight !== null ? { servingWeightGrams: parsedWeight } : {}),
      ...(parsedMacros !== null ? { macrosPerServing: parsedMacros } : {}),
      ```
-   - **Edit** (accanto alla riga 466 — `updateDoc` fa merge, il vuoto deve cancellare):
+   - **Edit** (next to line 466 — `updateDoc` merges, so empty must delete):
      ```ts
      ...(parsedWeight === null ? { servingWeightGrams: deleteField() } : {}),
      ...(parsedMacros === null ? { macrosPerServing: deleteField() } : {}),
      ```
-   - **UI**: sotto la griglia numerica esistente (righe 524-566) un secondo blocco:
+   - **UI**: below the existing numeric grid (lines 524-566) a second block:
      ```tsx
      <div>
        <p className="mb-2 text-sm font-medium">Valori nutrizionali per porzione <span className="text-muted-foreground font-normal">(opzionali)</span></p>
        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
          {/* 4 Input type=number: "Peso porz. (g)" min=1, "Proteine (g)" min=0,
-             "Carboidrati (g)" min=0, "Grassi (g)" min=0 — tutti placeholder "—",
+             "Carboidrati (g)" min=0, "Grassi (g)" min=0 — all with placeholder "—",
              id: recipe-serving-weight / recipe-protein / recipe-carbs / recipe-fat */}
        </div>
      </div>
      ```
-     Stesso pattern responsive del blocco esistente (commento righe 522-523: 2 colonne su
-     telefono, 4 da `sm`). Il campo kcal esistente resta dov'è.
+     Same responsive pattern as the existing block (comment at lines 522-523: 2 columns on
+     phones, 4 from `sm`). The existing kcal field stays where it is.
 
 ### 4.e Display
 
-**Dettaglio ricetta** (`recipe-detail.tsx`). La riga meta (79-135) resta invariata nella
-struttura; lo slot kcal mantiene il suo gate attuale (kcal non può essere 0 per costruzione:
-min server 20, form `> 0`). Cambiano:
+**Recipe detail** (`recipe-detail.tsx`). The meta row (79-135) keeps its structure
+unchanged; the kcal slot keeps its current gate (kcal can't be 0 by construction:
+server min 20, form `> 0`). What changes:
 
-1. Il label del ghost button: `Stima calorie` → `Stima valori nutrizionali` (e lo stato
-   pending `Stimo le calorie…` → `Stimo i valori…`). Icona `Flame` invariata.
-2. Condizione di visibilità del bottone (sostituisce l'attuale "solo se kcal assente"):
+1. The ghost button label: `Stima calorie` → `Stima valori nutrizionali` (and the pending
+   state `Stimo le calorie…` → `Stimo i valori…`). `Flame` icon unchanged.
+2. Button visibility condition (replaces the current "only if kcal missing"):
    ```ts
    const nutritionIncomplete =
      recipe.caloriesPerServing == null ||
@@ -608,12 +608,12 @@ min server 20, form `> 0`). Cambiano:
      recipe.macrosPerServing == null;
    const canEstimate = hasIngredients && !!user && nutritionIncomplete;
    ```
-   - Se `recipe.caloriesPerServing == null`: il bottone occupa lo slot kcal della riga meta,
-     come oggi (righe 111-134).
-   - Se le kcal ci sono ma `nutritionIncomplete`: il bottone compare in coda alla riga
-     nutrizionale secondaria (sotto), stessa variante ghost/sm.
-3. **Riga nutrizionale secondaria**, dentro lo stesso contenitore della riga meta (il div
-   `mb-8 flex flex-wrap … border-b … pb-6`), come elemento a piena larghezza:
+   - If `recipe.caloriesPerServing == null`: the button takes the kcal slot of the meta row,
+     as today (lines 111-134).
+   - If kcal are present but `nutritionIncomplete`: the button appears at the end of the
+     secondary nutrition row (below), same ghost/sm variant.
+3. **Secondary nutrition row**, inside the same container as the meta row (the
+   `mb-8 flex flex-wrap … border-b … pb-6` div), as a full-width element:
    ```tsx
    const kcalPer100 =
      recipe.caloriesPerServing != null &&
@@ -636,20 +636,20 @@ min server 20, form `> 0`). Cambiano:
          </span>
        )}
        {recipe.caloriesPerServing != null && canEstimate && (
-         /* ghost button "Stima valori nutrizionali" con spinner, come sopra */
+         /* ghost button "Stima valori nutrizionali" with spinner, as above */
        )}
      </div>
    )}
    ```
-   Copy fissi: `1 porzione ≈ {n} g`, `{n} kcal/100 g`, `P {p} g · C {c} g · G {f} g`.
-   Tutti i gate dei nuovi campi con `!= null` (0 g di grassi deve restare visibile). Solo
-   token semantici (`text-muted-foreground`): dark mode gratis. Nessun hover-only: la riga è
-   testo statico + bottone sempre visibile.
+   Fixed copy: `1 porzione ≈ {n} g`, `{n} kcal/100 g`, `P {p} g · C {c} g · G {f} g`.
+   All gates on the new fields use `!= null` (0 g of fat must stay visible). Semantic
+   tokens only (`text-muted-foreground`): dark mode for free. No hover-only: the row is
+   static text + an always-visible button.
 
-**Card ricetta** (`recipe-card.tsx`): **invariata** — solo kcal, per non affollare il footer.
+**Recipe card** (`recipe-card.tsx`): **unchanged** — kcal only, so as not to crowd the footer.
 
-**Anteprima estrazione** (`extracted-recipe-preview.tsx`, chip meta 116-143): dopo il chip
-kcal (137-142) aggiungere due chip, gate `!= null`:
+**Extraction preview** (`extracted-recipe-preview.tsx`, meta chips 116-143): after the kcal
+chip (137-142) add two chips, gated on `!= null`:
 
 ```tsx
 {recipe.servingWeightGrams != null && (
@@ -665,37 +665,37 @@ kcal (137-142) aggiungere due chip, gate `!= null`:
 )}
 ```
 
-`Scale` si aggiunge all'import lucide esistente (riga 7).
+`Scale` is added to the existing lucide import (line 7).
 
-**Planner** — vedi 4.f.
+**Planner** — see 4.f.
 
-### 4.f Planner: `meal-plan-calories.ts` → nutrizione giornaliera
+### 4.f Planner: `meal-plan-calories.ts` → daily nutrition
 
-Il modulo resta `src/lib/utils/meal-plan-calories.ts` (nessun rename di file: git history e
-import path stabili). `DayCalories`/`computeDayCalories`/`computeWeekCalories` vengono
-**sostituiti** dalle versioni nutrizionali (unico consumer: `WeeklyCalendarGrid.tsx:6,57`;
-i test si riscrivono). Tipi proposti:
+The module stays `src/lib/utils/meal-plan-calories.ts` (no file rename: git history and
+import path stay stable). `DayCalories`/`computeDayCalories`/`computeWeekCalories` are
+**replaced** by the nutrition versions (the only consumer: `WeeklyCalendarGrid.tsx:6,57`;
+the tests get rewritten). Proposed types:
 
 ```ts
-/** Totale di una singola metrica con la semantica ≥ esistente (floor, non totale). */
+/** Total of a single metric with the existing ≥ semantics (floor, not total). */
 export interface NutrientTotal {
-  /** Somma per porzione sui filled slot del giorno che portano la metrica. */
+  /** Per-serving sum over the day's filled slots that carry the metric. */
   total: number;
-  /** Slot la cui ricetta porta la metrica. */
+  /** Slots whose recipe carries the metric. */
   countedSlots: number;
-  /** Filled slot saltati perché la metrica manca. */
+  /** Filled slots skipped because the metric is missing. */
   uncountedSlots: number;
-  /** true quando almeno un filled slot non ha contribuito. */
+  /** true when at least one filled slot did not contribute. */
   isPartial: boolean;
 }
 
 /**
- * Nutrizione giornaliera del planner.
+ * Daily planner nutrition.
  *
- * kcal e macro hanno contatori separati: una ricetta può avere le kcal ma non i macro
- * (tutte quelle create prima di questa spec), quindi lo stesso giorno può essere
- * completo per le kcal e parziale per i macro. I tre macro invece viaggiano insieme
- * (MacrosPerServing è tutto-o-niente), quindi condividono un solo set di contatori.
+ * kcal and macros have separate counters: a recipe can have kcal but no macros
+ * (every recipe created before this spec), so the same day can be complete
+ * for kcal and partial for macros. The three macros instead travel together
+ * (MacrosPerServing is all-or-nothing), so they share a single set of counters.
  */
 export interface DayNutrition {
   calories: NutrientTotal;
@@ -721,7 +721,7 @@ export function computeWeekNutrition(
 ): Map<number, DayNutrition>;
 ```
 
-Implementazione: `readSlotCalories` (37-48) si generalizza in
+Implementation: `readSlotCalories` (37-48) is generalized into
 
 ```ts
 function readSlotNutrition(slot: MealSlot, recipesById: Map<string, Recipe>): {
@@ -730,33 +730,33 @@ function readSlotNutrition(slot: MealSlot, recipesById: Map<string, Recipe>): {
 } | null
 ```
 
-con la stessa risoluzione (ricetta salvata per id → `newRecipe` inline → `null` per slot
-vuoto/ricetta cancellata); i campi si leggono con `?? null`. `computeDayNutrition` itera i
-filled slot una volta sola e aggiorna entrambi i gruppi di contatori: per le kcal identico a
-oggi; per i macro, `macrosPerServing != null` incrementa `countedSlots` e somma i tre
-totali (un `fatGrams` a 0 **conta** come counted e somma 0), `null` incrementa
-`uncountedSlots`. `computeWeekNutrition` identica a `computeWeekCalories` (solo
-`activeDays`, giorni vuoti presenti con totali a 0). Come oggi, ogni slot contribuisce
-**una** porzione (il per-persona arriva con Spec F).
+with the same resolution (saved recipe by id → inline `newRecipe` → `null` for an empty
+slot/deleted recipe); fields are read with `?? null`. `computeDayNutrition` iterates the
+filled slots only once and updates both counter groups: for kcal identical to
+today; for macros, `macrosPerServing != null` increments `countedSlots` and adds the three
+totals (a `fatGrams` of 0 **counts** as counted and adds 0), `null` increments
+`uncountedSlots`. `computeWeekNutrition` identical to `computeWeekCalories` (only
+`activeDays`, empty days present with totals at 0). As today, each slot contributes
+**one** serving (per-person comes with Spec F).
 
-**`WeeklyCalendarGrid.tsx`**: il memo (56-59) passa a `computeWeekNutrition`;
-`renderDayCalories` (72-88) diventa `renderDayNutrition` e produce **due elementi
-impilati**, kcal in evidenza e macro in riga secondaria:
+**`WeeklyCalendarGrid.tsx`**: the memo (56-59) switches to `computeWeekNutrition`;
+`renderDayCalories` (72-88) becomes `renderDayNutrition` and produces **two stacked
+elements**, kcal prominent and macros on a secondary line:
 
 ```tsx
 function renderDayNutrition(dayIndex: number, kcalClassName: string, macrosClassName: string) {
   const day = nutritionByDay.get(dayIndex);
   if (!day) return null;
   const { calories, macros } = day;
-  const showKcal = calories.total !== 0;              // regola attuale invariata
-  const showMacros = macros.countedSlots > 0;          // gate su countedSlots, NON su total:
-                                                       // un giorno tutto-magro con G 0 resta visibile
+  const showKcal = calories.total !== 0;              // current rule unchanged
+  const showMacros = macros.countedSlots > 0;          // gate on countedSlots, NOT on total:
+                                                       // an all-lean day with F 0 stays visible
   if (!showKcal && !showMacros) return null;
 
   return (
     <>
       {showKcal && (
-        <span className={kcalClassName} title={/* tooltip attuale invariato */}>
+        <span className={kcalClassName} title={/* current tooltip unchanged */}>
           {calories.isPartial ? '≥' : ''}{calories.total} kcal
         </span>
       )}
@@ -778,227 +778,227 @@ function renderDayNutrition(dayIndex: number, kcalClassName: string, macrosClass
 ```
 
 Layout:
-- **Desktop** (header giorno, riga 126-130, colonna `minmax(150px, 1fr)`): kcal invariato
-  (`block text-[11px] tabular-nums text-muted-foreground`), macro sotto come
-  `block text-[10px] tabular-nums text-muted-foreground/80`. Il caso peggiore
-  (`≥ P 182 · C 310 · G 95`, ~21 caratteri a 10px ≈ 110px) sta in 150px senza wrap.
-- **Mobile portrait** (header giorno card, righe 184-190): kcal resta `ml-auto text-xs
-  tabular-nums text-muted-foreground` dentro la riga del titolo; i macro vanno su una riga
-  propria subito sotto l'header (`text-[11px] tabular-nums text-muted-foreground`, allineata
-  a destra con `text-right`), prima di `space-y-2` dei pasti. Per farlo la firma con due
-  className viene chiamata due volte o si spezza in due helper (`renderDayCalories` /
-  `renderDayMacros`) — a discrezione dell'implementatore, purché il markup risultante sia
-  quello descritto. I `title` tooltip restano (su touch non si aprono: sono informazione
-  aggiuntiva, il testo con `≥` è autosufficiente).
+- **Desktop** (day header, lines 126-130, column `minmax(150px, 1fr)`): kcal unchanged
+  (`block text-[11px] tabular-nums text-muted-foreground`), macros below as
+  `block text-[10px] tabular-nums text-muted-foreground/80`. The worst case
+  (`≥ P 182 · C 310 · G 95`, ~21 characters at 10px ≈ 110px) fits in 150px without wrapping.
+- **Mobile portrait** (card day header, lines 184-190): kcal stays `ml-auto text-xs
+  tabular-nums text-muted-foreground` inside the title row; macros go on their own
+  line right below the header (`text-[11px] tabular-nums text-muted-foreground`, right-aligned
+  with `text-right`), before the meals' `space-y-2`. To do this, the two-className signature
+  is called twice or split into two helpers (`renderDayCalories` /
+  `renderDayMacros`) — at the implementer's discretion, as long as the resulting markup is
+  the one described. The `title` tooltips stay (they don't open on touch: they are
+  additional information, the text with `≥` is self-sufficient).
 
-Niente lista della spesa: nessuna modifica a `ingredient-aggregator.ts` o alle viste spesa.
+No shopping list: no change to `ingredient-aggregator.ts` or to the shopping views.
 
-### 4.g Edge case ed errori
+### 4.g Edge cases and errors
 
-1. **0 g legittimo**: i macro possono valere 0 (grassi in una macedonia). Tutti i gate dei
-   nuovi campi usano `!= null`/`== null`. I gate truthy **esistenti** su
-   `caloriesPerServing` (detail:106, card:110/125/126, preview:137) restano: 0 kcal è
-   irraggiungibile per costruzione (server min 20, form `> 0`).
-2. **Divisione saltata dal modello (peso)**: il modello dà il totale per contratto; il
-   server divide sempre. Se il modello restituisse già un per-porzione, il clamp
-   `30–1500 g` sul risultato della divisione scarta i casi assurdi (per-porzione/servings
-   con servings ≥ 2 scende quasi sempre sotto 30 g → null, fail-safe).
-3. **Atwater fallito**: macro incoerenti con le kcal (oltre ±30%) → `macrosPerServing: null`,
-   kcal e peso preservati. Mai errore HTTP: null è un esito di successo.
-4. **kcal null ma peso plausibile**: il peso passa (nullabilità indipendente); kcal/100g non
-   si deriva (serve la coppia). Macro con kcal null → sempre null (check impossibile).
-5. **Trio macro parziale nel form**: submit bloccato con toast
+1. **Legitimate 0 g**: macros can be 0 (fat in a fruit salad). All gates on the
+   new fields use `!= null`/`== null`. The **existing** truthy gates on
+   `caloriesPerServing` (detail:106, card:110/125/126, preview:137) stay: 0 kcal is
+   unreachable by construction (server min 20, form `> 0`).
+2. **Division skipped by the model (weight)**: the model gives the total by contract; the
+   server always divides. If the model returned a per-serving value already, the
+   `30–1500 g` clamp on the division result discards the absurd cases (per-serving/servings
+   with servings ≥ 2 almost always drops below 30 g → null, fail-safe).
+3. **Atwater failed**: macros inconsistent with kcal (beyond ±30%) → `macrosPerServing: null`,
+   kcal and weight preserved. Never an HTTP error: null is a successful outcome.
+4. **Null kcal but plausible weight**: the weight passes (independent nullability); kcal/100g is not
+   derived (it needs the pair). Macros with null kcal → always null (check impossible).
+5. **Partial macro trio in the form**: submit blocked with toast
    `'Per i macronutrienti compila tutti e tre i campi (anche 0) oppure lasciali vuoti'`.
-6. **Svuotare i campi in edit**: `deleteField()` per `servingWeightGrams` e
-   `macrosPerServing` (updateDoc fa merge: omettere la chiave lascerebbe il valore vecchio).
-7. **Ri-stima con valori parziali**: la mutation scrive solo i campi mancanti — un valore
-   manuale non viene mai sovrascritto. Se il modello non riesce a stimare proprio i campi
-   mancanti → toast info, nessuna scrittura.
-8. **`servingWeightGrams` a 0 in Firestore** (non producibile dai nostri flussi ma
-   difensivo): il derivato kcal/100g richiede `> 0` (niente divisione per zero).
-9. **Ricette esistenti / piani legacy con `newRecipe` inline**: campi assenti → riga
-   nutrizionale non renderizzata, planner macro `uncountedSlots`, nessuna migrazione.
-10. **`servings` modificato dopo la stima**: i valori restano per-porzione quindi
-    formalmente corretti, ma la stima può diventare stantia — comportamento identico alle
-    kcal oggi, documentato e accettato (nessun ricalcolo automatico).
-11. **Risposta AI malformata** (macro non-oggetto, numeri non finiti): `deriveNutritionPerServing`
-    e il wrapper client validano i tipi campo per campo e degradano a null.
-12. **`JSON.parse` che lancia** (route): già coperto dal catch esistente → 500 con messaggio
-    generico, il client degrada a null. Invariato.
+6. **Clearing the fields in edit**: `deleteField()` for `servingWeightGrams` and
+   `macrosPerServing` (updateDoc merges: omitting the key would leave the old value).
+7. **Re-estimate with partial values**: the mutation writes only the missing fields — a manual
+   value is never overwritten. If the model can't estimate exactly the missing
+   fields → info toast, no write.
+8. **`servingWeightGrams` at 0 in Firestore** (not producible by our flows but
+   defensive): the kcal/100g derivation requires `> 0` (no division by zero).
+9. **Existing recipes / legacy plans with inline `newRecipe`**: fields absent → nutrition
+   row not rendered, planner macros `uncountedSlots`, no migration.
+10. **`servings` changed after the estimate**: values stay per-serving so they're
+    formally correct, but the estimate can go stale — behavior identical to
+    kcal today, documented and accepted (no automatic recalculation).
+11. **Malformed AI response** (non-object macros, non-finite numbers): `deriveNutritionPerServing`
+    and the client wrapper validate types field by field and degrade to null.
+12. **`JSON.parse` throwing** (route): already covered by the existing catch → 500 with a
+    generic message, the client degrades to null. Unchanged.
 
-## 5. Piano di implementazione a fasi
+## 5. Phased implementation plan
 
-Ogni fase lascia il progetto compilabile (`npx tsc --noEmit`).
+Each phase leaves the project compiling (`npx tsc --noEmit`).
 
-**Fase 1 — Tipi (additiva)**
-- `src/types/index.ts`: nuovo `export interface MacrosPerServing`; `servingWeightGrams?` e
-  `macrosPerServing?` su `Recipe` (dopo riga 227) e su `ParsedRecipe` (dopo riga 361).
-- `src/lib/utils/recipe-parser.ts`: stessi due campi sulla `ParsedRecipe` locale (dopo riga
-  15) + import `MacrosPerServing`.
+**Phase 1 — Types (additive)**
+- `src/types/index.ts`: new `export interface MacrosPerServing`; `servingWeightGrams?` and
+  `macrosPerServing?` on `Recipe` (after line 227) and on `ParsedRecipe` (after line 361).
+- `src/lib/utils/recipe-parser.ts`: the same two fields on the local `ParsedRecipe` (after line
+  15) + `MacrosPerServing` import.
 
-**Fase 2 — Server**
-- Nuovo `src/lib/utils/nutrition-estimate.ts` (costanti + `deriveNutritionPerServing`).
-- `src/app/api/estimate-calories/route.ts`: prompt esteso, schema esteso, `max_tokens` 1400,
-  derivazione via `deriveNutritionPerServing`, response estesa; rimozione costanti locali.
+**Phase 2 — Server**
+- New `src/lib/utils/nutrition-estimate.ts` (constants + `deriveNutritionPerServing`).
+- `src/app/api/estimate-calories/route.ts`: extended prompt, extended schema, `max_tokens` 1400,
+  derivation via `deriveNutritionPerServing`, extended response; removal of local constants.
 
-**Fase 3 — Wrapper client, hook, dettaglio**
+**Phase 3 — Client wrapper, hook, detail**
 - `src/lib/utils/recipe-parser.ts`: `getAICalorieEstimateForRecipe` →
   `getAINutritionEstimateForRecipe` + `RecipeNutritionEstimate`.
 - `src/lib/hooks/useEstimateCalories.ts` → `src/lib/hooks/useEstimateNutrition.ts`
-  (fill-the-gaps, nuovi toast).
-- `src/app/(dashboard)/assistente-ai/page.tsx`: import e `enrichRecipesWithAI` (spread `!= null`).
-- `src/components/recipe/recipe-detail.tsx`: label bottone, `nutritionIncomplete`, riga
-  nutrizionale secondaria.
+  (fill-the-gaps, new toasts).
+- `src/app/(dashboard)/assistente-ai/page.tsx`: import and `enrichRecipesWithAI` (`!= null` spread).
+- `src/components/recipe/recipe-detail.tsx`: button label, `nutritionIncomplete`, secondary
+  nutrition row.
 
-**Fase 4 — Siti di scrittura e form**
-- `assistente-ai/page.tsx` (`handleSaveRecipe`): due spread nuovi.
-- `src/lib/hooks/useMealPlanner.ts` (`saveNewRecipeToCookbook`): due spread nuovi.
-- `src/components/recipe/recipe-form.tsx`: 4 stati stringa, parse + validazione trio,
-  spread create, `deleteField()` edit, blocco UI "Valori nutrizionali per porzione".
-- `src/components/recipe/extracted-recipe-preview.tsx`: due chip nuovi + import `Scale`.
+**Phase 4 — Write sites and form**
+- `assistente-ai/page.tsx` (`handleSaveRecipe`): two new spreads.
+- `src/lib/hooks/useMealPlanner.ts` (`saveNewRecipeToCookbook`): two new spreads.
+- `src/components/recipe/recipe-form.tsx`: 4 string states, parse + trio validation,
+  create spread, edit `deleteField()`, "Valori nutrizionali per porzione" UI block.
+- `src/components/recipe/extracted-recipe-preview.tsx`: two new chips + `Scale` import.
 
-**Fase 5 — Planner**
+**Phase 5 — Planner**
 - `src/lib/utils/meal-plan-calories.ts`: `NutrientTotal`, `DayNutrition`,
-  `computeDayNutrition`, `computeWeekNutrition` (rimozione dei vecchi export).
-- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: memo + render kcal/macro
-  desktop e mobile.
-- `src/lib/utils/meal-plan-calories.test.ts`: riscrittura sui nuovi export (vedi §6).
+  `computeDayNutrition`, `computeWeekNutrition` (removal of the old exports).
+- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: memo + kcal/macro render
+  on desktop and mobile.
+- `src/lib/utils/meal-plan-calories.test.ts`: rewrite on the new exports (see §6).
 
-**Fase 6 — Test nuovi, build, docs**
-- `src/lib/utils/nutrition-estimate.test.ts` (nuovo).
+**Phase 6 — New tests, build, docs**
+- `src/lib/utils/nutrition-estimate.test.ts` (new).
 - `npm test`, `npx next build --webpack`.
-- CLAUDE.md (Recent Changes + sezione Calories), AGENTS.md (eventuali gotcha emersi),
+- CLAUDE.md (Recent Changes + Calories section), AGENTS.md (any gotchas that surfaced),
   checklist in `specs/00-roadmap.md`.
 
-## 6. Piano di test
+## 6. Test plan
 
-### Unit (Jest — comando reale: `npm test`, script `"test": "jest"` in package.json)
+### Unit (Jest — real command: `npm test`, script `"test": "jest"` in package.json)
 
-**Nuovo `src/lib/utils/nutrition-estimate.test.ts`** su `deriveNutritionPerServing`:
-- kcal plausibili passano, fuori 20–3000 → null (parità col comportamento attuale);
-- peso: totale/servings dentro 30–1500 → arrotondato; totale che produce per-porzione
-  fuori bound → null; `totalWeightGrams` null/non numerico → null; kcal null non blocca il peso;
-- macro: trio coerente (es. kcal 600, P 30/C 60/G 20 → Atwater 580, entro ±30%) → passa
-  con arrotondamenti; trio incoerente (Atwater fuori ±30%) → macro null e kcal preservate;
-  macro negativa → null; macro per-porzione > 300 → null; kcal null → macro null anche se
-  plausibili; `fatGrams` totale 0 con resto coerente → passa con `fatGrams: 0`;
-- payload malformato (`totalMacros` stringa, campi mancanti) → tutti i derivati coerenti
-  con null, nessun throw.
+**New `src/lib/utils/nutrition-estimate.test.ts`** on `deriveNutritionPerServing`:
+- plausible kcal pass, outside 20–3000 → null (parity with the current behavior);
+- weight: total/servings within 30–1500 → rounded; a total producing a per-serving value
+  out of bounds → null; `totalWeightGrams` null/non-numeric → null; null kcal doesn't block the weight;
+- macros: consistent trio (e.g. kcal 600, P 30/C 60/F 20 → Atwater 580, within ±30%) → passes
+  with rounding; inconsistent trio (Atwater beyond ±30%) → macros null and kcal preserved;
+  negative macro → null; per-serving macro > 300 → null; null kcal → macros null even if
+  plausible; total `fatGrams` 0 with the rest consistent → passes with `fatGrams: 0`;
+- malformed payload (`totalMacros` as a string, missing fields) → all derived values consistently
+  null, no throw.
 
-**`src/lib/utils/meal-plan-calories.test.ts` riscritto** su
-`computeDayNutrition`/`computeWeekNutrition`, preservando gli scenari attuali (somma
-completa, giorno parziale, `newRecipe` inline, ricetta cancellata, giorno vuoto, giorni di
-altri slot, entry per activeDays, esclusione giorni rimossi) più:
-- ricetta con kcal ma senza macro → `calories.isPartial false`, `macros.isPartial true`;
-- ricetta con `macrosPerServing.fatGrams: 0` → `macros.countedSlots` incrementato e
-  `fatTotal` 0 (il gate non è truthy);
-- fixture `makeRecipe` estesa con `servingWeightGrams`/`macrosPerServing` opzionali via
-  spread condizionale (stesso stile della riga 15 attuale).
+**`src/lib/utils/meal-plan-calories.test.ts` rewritten** on
+`computeDayNutrition`/`computeWeekNutrition`, preserving the current scenarios (complete
+sum, partial day, inline `newRecipe`, deleted recipe, empty day, days of
+other slots, entries per activeDays, exclusion of removed days) plus:
+- recipe with kcal but no macros → `calories.isPartial false`, `macros.isPartial true`;
+- recipe with `macrosPerServing.fatGrams: 0` → `macros.countedSlots` incremented and
+  `fatTotal` 0 (the gate isn't truthy);
+- `makeRecipe` fixture extended with optional `servingWeightGrams`/`macrosPerServing` via
+  conditional spread (same style as the current line 15).
 
-### Collaudo guidato (Playwright + emulatori, script usa-e-getta in `e2e/scratch/`)
+### Guided test (Playwright + emulators, throwaway script in `e2e/scratch/`)
 
-Setup: `npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` (vedi
-"Guided testing tooling" in CLAUDE.md). Dati seed via script throwaway con spy words.
+Setup: `npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` (see
+"Guided testing tooling" in CLAUDE.md). Seed data via a throwaway script with spy words.
 
-- **Fase A — form manuale (senza AI)**: creare una ricetta con kcal 500, peso 350,
-  P 30/C 55/G 18; assert su Firestore emulato che il documento contenga i tre campi con la
-  forma giusta; aprire il dettaglio e verificare la riga nutrizionale
+- **Phase A — manual form (no AI)**: create a recipe with kcal 500, weight 350,
+  P 30/C 55/F 18; assert on the emulated Firestore that the document contains the three fields with the
+  right shape; open the detail page and check the nutrition row
   (`1 porzione ≈ 350 g`, `143 kcal/100 g`, `P 30 g · C 55 g · G 18 g`).
-- **Fase B — trio parziale**: compilare solo Proteine → submit bloccato, toast atteso.
-- **Fase C — svuotamento in edit**: svuotare peso e macro, salvare, assert che i campi
-  siano spariti dal documento (deleteField).
-- **Fase D — 0 g visibile**: macro con G 0 → la riga del dettaglio mostra `G 0 g`.
-- **Fase E — planner**: piano con 2 ricette (una con macro, una senza) → header giorno
-  mostra kcal e `≥ P … · C … · G …`; giorno con sole ricette senza stima → nessuna riga.
-- **Fase F — stima AI reale** (opzionale, richiede `ANTHROPIC_API_KEY` e utente non
-  test@test.com): dettaglio di una ricetta con soli ingredienti → "Stima valori
-  nutrizionali" → i quattro campi compaiono; ripetere su una ricetta con kcal manuali →
-  le kcal NON cambiano, gli altri campi si riempiono.
+- **Phase B — partial trio**: fill in only Proteine → submit blocked, expected toast.
+- **Phase C — clearing in edit**: clear weight and macros, save, assert that the fields
+  are gone from the document (deleteField).
+- **Phase D — visible 0 g**: macros with G 0 → the detail row shows `G 0 g`.
+- **Phase E — planner**: plan with 2 recipes (one with macros, one without) → day header
+  shows kcal and `≥ P … · C … · G …`; a day with only unestimated recipes → no row.
+- **Phase F — real AI estimate** (optional, requires `ANTHROPIC_API_KEY` and a user other than
+  test@test.com): detail of a recipe with ingredients only → "Stima valori
+  nutrizionali" → the four fields appear; repeat on a recipe with manual kcal →
+  kcal do NOT change, the other fields get filled.
 
-Gli script di scratch si eliminano a fine collaudo (protocollo guided-testing).
+Scratch scripts are deleted at the end of the guided test (guided-testing protocol).
 
-## 7. Gotcha e vincoli (puntuali)
+## 7. Gotchas and constraints (specific)
 
-- **Mai `undefined` su Firestore** (CLAUDE.md "Firebase", AGENTS.md Quick Reference
-  "Firebase optional"): spread condizionale in create, `deleteField()` in edit.
-- **Campo numerico opzionale come stringa nello stato** (AGENTS.md: "Campo numerico
-  opzionale come `number` nello stato"): vuoto ≠ 0; in `updateDoc` il vuoto diventa
-  `deleteField()` perché il merge lascerebbe il valore precedente.
-- **`json_schema` senza vincoli numerici** (AGENTS.md: "`json_schema` con vincoli di
-  lunghezza"): niente `minimum`/`maximum`/`minItems` → 400 sull'intera richiesta con sintomo
-  ingannevole (il client degrada a null e la feature sembra "non funzionare"). Bound nel
-  prompt + clamp server.
-- **Parametri Sonnet 5 → 400** (AGENTS.md): mai `temperature`/`top_p`/`top_k`/
-  `budget_tokens`; `thinking: adaptive` + `output_config.effort: 'low'` restano; modello solo
+- **Never `undefined` in Firestore** (CLAUDE.md "Firebase", AGENTS.md Quick Reference
+  "Firebase optional"): conditional spread in create, `deleteField()` in edit.
+- **Optional numeric field as a string in state** (AGENTS.md: "Optional numeric
+  field as `number` in state"): empty ≠ 0; in `updateDoc` empty becomes
+  `deleteField()` because the merge would leave the previous value.
+- **`json_schema` without numeric constraints** (AGENTS.md: "`json_schema` with length
+  constraints"): no `minimum`/`maximum`/`minItems` → 400 on the whole request with a misleading
+  symptom (the client degrades to null and the feature seems to "not work"). Bounds in the
+  prompt + server clamp.
+- **Sonnet 5 parameters → 400** (AGENTS.md): never `temperature`/`top_p`/`top_k`/
+  `budget_tokens`; `thinking: adaptive` + `output_config.effort: 'low'` stay; model only
   via `AI_MODEL`.
-- **kcal totali invece che per porzione** (AGENTS.md): tutto ciò che si persiste è
-  per-porzione; i totali (e kcal/100g) si derivano a render time.
-- **Truthiness ban sui nuovi campi**: `fatGrams: 0` e `proteinGrams: 0` sono legittimi —
-  gate `!= null` ovunque (dettaglio, preview, planner via `countedSlots`). I gate truthy
-  esistenti su kcal restano validi solo perché 0 kcal è irraggiungibile.
-- **React Query**: ogni write invalida `['recipe', id, uid]` + `recipesQueryKey(uid)`
-  (pattern già in `useEstimateCalories.ts:54-55` e `recipe-form.tsx:472-475`); niente
-  `onSnapshot`; `enabled: !!user` sulle query auth-bound (nessuna query nuova in questa spec).
-- **Validazioni con `react-hot-toast`, mai `alert()`** (CLAUDE.md "Confirmations and touch"):
-  il blocco del trio parziale usa `toast.error`. Nessuna azione distruttiva nuova → nessun
-  `ConfirmDialog` necessario.
-- **Token semantici, mai `bg-white`/palette raw** (AGENTS.md §6): la riga nutrizionale e i
-  chip usano `text-muted-foreground`/`tabular-nums`; dark mode gratis.
-- **Controlli mai solo `group-hover` sotto `lg`** (AGENTS.md): il bottone "Stima valori
-  nutrizionali" è sempre visibile; i `title` tooltip del planner sono informazione
-  ridondante, non l'unico canale (il testo `≥` è autosufficiente).
-- **Niente nuovo target di persistenza debounced**: tutte le scritture di questa spec sono
-  one-shot (`updateRecipe`/`createRecipe`), quindi il gotcha `flushAll()` di
-  `useShoppingList` non si applica — citato per completezza: NON introdurre scritture
-  debounced qui.
-- **Build**: validare con `npx tsc --noEmit` + `npx next build --webpack` (niente
-  `next lint`, rimosso in Next 16); `spawn EPERM` in sandbox → rilanciare fuori sandbox.
+- **Total kcal instead of per serving** (AGENTS.md): everything persisted is
+  per-serving; totals (and kcal/100g) are derived at render time.
+- **Truthiness ban on the new fields**: `fatGrams: 0` and `proteinGrams: 0` are legitimate —
+  `!= null` gate everywhere (detail, preview, planner via `countedSlots`). The existing truthy
+  gates on kcal remain valid only because 0 kcal is unreachable.
+- **React Query**: every write invalidates `['recipe', id, uid]` + `recipesQueryKey(uid)`
+  (pattern already in `useEstimateCalories.ts:54-55` and `recipe-form.tsx:472-475`); no
+  `onSnapshot`; `enabled: !!user` on auth-bound queries (no new query in this spec).
+- **Validation with `react-hot-toast`, never `alert()`** (CLAUDE.md "Confirmations and touch"):
+  the partial-trio block uses `toast.error`. No new destructive action → no
+  `ConfirmDialog` needed.
+- **Semantic tokens, never `bg-white`/raw palette** (AGENTS.md §6): the nutrition row and the
+  chips use `text-muted-foreground`/`tabular-nums`; dark mode for free.
+- **Controls never `group-hover`-only below `lg`** (AGENTS.md): the "Stima valori
+  nutrizionali" button is always visible; the planner's `title` tooltips are redundant
+  information, not the only channel (the `≥` text is self-sufficient).
+- **No new debounced persistence target**: every write in this spec is
+  one-shot (`updateRecipe`/`createRecipe`), so the `flushAll()` gotcha of
+  `useShoppingList` doesn't apply — mentioned for completeness: do NOT introduce debounced
+  writes here.
+- **Build**: validate with `npx tsc --noEmit` + `npx next build --webpack` (no
+  `next lint`, removed in Next 16); `spawn EPERM` in the sandbox → rerun outside the sandbox.
 
-## 8. Fuori scope
+## 8. Out of scope
 
-- Lista della spesa: kcal e macro esclusi per scelta documentata (nessuna modifica ad
-  `ingredient-aggregator.ts` o alle viste spesa).
-- `confidence` in UI: continua a non essere mostrata (nessuna provenienza per-campo
-  AI-vs-manuale su cui fondarla).
-- Migrazione/backfill delle ricette esistenti; ricalcolo automatico quando cambiano
-  `servings` o ingredienti (staleness identica alle kcal oggi).
-- Scaling per persona nel planner (`servingsPlanned`, varianti): Spec F.
-- Card ricetta: nessun campo nutrizionale oltre le kcal attuali.
-- Cooking mode: nessuna visualizzazione nutrizionale durante la cottura.
-- Peso/macro per singolo ingrediente o parsing deterministico delle quantità in grammi
-  (le quantità restano stringhe libere end-to-end).
-- Modifiche a `extract-recipes`/`format-recipe`/`chat-recipe`/`suggest-category`.
+- Shopping list: kcal and macros excluded by documented choice (no change to
+  `ingredient-aggregator.ts` or to the shopping views).
+- `confidence` in the UI: still not shown (no per-field AI-vs-manual
+  provenance to base it on).
+- Migration/backfill of existing recipes; automatic recalculation when
+  `servings` or ingredients change (staleness identical to kcal today).
+- Per-person scaling in the planner (`servingsPlanned`, variants): Spec F.
+- Recipe card: no nutrition field beyond the current kcal.
+- Cooking mode: no nutrition display while cooking.
+- Per-ingredient weight/macros or deterministic parsing of quantities in grams
+  (quantities remain free strings end-to-end).
+- Changes to `extract-recipes`/`format-recipe`/`chat-recipe`/`suggest-category`.
 
-## 9. Prompt di implementazione
+## 9. Implementation prompt
 
 ```markdown
-Implementa la Spec C (nutrizione completa) di "Il Mio Ricettario".
+Implement Spec C (complete nutrition) of "Il Mio Ricettario".
 
-1. Leggi e applica integralmente: CLAUDE.md, AGENTS.md, COMMENTS.md e
-   DEVELOPMENT_GUIDELINES.md (root del repo). Sono vincolanti su pattern Firestore
-   (mai undefined, deleteField in edit), React Query, token semantici, toast/ConfirmDialog
-   e stile dei commenti.
-2. Leggi PER INTERO specs/00-roadmap.md (contratto condiviso: il contratto cross-spec 4
-   definisce i nomi esatti dei campi) e poi specs/spec-c-nutrizione.md (questa spec):
-   contiene tipi esatti, prompt e schema della route, clamp server, condizioni di
-   visibilità e copy in italiano. Non deviare dai nomi di campi/moduli/tipi lì definiti.
-3. Crea il branch feature/nutrition-macros da develop.
-4. Implementa fase per fase seguendo §5 della spec (6 fasi). Dopo OGNI fase esegui
-   `npx tsc --noEmit` e correggi prima di proseguire.
-5. Test: esegui `npm test` (lo script reale in package.json è "test": "jest") — devono
-   passare sia i test riscritti di meal-plan-calories sia i nuovi di nutrition-estimate.
-6. A fine lavoro: `npx next build --webpack`. Se fallisce con `spawn EPERM` è un limite
-   del sandbox, non un errore del codice: rilancia la build fuori sandbox.
-7. Aggiorna: CLAUDE.md (sezione "Recent Changes" + sezione "Calories" con i nuovi
-   invarianti), AGENTS.md (solo se emergono gotcha nuovi da >30min di debug) e la
-   checklist "Stato" in specs/00-roadmap.md (spunta Spec C).
-8. NON committare MAI senza OK esplicito dell'utente (regola di sessione: un branch/un
-   commit per sessione, commit solo dopo approvazione).
-9. Al termine proponi all'utente un collaudo guidato fase-per-fase secondo §6 della spec
-   (Playwright + emulatori Firebase, script usa-e-getta in e2e/scratch/, protocollo
-   guided-testing in CLAUDE.md), dichiarando in anticipo l'esito atteso di ogni fase.
+1. Read and apply in full: CLAUDE.md, AGENTS.md, COMMENTS.md and
+   DEVELOPMENT_GUIDELINES.md (repo root). They are binding on Firestore patterns
+   (never undefined, deleteField in edit), React Query, semantic tokens, toast/ConfirmDialog
+   and comment style.
+2. Read IN FULL specs/00-roadmap.md (shared contract: cross-spec contract 4
+   defines the exact field names) and then specs/spec-c-nutrizione.md (this spec):
+   it contains the exact types, the route's prompt and schema, server clamps, visibility
+   conditions and the Italian copy. Do not deviate from the field/module/type names defined there.
+3. Create the branch feature/nutrition-macros from develop.
+4. Implement phase by phase following §5 of the spec (6 phases). After EVERY phase run
+   `npx tsc --noEmit` and fix before moving on.
+5. Tests: run `npm test` (the real script in package.json is "test": "jest") — both the
+   rewritten meal-plan-calories tests and the new nutrition-estimate ones must pass.
+6. When done: `npx next build --webpack`. If it fails with `spawn EPERM` it's a sandbox
+   limitation, not a code error: rerun the build outside the sandbox.
+7. Update: CLAUDE.md ("Recent Changes" section + "Calories" section with the new
+   invariants), AGENTS.md (only if new gotchas emerge from >30min of debugging) and the
+   "Stato" checklist in specs/00-roadmap.md (tick Spec C).
+8. NEVER commit without the user's explicit OK (session rule: one branch/one
+   commit per session, commit only after approval).
+9. At the end, propose to the user a phase-by-phase guided test following §6 of the spec
+   (Playwright + Firebase emulators, throwaway script in e2e/scratch/, guided-testing
+   protocol in CLAUDE.md), declaring in advance the expected outcome of each phase.
 ```
 
-## 10. Modello e effort consigliati
+## 10. Recommended model and effort
 
-Sonnet · effort high — pattern gia' esistenti da replicare (kcal), ma tanti punti di contatto: route, due ParsedRecipe, due converter di salvataggio, form, dettaglio, planner.
+Sonnet · effort high — existing patterns to replicate (kcal), but many touchpoints: route, two ParsedRecipes, two save converters, form, detail, planner.
