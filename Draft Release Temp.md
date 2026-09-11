@@ -54,6 +54,9 @@
 
 - Added two new meal types to the weekly planner: Spuntino (mid-morning snack) and Merenda (afternoon snack) — select them during setup or add them to a plan that's already running, just like breakfast, lunch, or dinner
 
+- Added an "Organizza in sezioni" button on recipes that are one long list, which asks the AI to split them into their real components (e.g. "Per il ragù", "Per la besciamella", "Per l'assemblaggio"). You see the proposed split — with how many ingredients and steps land in each section — before anything is saved, and your ingredient names, quantities and step texts are never rewritten
+- Added automatic sections to recipes created with Chat AI and from free text: when a dish has genuinely distinct components, the AI now splits ingredients and method into matching named sections instead of producing one flat list. Simple one-component recipes stay as they are, and recipes imported from a PDF still follow the document exactly
+
 ## 🐛 Bug Fixes
 
 - Fixed the shopping list not refreshing immediately after adding/removing a meal type or day, a recipe, or deleting the plan — it previously could take up to two minutes (or a hard refresh) to reflect the change
@@ -92,6 +95,11 @@
 - Fixed an error while cooking (for example a failed save) replacing the whole screen — problems now show as a dismissible message and your cooking progress stays in view
 
 - Fixed meal rows in the weekly planner sometimes displaying out of the natural order of the day (e.g. adding breakfast to an existing plan could show it after lunch and dinner instead of first) — meal rows now always follow breakfast → morning snack → lunch → afternoon snack → dinner, including in plans saved before this fix
+
+- Fixed recipe sections disappearing on import when their name did not start with "per" — a cookbook heading like "La pasta" or "Il ragù" was silently dropped and its ingredients ended up in one unlabelled list. Section names are now kept exactly as written, with or without "per", and a trailing colon no longer breaks them
+- Fixed recipe sections being listed alphabetically instead of in the order you actually cook them — a cake now shows its base before its cream, rather than the other way round
+- Fixed sections you created by hand in the recipe editor always being pushed to the bottom in an unpredictable order — they now stay where you put them
+- Fixed the Ingredients and Preparation columns of the same recipe showing its sections in different orders — both now follow the order of the method
 
 ## 🔧 Improvements
 

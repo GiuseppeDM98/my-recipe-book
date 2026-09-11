@@ -63,7 +63,8 @@ export interface FamilyProfile {
  * - Named sections: E.g., "Per la pasta", "Per il sugo" (collapsible groups)
  *
  * Example: Lasagna might have "Per la besciamella" and "Per il ragù" sections.
- * See: ingredient-list-collapsible.tsx for rendering logic (null first, then alphabetical)
+ * See: ingredient-list-collapsible.tsx for rendering logic (null first, then the named
+ * sections in order of first appearance in the array — document order, not alphabetical)
  */
 export interface Ingredient {
   id: string;

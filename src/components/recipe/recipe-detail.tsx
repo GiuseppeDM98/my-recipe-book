@@ -1,15 +1,25 @@
 'use client';
 
-import { ShoppingBasket, Flame } from 'lucide-react';
+import { ShoppingBasket, Flame, ListTree } from 'lucide-react';
 import { Recipe } from '@/types';
 import { IngredientListCollapsible } from './ingredient-list-collapsible';
 import { StepsListCollapsible } from './steps-list-collapsible';
+import { SectionProposalDialog } from './section-proposal-dialog';
 import { SEASON_ICONS, SEASON_LABELS } from '@/lib/constants/seasons';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAddToAdHocShoppingList } from '@/lib/hooks/useAddToAdHocShoppingList';
 import { useEstimateCalories } from '@/lib/hooks/useEstimateCalories';
+import { useReorganizeRecipe } from '@/lib/hooks/useReorganizeRecipe';
+import { hasNamedSections, orderedSectionNamesFromSteps } from '@/lib/utils/section-assignments';
+
+/**
+ * Below these counts a recipe has no room for two components of two or three items
+ * each, so the model would answer "not reorganizable" and the call would be wasted.
+ */
+const MIN_INGREDIENTS_TO_REORGANIZE = 6;
+const MIN_STEPS_TO_REORGANIZE = 4;
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -20,7 +30,19 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
   const { user } = useAuth();
   const addToAdHocShoppingList = useAddToAdHocShoppingList();
   const estimateCalories = useEstimateCalories();
+  const reorganize = useReorganizeRecipe();
   const hasIngredients = recipe.ingredients.length > 0;
+
+  // The steps know the cooking order; the ingredient array, on a reorganized recipe,
+  // no longer does. Let the former drive both columns so they can't disagree.
+  const orderedSections = orderedSectionNamesFromSteps(recipe.steps);
+
+  // Only offered on flat recipes with enough material to actually split.
+  const canReorganize =
+    !!user &&
+    !hasNamedSections(recipe) &&
+    recipe.ingredients.length >= MIN_INGREDIENTS_TO_REORGANIZE &&
+    recipe.steps.length >= MIN_STEPS_TO_REORGANIZE;
 
   /**
    * Determine which seasons to display.
@@ -137,7 +159,33 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-1">
             <h2 className="mb-4 font-display text-2xl font-semibold italic">Ingredienti</h2>
-            <IngredientListCollapsible ingredients={recipe.ingredients} defaultExpanded={false} />
+            {canReorganize && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={reorganize.propose.isPending}
+                onClick={() => reorganize.propose.mutate(recipe)}
+                className="mb-3 h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+              >
+                {reorganize.propose.isPending ? (
+                  <>
+                    <Spinner size="sm" />
+                    Analizzo la ricetta…
+                  </>
+                ) : (
+                  <>
+                    <ListTree className="h-4 w-4" />
+                    Organizza in sezioni
+                  </>
+                )}
+              </Button>
+            )}
+            <IngredientListCollapsible
+              ingredients={recipe.ingredients}
+              orderedSections={orderedSections}
+              defaultExpanded={false}
+            />
           </div>
           <div className="lg:col-span-2">
             <h2 className="mb-4 font-display text-2xl font-semibold italic">Preparazione</h2>
@@ -158,6 +206,19 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
           </div>
         )}
       </div>
+
+      <SectionProposalDialog
+        proposal={reorganize.pendingProposal}
+        ingredients={recipe.ingredients}
+        steps={recipe.steps}
+        isApplying={reorganize.apply.isPending}
+        onCancel={reorganize.dismissProposal}
+        onApply={() => {
+          if (reorganize.pendingProposal) {
+            reorganize.apply.mutate({ recipe, proposal: reorganize.pendingProposal });
+          }
+        }}
+      />
     </div>
   );
 }

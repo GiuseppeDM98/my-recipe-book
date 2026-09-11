@@ -23,13 +23,27 @@ convenzioni tecniche del progetto, che restano in [CLAUDE.md](CLAUDE.md) e
 4. **Rispondi sempre in italiano** quando lavori su questo repo (vale per il canale
    conversazionale — codice, identificatori e commenti restano in inglese).
 
+5. **Traccia il lavoro in `SESSION_NOTES.md`** (file di lavoro, cancellato a fine
+   sessione). Prima di chiedere l'OK al commit, chiuderlo con una sintesi: una voce per
+   ogni cosa imparata o decisa, in questo formato:
+   - **Cosa**: cosa è stato implementato
+   - **Perché**: la motivazione dietro la decisione
+   - **Nota**: gotcha o dettagli importanti, con la data se è una misura
+   - **Dove va a fine sessione**: `AGENTS.md` se vale per tutto il repo ·
+     `doc/guide/<tema>.md` se è una lezione di un dominio · `WORKFLOW.md` se è una regola
+     di sessione · `CLAUDE.md` se è stato del progetto · un commento nel punto giusto del
+     codice se è il perché di una riga
+
+   L'ultimo campo non è decorativo: `SESSION_NOTES.md` muore con la sessione, quindi ogni
+   voce deve essere **già stata scritta** nella destinazione indicata prima di chiudere.
+
 ---
 
 ## Regola del collaudo guidato
 
 Quando dobbiamo verificare manualmente che una funzionalità appena implementata
 funzioni, non consegnare una checklist e sparire. Il collaudo si fa insieme, in
-chat, una fase alla volta. Quattro obblighi:
+chat, una fase alla volta. Cinque obblighi:
 
 1. **I dati di prova li prepari tu** — uno script usa-e-getta (non tracciato da git,
    cancellato a fine collaudo) con "parole spia" (parole inventate tipo fenicottero,
@@ -53,14 +67,25 @@ chat, una fase alla volta. Quattro obblighi:
    giudizio visivo/estetico, hardware fisico (es. uno scanner di barcode reale), o
    un login interattivo che non si può guidare da script (es. un vero flusso OAuth
    con MFA).
+5. **Prima di smontare, far guardare.** Quando la sessione ha toccato qualcosa che
+   si vede, chiedere l'OK e poi portare l'utente sul dev server con i dati di prova
+   ancora vivi: URL esatti, con quale identità, e al massimo cinque cose da
+   guardare — per ognuna che cosa deve succedere e che cosa sarebbe il bug. Solo
+   ciò che una sonda non può dire: impaginazione, se la schermata dice quello che
+   deve, le parole, se un'azione dà riscontro di essere avvenuta. Dichiarare anche
+   che cosa quel giro NON copre, e non chiedere mai all'utente di rifare a mano ciò
+   che è già stato verificato. Ciò che l'utente trova diventa un'asserzione prima
+   della fine della sessione, o tornerà: il giro serve a scoprire quello che
+   nessuno aveva pensato di asserire, non a sostituire i test.
 
 Fasi standard da seguire quando ha senso: A-Invarianza (quello che c'era prima
 funziona ancora) → B-Cambio di contesto (il ruolo/stato nuovo è davvero attivo) →
 C-Comportamento nuovo (fa quello che deve, non quello che non deve — qui vale di
 più il punto 4: automatizza) → D-Sotto la UI (le stesse regole reggono chiamando la
 route a mano) → E-Casi negativi (chi non ha diritti viene respinto, con l'errore
-giusto) → F-Ripristino (configurazione ripristinata, fixture rimosse, script
-cancellato).
+giusto) → F-Giro guidato (l'unica fase che fa l'utente: guarda con i propri occhi,
+con le fixture ancora vive) → G-Ripristino (configurazione ripristinata, fixture
+rimosse, script cancellato).
 
 Un test negativo da solo non prova un guard di sicurezza: serve sempre la coppia
 risorsa-propria (controllo positivo, deve riuscire) / risorsa-altrui (il test, deve
@@ -120,6 +145,28 @@ l'asserzione automatica, che resta compito dello script).
 cancella a fine collaudo, come da protocollo. Helper riutilizzabili, se mai
 emergono da collaudi ripetuti, vanno promossi in `e2e/` tracciato — ma finché non
 succede, questa è la scelta intenzionale del repo, non una lacuna.
+
+**Giro guidato (obbligo 5)**: l'app non ha CI né ambiente di anteprima (nessuna
+cartella `.github/workflows`), quindi il dev server locale è l'unico modo per
+mostrare la UI viva.
+- Avviarlo con `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` (Next.js,
+  porta di default `:3000`, sovrascrivibile con `-p`) mentre `npm run emulators`
+  gira in un altro terminale — stessa coppia di comandi del collaudo automatico,
+  così il dev server vede gli stessi dati seedati dallo script.
+- **Come arrivarci già autenticati**: non esiste un modo per "regalare" una
+  sessione già pronta a un browser umano (niente storageState condivisibile fuori
+  da Playwright, niente magic link). Lo script di seed crea l'utente di prova con
+  email/password nota (via Firebase client SDK `createUserWithEmailAndPassword`
+  contro l'Auth emulator, o Admin SDK `getAuth().createUser(...)`); il giro guidato
+  consiste quindi nel dare l'URL `http://localhost:3000/login` e quelle credenziali
+  precise, così l'utente fa un login vero (due click) e si trova sui dati seedati.
+- **Ruoli**: l'app non ha viste per ruolo (nessun campo `role`/`isAdmin` nel
+  modello dati) — ogni utente autenticato vede la stessa UI, isolata per
+  `userId`. Non esiste quindi una "vista che l'utente non può aprire con il
+  proprio account" da dover raggiungere con un'identità diversa: l'account
+  personale dell'utente basta per qualunque giro guidato, a meno che il collaudo
+  non richieda uno stato dati specifico (in tal caso è lo script di seed a
+  crearlo sull'account di prova, non sull'account personale).
 
 **Branch**: `main` è il branch di produzione/release, `develop` è il branch di
 integrazione (i branch di sessione partono da `develop` e ci confluiscono via PR;

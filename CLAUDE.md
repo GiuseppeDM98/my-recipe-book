@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-08-24
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-09-11
 
 > Leggi [WORKFLOW.md](WORKFLOW.md) prima di iniziare: regole di sessione (branch,
 > commit, lingua) e protocollo di collaudo guidato.
@@ -21,6 +21,7 @@
 Digital recipe book for home cooks with:
 - recipe CRUD with multi-category tagging (a recipe can belong to several categories at once)
 - AI-assisted PDF extraction, free-text formatting, and chat recipe generation (chat supports opt-in web search and photo attachments)
+- multi-part recipes split into named sections ("Per il ragù", "La pasta"), with an AI action that proposes sections for a flat recipe already saved
 - cooking mode with active session tracking and per-step countdown timers
 - weekly meal planning (colazione/spuntino/pranzo/merenda/cena, always in canonical day order) with local "shuffle" generation (no AI) and manual editing
 - weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging), plus ad-hoc "Voglio preparare questo" additions from any recipe, independent of the weekly plan
@@ -108,6 +109,12 @@ src/
 - Daily planner totals come from `computeWeekCalories()` (`lib/utils/meal-plan-calories.ts`); partial days render with `≥`
 - Not shown in the shopping list — per-serving figures don't aggregate into anything a shopper acts on
 
+### Recipe sections
+- Section headers accept **any** name (`## Ingredienti La pasta`, `## Procedimento per il ragù`); a bare `## Ingredienti` means section `null`. Patterns live in `SECTION_HEADER_PATTERNS` (`recipe-parser.ts`)
+- Sections render in **order of first appearance** in the array, never alphabetically — document order is the order of preparation
+- On a recipe reorganized after the fact the ingredient array no longer implies anything (it is still the old flat listing), so both columns take their order from the steps via `orderedSectionNamesFromSteps()` — pass it as `orderedSections` to `IngredientListCollapsible` wherever a recipe's ingredients and steps are shown together
+- `POST /api/reorganize-recipe` proposes sections for a flat recipe but returns **only** `id → section` assignments: no text, no id is ever rewritten, so active `cooking_sessions` and `{{qty:ingredientId}}` tokens survive. Apply it through `applySectionAssignments()` (`lib/utils/section-assignments.ts`), which writes explicit `null` for unassigned items
+
 ### Recipe text and timers
 - Recipe text persisted in Firebase should remain plain text
 - `extractStepDuration()` is shared between parser and form-side auto-detect
@@ -118,6 +125,7 @@ src/
 - On Sonnet 5, `temperature`/`top_p`/`top_k`/`budget_tokens` return **400** — never set them
 - Thinking per endpoint: `extract`/`format` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled`; `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
 - `EXTRACTION_PROMPT` and `FORMAT_RECIPE_PROMPT` drop ingredients never used in the procedure (conservative fail-safe: keep everything if the procedure is terse). Keep the rule mirrored in both prompts
+- The **prescriptive sections rule** ("distinct components → you MUST create sections") is mirrored between `chat-recipe` and `format-recipe` and deliberately absent from `extract-recipes`, which promises fidelity to the PDF. Don't "fix" the asymmetry — same scoping doctrine as the family context and web search
 
 ### Web search and photos (chat only)
 - Both are **opt-in per message** and live only on `chat-recipe`: `extract`/`format` promise fidelity to the source, so a second source of truth there would silently substitute a different recipe
@@ -138,11 +146,14 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-08-24 — Ordine canonico portate + spuntino/merenda (Spec A)
-- **Ordine canonico**: `MealType` si estende con `spuntino` (metà mattina) e `merenda` (pomeriggio); `SELECTABLE_MEAL_TYPES` diventa `['colazione', 'spuntino', 'pranzo', 'merenda', 'cena']` ed è anche l'ordine canonico della giornata
-- **`sortMealTypes()`** (`lib/constants/meal-types.ts`): nuovo helper che ordina per indice in `SELECTABLE_MEAL_TYPES`, tipi legacy (`primo`/`secondo`/`contorno`/`dolce`) in coda con sort stabile. Applicato in scrittura (`addMealType`, `copyPlanToWeek` in `useMealPlanner.ts`; `toggleMealType` in `MealPlanSetupForm.tsx`) e in lettura (`WeeklyCalendarGrid.tsx`, `PlanStructureCard.tsx`, `MealPlanSetupForm.tsx`) — i piani Firestore esistenti con ordine sbagliato si auto-correggono a render time, senza migrazione
-- **Spuntini**: selezionabili al setup, aggiungibili/rimovibili da un piano avviato via `PlanStructureCard`, riempibili con lo shuffle locale e con configurazione categorie per-portata come le altre portate — nessuna UI nuova, entrano gratis nei flussi esistenti grazie a `SELECTABLE_MEAL_TYPES`/`MEAL_LABELS`
-- **Non toccato**: lista della spesa e statistiche (insensibili all'ordine di `activeMealTypes`), pool dello shuffle (non specifico per portata, mitigazione = categoria preferita per-portata)
+### 2026-09-11 — Sezioni ingredienti/procedimento (Spec B)
+- **Bug parser corretto**: la regex delle sezioni catturava solo nomi che iniziano con `per ` (`/##\s+Ingredienti(?:\s+(per\s+.+))?$/i`); un `## Ingredienti La pasta` — proprio la forma che `EXTRACTION_PROMPT` §3 impone di preservare — faceva fallire l'intera regex per via dell'ancora `$`, e la riga veniva comunque consumata dal guard `startsWith` → sezione persa **in silenzio**. Ora `SECTION_HEADER_PATTERNS` (`recipe-parser.ts`) cattura qualsiasi nome e assorbe spazi/`:` finali; `## Ingredienti` nudo resta sezione `null`. Il guard `startsWith('## Ingredienti')` resta case-sensitive (variante tutta maiuscola non riconosciuta, invariato)
+- **Regola prescrittiva sulle sezioni**: `chat-recipe` (`REGOLE PER LE RICETTE`) e `format-recipe` (§4) ora **impongono** di dividere in sezioni i piatti con componenti logicamente distinte, con nomi coerenti tra ingredienti e procedimento. `extract-recipes` **deliberatamente NON** la riceve (promette fedeltà alla fonte) — asimmetria voluta, documentata anche con uno scope note nel file della route
+- **Ordinamento per prima apparizione**: `ingredient-list-collapsible.tsx` non ordina più le sezioni alfabeticamente (metteva "Per la crema" prima di "Per la base"); `steps-list-collapsible.tsx` sostituisce il fallback `?? 999` con l'indice di prima apparizione, così le sezioni create dal form (che non hanno `sectionOrder`) non finiscono più tutte in coda in ordine casuale
+- **Nuova `POST /api/reorganize-recipe`** + pulsante "Organizza in sezioni" nel dettaglio (visibile solo su ricette flat con ≥6 ingredienti e ≥4 step): il modello riceve gli id e restituisce **solo** l'assegnazione `id → sezione`, mai testi. Il server ricalcola `sectionOrder` dall'ordine reale degli step, scarta id inventati e converte in `reorganized: false` una proposta che collassa su una sola sezione (`sanitizeSectionProposal`). Anteprima in Dialog, scrittura solo su conferma
+- **Modulo condiviso** `lib/utils/section-assignments.ts` (puro, testato): `sanitizeSectionProposal`, `applySectionAssignments`, `hasNamedSections`, `summarizeSectionProposal`. `applySectionAssignments` scrive `null` esplicito sugli item non assegnati e non tocca id/testi/`order` → cotture attive e token `{{qty:ingredientId}}` restano validi per costruzione
+- **Ordine coerente fra le due colonne** (emerso dal collaudo guidato, non previsto dalla spec): gli ingredienti non hanno un campo d'ordine, quindi il loro ordine di sezione è implicito nell'array — che su una ricetta riorganizzata è ancora la vecchia lista piatta e non dice più nulla. `orderedSectionNamesFromSteps()` estrae l'ordine di cottura dagli step (`sectionOrder`) e lo passa come `orderedSections` a `IngredientListCollapsible` (dettaglio ricetta + modalità cottura) e all'anteprima nel Dialog. Solo ordine di render: nessun dato riscritto, nessun campo nuovo su `Ingredient`
+- **Non toccato**: contatore globale degli step, init di `prevCheckedRef` nei collapsible, round-trip del form che genera la sezione fantasma `"Ingredienti"` (neutralizzata dal gating di `hasNamedSections`, nessuna migrazione dati)
 
 ---
 
@@ -182,7 +193,7 @@ Notes:
 
 ## Guided testing tooling
 
-Installed so manual collaudi can be automated end-to-end instead of asking the user to click through the UI (see guided-testing protocol in Claude's memory — data prepared via throwaway scripts with spy words, one phase per message, expected outcome declared up front, everything scriptable automated).
+Installed so manual collaudi can be automated end-to-end instead of asking the user to click through the UI (protocol in [WORKFLOW.md](WORKFLOW.md) — data prepared via throwaway scripts with spy words, one phase per message, expected outcome declared up front, everything scriptable automated).
 
 - **Firebase Emulator Suite**: configured in `firebase.json` (`emulators.auth:9099`, `emulators.firestore:8080`, `emulators.storage:9199`, UI on `:4000`). Start with `npm run emulators`.
 - **Client SDK emulator wiring**: opt-in via `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true` (see `.env.example`) — `src/lib/firebase/config.ts` and `src/lib/firebase/storage.ts` connect to the local emulators instead of production when set. Unset (default) behaves exactly as before.
@@ -192,7 +203,12 @@ Installed so manual collaudi can be automated end-to-end instead of asking the u
 
 Typical guided-testing session: `npm run emulators` in one terminal, `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` in another, then a scratch Playwright script under `e2e/scratch/` driving a real browser against the emulated backend, asserting on Firestore/HTTP state rather than page appearance.
 
+Two command-level details that cost a debugging round each (2026-09-11):
+- A scratch script that imports anything from `lib/utils` transitively pulls in `lib/firebase/config.ts`, and Playwright does not load `.env.local` the way Next does → `auth/invalid-api-key` before the test even runs. Prefix the command: `set -a; . ./.env.local; set +a; FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx playwright test ...`
+- For the guided tour itself (WORKFLOW.md obbligo 4 — never dictate clicks), run the tour spec with `--headed` and end each test with a long `page.waitForTimeout(...)`: the window stays open on the exact URL with the session already authenticated and the interaction already performed, and it is stopped from chat when the user has finished looking.
+
 Collaudi eseguiti con questa tooling (aggiungere una riga per ogni collaudo chiuso):
+- **2026-09-11 — Spec B (sezioni ingredienti/procedimento)**: 6 fasi automatiche (parser → ordinamento → riorganizzazione end-to-end con AI reale → esito negativo → route chiamata a mano con 401/401/400/200 → coppia proprietà sulle regole Firestore), tutte verdi, asserzioni su Firestore e sulle risposte HTTP; poi giro guidato in 5 punti su finestra Chromium headed aperta dallo script (obbligo 4: mai dettare click all'utente). **Bug trovato dal giro guidato e corretto in sessione**: su una ricetta riorganizzata le due colonne si contraddicevano — Ingredienti apriva con "Per l'assemblaggio" (l'array degli ingredienti è ancora quello piatto originale, e il primo ingrediente apparteneva all'ultima componente) mentre Preparazione partiva correttamente dal ragù via `sectionOrder`. Risolto con `orderedSectionNamesFromSteps()` che fa guidare entrambe le colonne dall'ordine degli step, più 5 test nuovi. Due difetti di harness corretti: Jest raccoglieva gli spec Playwright di `e2e/` (aggiunto `testPathIgnorePatterns` in `jest.config.js`), e uno script di collaudo che importa `lib/utils` ha bisogno di `.env.local` esportato a mano.
 - **2026-08-24 — Spec A (ordinamento portate + spuntino/merenda)**: 6 fasi (seed → auto-correzione in lettura → scrittura canonica via `addMealType` → setup con toggle pranzo → rimozione merenda senza slot orfani → screenshot desktop/mobile a 5 portate), tutte verdi, asserzioni su Firestore reale (non solo aspetto pagina). Bug di harness scoperto e corretto durante il collaudo: un'asserzione Playwright basata su un testo già presente nel form di setup dava falso positivo prima che la scrittura Firestore fosse completata — corretto attendendo un marker visibile solo nello step calendario. Nessun bug applicativo trovato.
 
 ---
@@ -228,6 +244,7 @@ Composite indexes maintained in repo:
 | `POST /api/suggest-category` | Category (1-3 names) + season suggestion |
 | `POST /api/chat-recipe` | Multi-turn AI recipe generation (opt-in web search + vision) |
 | `POST /api/estimate-calories` | Ingredients → estimated kcal per serving |
+| `POST /api/reorganize-recipe` | Existing flat recipe → section assignments keyed on existing ids |
 
 All endpoints above require an authenticated Firebase session. The weekly meal planner runs entirely client-side (local shuffle) and has no AI endpoint.
 

@@ -19,11 +19,21 @@ import { cn } from '@/lib/utils/cn';
  *
  * SORTING:
  * - Null section: First
- * - Named sections: Alphabetical (localeCompare)
+ * - Named sections: `orderedSections` when the caller supplies one (the cooking order read
+ *   from the steps), otherwise order of first appearance in the ingredients array
  */
 
 interface IngredientListCollapsibleProps {
   ingredients: Ingredient[];
+  /**
+   * Section names in cooking order, from `orderedSectionNamesFromSteps(recipe.steps)`.
+   *
+   * Without it the ingredient column falls back to the array order, which stops meaning
+   * anything once sections are assigned across an already-flat recipe — the reorganize
+   * action does exactly that, and the two columns then disagree. Sections missing from
+   * this list keep their first-appearance position, after the listed ones.
+   */
+  orderedSections?: string[];
   defaultExpanded?: boolean;
   interactive?: boolean;
   checkedIngredients?: string[];
@@ -37,25 +47,32 @@ interface GroupedIngredients {
 
 export function IngredientListCollapsible({
   ingredients,
+  orderedSections,
   defaultExpanded = false,
   interactive = false,
   checkedIngredients = [],
   onToggleIngredient,
 }: IngredientListCollapsibleProps) {
   // ========================================
-  // Group ingredients by section and sort
+  // Group ingredients by section, in document order
   // ========================================
   //
   // ALGORITHM:
-  // 1. Group by section field (null = no section)
-  // 2. Convert Map → array
-  // 3. Sort: null first, then alphabetically
+  // 1. Group by section field (null = no section); a Map preserves insertion order,
+  //    so each section lands in the order it first appears in the array
+  // 2. Emit the null group first, then the named groups in that same order
   //
-  // WHY ALPHABETICAL (not insertion order):
-  // - Predictable section order across recipe views
-  // - User can find sections quickly (sorted like a menu)
-  // - Null section always first (most common/default ingredients)
-  const groupedIngredients: GroupedIngredients[] = [];
+  // WHY FIRST APPEARANCE (not alphabetical):
+  // - The document order IS the order of preparation: a recipe lists the base before
+  //   the cream because you make it first. Sorting alphabetically put "Per la crema"
+  //   ahead of "Per la base" and read as a different recipe.
+  // - Null section still comes first: those are the recipe's default ingredients,
+  //   rendered without collapsible chrome.
+  //
+  // `orderedSections` overrides the array order when the caller knows the cooking order
+  // (it comes from the steps' sectionOrder). It matters for recipes reorganized after the
+  // fact, whose ingredient array still follows the old flat listing and no longer implies
+  // anything about the new sections.
   const ingredientsBySection = new Map<string | null, Ingredient[]>();
 
   ingredients.forEach(ingredient => {
@@ -66,17 +83,24 @@ export function IngredientListCollapsible({
     ingredientsBySection.get(section)!.push(ingredient);
   });
 
-  // Convert to array
-  ingredientsBySection.forEach((ingredients, section) => {
-    groupedIngredients.push({ section, ingredients });
+  const nullGroups: GroupedIngredients[] = [];
+  const namedGroups: GroupedIngredients[] = [];
+  ingredientsBySection.forEach((sectionIngredients, section) => {
+    const group = { section, ingredients: sectionIngredients };
+    (section === null ? nullGroups : namedGroups).push(group);
   });
 
-  // Sort sections
-  groupedIngredients.sort((a, b) => {
-    if (a.section === null) return -1; // Null section first
-    if (b.section === null) return 1;
-    return a.section.localeCompare(b.section); // Alphabetical
-  });
+  if (orderedSections && orderedSections.length > 0) {
+    // Sections the caller didn't list sort after the listed ones, keeping their relative
+    // order (Array.prototype.sort is stable), so an unexpected name is never dropped.
+    const rank = (section: string | null) => {
+      const index = section === null ? -1 : orderedSections.indexOf(section);
+      return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+    };
+    namedGroups.sort((a, b) => rank(a.section) - rank(b.section));
+  }
+
+  const groupedIngredients: GroupedIngredients[] = [...nullGroups, ...namedGroups];
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(defaultExpanded ? groupedIngredients.map(g => g.section || 'no-section') : [])
@@ -137,7 +161,7 @@ export function IngredientListCollapsible({
         // Null section: Render flat (no collapsible header)
         // ========================================
         // WHY: Simple recipes often have single section → avoid unnecessary UI chrome
-        // Named sections get collapsible headers below (lines 109-163)
+        // Named sections get collapsible headers instead (see below)
         if (!hasSection) {
           const sectionComplete = isSectionComplete(group.ingredients);
           return (

@@ -16,8 +16,8 @@ import { cn } from '@/lib/utils/cn';
  *
  * SECTION ORDERING:
  * - Null section (no section): Always first
- * - Named sections: Sorted by sectionOrder field (preserved from PDF extraction)
- * - sectionOrder tracks original document order
+ * - Named sections: Sorted by sectionOrder field (preserved from PDF extraction),
+ *   falling back to the order the section first appears in the steps array
  *
  * INTERACTION MODES:
  * - static: Display only (recipe view)
@@ -72,13 +72,20 @@ export function StepsListCollapsible({
   //
   // ALGORITHM:
   // 1. Group by section field (null = no section)
-  // 2. Convert Map → array of GroupedSteps
-  // 3. Sort: null section first, then by sectionOrder (PDF extraction order)
+  // 2. Convert Map → array of GroupedSteps, noting each group's sort key
+  // 3. Sort: null section first, then by sort key
   //
   // WHY sectionOrder:
   // - PDF extractor assigns sectionOrder to preserve document structure
   // - Multiple steps in same section share same sectionOrder
   // - Allows grouping by section while maintaining original sequence
+  //
+  // WHY the fallback is first appearance (and not a constant like 999):
+  // - Steps added from the recipe form carry no sectionOrder at all (addStep creates
+  //   `{ section: '', duration: null }`). A shared constant collapsed every one of them
+  //   into a single tie, so hand-made sections landed at the end in arbitrary order.
+  // - A Map iterates in insertion order, so the index at which a section first appears
+  //   grows with document order — the same scale sectionOrder lives on.
   //
   // Example:
   //   Step 1: section=null, sectionOrder=null         → group 1 (renders first)
@@ -96,21 +103,22 @@ export function StepsListCollapsible({
     stepsBySection.get(section)!.push(step);
   });
 
-  // Convert to array
-  stepsBySection.forEach((steps, section) => {
-    groupedSteps.push({ section, steps });
+  // Convert to array, keeping each section's sort key alongside it
+  const sectionSortKeys = new Map<string | null, number>();
+  let firstAppearanceIndex = 0;
+  stepsBySection.forEach((sectionSteps, section) => {
+    groupedSteps.push({ section, steps: sectionSteps });
+    sectionSortKeys.set(section, sectionSteps[0]?.sectionOrder ?? firstAppearanceIndex);
+    firstAppearanceIndex++;
   });
 
-  // Sort: null section first, then by sectionOrder
+  // Sort: null section first, then by sort key.
+  // Array.prototype.sort is stable (ES2019+), so ties keep their appearance order.
   groupedSteps.sort((a, b) => {
     if (a.section === null) return -1;
     if (b.section === null) return 1;
 
-    // Get sectionOrder from first step (all steps in group share same sectionOrder)
-    const orderA = a.steps[0]?.sectionOrder ?? 999;
-    const orderB = b.steps[0]?.sectionOrder ?? 999;
-
-    return orderA - orderB;
+    return (sectionSortKeys.get(a.section) ?? 0) - (sectionSortKeys.get(b.section) ?? 0);
   });
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
