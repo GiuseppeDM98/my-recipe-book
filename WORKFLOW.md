@@ -1,179 +1,227 @@
-# Workflow di sessione
+# Session workflow
 
-Regole di collaborazione portabili (stesse in ogni repo/macchina). Non duplicano le
-convenzioni tecniche del progetto, che restano in [CLAUDE.md](CLAUDE.md) e
+Portable collaboration rules (the same in every repo/machine). They do not duplicate
+the project's technical conventions, which live in [CLAUDE.md](CLAUDE.md) and
 [AGENTS.md](AGENTS.md).
 
 ---
 
-## Regole di sessione e collaborazione
+## Session and collaboration rules
 
-1. **Mai fare commit senza approvazione esplicita.** Non eseguire `git commit` (né
-   `--amend`) finché non arriva l'OK per quel commit specifico. Finisci il lavoro,
-   riassumi il diff, poi chiedi. Creare il branch e modificare i file non richiede
-   approvazione — solo il commit.
+1. **Never commit without explicit approval.** Do not run `git commit` (nor
+   `--amend`) until the OK for that specific commit arrives. Finish the work,
+   summarize the diff, then ask. Creating the branch and editing files needs no
+   approval — only the commit does.
 
-2. **Un branch per sessione.** Prima di iniziare lavoro di implementazione, crea un
-   nuovo branch a partire dal branch attivo all'inizio della sessione (controlla
-   sempre quale sia, non dare per scontato master/main).
+2. **One branch per session.** Before starting implementation work, create a new
+   branch from the branch that was active at the start of the session (always check
+   which one it is; don't assume master/main).
 
-3. **Un solo commit per sessione.** Tutte le modifiche di una sessione vanno
-   squashate in un unico commit, non sparse su più commit.
+3. **One commit per session.** All of a session's changes are squashed into a single
+   commit, not spread across several.
 
-4. **Rispondi sempre in italiano** quando lavori su questo repo (vale per il canale
-   conversazionale — codice, identificatori e commenti restano in inglese).
+4. **Always reply in Italian** when working on this repo (this applies to the
+   conversational channel — code, identifiers, comments and documentation stay in
+   English).
 
-5. **Traccia il lavoro in `SESSION_NOTES.md`** (file di lavoro, cancellato a fine
-   sessione). Prima di chiedere l'OK al commit, chiuderlo con una sintesi: una voce per
-   ogni cosa imparata o decisa, in questo formato:
-   - **Cosa**: cosa è stato implementato
-   - **Perché**: la motivazione dietro la decisione
-   - **Nota**: gotcha o dettagli importanti, con la data se è una misura
-   - **Dove va a fine sessione**: `AGENTS.md` se vale per tutto il repo ·
-     `doc/guide/<tema>.md` se è una lezione di un dominio · `WORKFLOW.md` se è una regola
-     di sessione · `CLAUDE.md` se è stato del progetto · un commento nel punto giusto del
-     codice se è il perché di una riga
+5. **Track the work in `SESSION_NOTES.md`** (a working file, deleted at the end of
+   the session). Before asking for the commit OK, close it with a summary: one entry
+   for each thing learned or decided, in this format:
+   - **What**: what was implemented
+   - **Why**: the motivation behind the decision
+   - **Note**: gotchas or important details, with the date if it is a measurement
+   - **Where it goes at session end**: `AGENTS.md` if it applies to the whole repo ·
+     `doc/guide/<topic>.md` if it is a domain lesson · `WORKFLOW.md` if it is a session
+     rule · `CLAUDE.md` if it is project state · a comment at the right spot in the
+     code if it is the why of a line
 
-   L'ultimo campo non è decorativo: `SESSION_NOTES.md` muore con la sessione, quindi ogni
-   voce deve essere **già stata scritta** nella destinazione indicata prima di chiudere.
-
----
-
-## Regola del collaudo guidato
-
-Quando dobbiamo verificare manualmente che una funzionalità appena implementata
-funzioni, non consegnare una checklist e sparire. Il collaudo si fa insieme, in
-chat, una fase alla volta. Cinque obblighi:
-
-1. **I dati di prova li prepari tu** — uno script usa-e-getta (non tracciato da git,
-   cancellato a fine collaudo) con "parole spia" (parole inventate tipo fenicottero,
-   ornitorinco, che non compaiono da nessun'altra parte nell'archivio), non a mano
-   da parte dell'utente.
-2. **Una fase per messaggio** — dai la fase, aspetta il resoconto, poi la
-   successiva. Mai consegnare tutte le fasi insieme: fa saltare i prerequisiti.
-3. **Dichiara l'esito atteso prima di eseguire, non dopo** — altrimenti la lettura
-   si adatta sempre a quello che è successo.
-4. **Fai tu ogni controllo che riesci ad automatizzare**, e lascia solo quello che
-   non si può fare. "Insieme, in chat" non vuol dire "un click alla volta dettato
-   all'utente": se le sessioni sono JWT o comunque scriptabili, scrivi uno script
-   usa-e-getta che apre un vero browser (es. Playwright) con una sessione
-   autenticata — la propria se il ruolo lo permette, altrimenti un'identità di
-   prova usa-e-getta creata per l'occasione — e verifica ogni esito sul database o
-   sulla risposta HTTP, mai sul solo aspetto della pagina. Riporta i risultati fase
-   per fase, con l'esito atteso dichiarato prima. Ogni test end-to-end automatico
-   che si è in grado di eseguire, va eseguito: non dichiarare mai una funzionalità
-   verificata se un controllo automatico che poteva coprirla è rimasto non
-   eseguito. Lascia all'utente solo ciò che è genuinamente non automatizzabile:
-   giudizio visivo/estetico, hardware fisico (es. uno scanner di barcode reale), o
-   un login interattivo che non si può guidare da script (es. un vero flusso OAuth
-   con MFA).
-5. **Prima di smontare, far guardare.** Quando la sessione ha toccato qualcosa che
-   si vede, chiedere l'OK e poi portare l'utente sul dev server con i dati di prova
-   ancora vivi: URL esatti, con quale identità, e al massimo cinque cose da
-   guardare — per ognuna che cosa deve succedere e che cosa sarebbe il bug. Solo
-   ciò che una sonda non può dire: impaginazione, se la schermata dice quello che
-   deve, le parole, se un'azione dà riscontro di essere avvenuta. Dichiarare anche
-   che cosa quel giro NON copre, e non chiedere mai all'utente di rifare a mano ciò
-   che è già stato verificato. Ciò che l'utente trova diventa un'asserzione prima
-   della fine della sessione, o tornerà: il giro serve a scoprire quello che
-   nessuno aveva pensato di asserire, non a sostituire i test.
-
-Fasi standard da seguire quando ha senso: A-Invarianza (quello che c'era prima
-funziona ancora) → B-Cambio di contesto (il ruolo/stato nuovo è davvero attivo) →
-C-Comportamento nuovo (fa quello che deve, non quello che non deve — qui vale di
-più il punto 4: automatizza) → D-Sotto la UI (le stesse regole reggono chiamando la
-route a mano) → E-Casi negativi (chi non ha diritti viene respinto, con l'errore
-giusto) → F-Giro guidato (l'unica fase che fa l'utente: guarda con i propri occhi,
-con le fixture ancora vive) → G-Ripristino (configurazione ripristinata, fixture
-rimosse, script cancellato).
-
-Un test negativo da solo non prova un guard di sicurezza: serve sempre la coppia
-risorsa-propria (controllo positivo, deve riuscire) / risorsa-altrui (il test, deve
-fallire), con lo stesso identico file/dato. Chiusura del collaudo: ripristinare
-eventuali config modificate, rimuovere fixture e allegati di prova, cancellare lo
-script, e annotare l'esito da qualche parte che sopravvive alla sessione (CLAUDE.md
-o equivalente) — un collaudo non annotato vale come non fatto.
+   The last field is not decorative: `SESSION_NOTES.md` dies with the session, so
+   every entry must **already have been written** to its destination before closing.
 
 ---
 
-## Come si applica in questo repo
+## Guided testing rule
 
-Il repo ha già tutta la tooling di collaudo guidato configurata (vedi sezione
-"Guided testing tooling" in [CLAUDE.md](CLAUDE.md)); qui sotto solo i comandi e i
-percorsi concreti.
+When we need to manually verify that a freshly implemented feature works, don't
+hand over a checklist and disappear. The guided test (*collaudo*) is done together,
+in chat, one phase at a time. Five obligations:
 
-**Comandi verificati** (`package.json`):
+1. **You prepare the test data** — a throwaway script (not tracked by git, deleted at
+   the end of the guided test) using "spy words" (made-up words such as fenicottero,
+   ornitorinco, that appear nowhere else in the archive), not entered by hand by the
+   user.
+2. **One phase per message** — give the phase, wait for the report, then the next
+   one. Never deliver all phases at once: it breaks the prerequisites.
+3. **Declare the expected outcome before running, not after** — otherwise the
+   reading always adapts to whatever happened.
+4. **Do every check you can automate yourself**, and leave only what can't be done.
+   "Together, in chat" does not mean "one click at a time dictated to the user": if
+   sessions are JWT or otherwise scriptable, write a throwaway script that opens a
+   real browser (e.g. Playwright) with an authenticated session — your own if the
+   role allows it, otherwise a throwaway test identity created for the occasion —
+   and verify every outcome against the database or the HTTP response, never against
+   the page's appearance alone. Report results phase by phase, with the expected
+   outcome declared first. Every automated end-to-end test you are able to run must
+   be run: never declare a feature verified if an automated check that could have
+   covered it was left unexecuted. Leave to the user only what is genuinely not
+   automatable: visual/aesthetic judgment, physical hardware (e.g. a real barcode
+   scanner), or an interactive login that can't be driven by a script (e.g. a real
+   OAuth flow with MFA).
+5. **Before tearing down, let the user look.** When the session touched something
+   visible, ask for the OK and then take the user to the dev server with the test
+   data still live: exact URLs, which identity, and at most five things to look at —
+   for each, what should happen and what would be the bug. Only what a probe can't
+   tell: layout, whether the screen says what it should, the wording, whether an
+   action gives feedback that it happened. Also state what that tour does NOT cover,
+   and never ask the user to redo by hand what has already been verified. Whatever
+   the user finds becomes an assertion before the session ends, or it will come
+   back: the tour exists to discover what nobody thought to assert, not to replace
+   the tests.
+
+Standard phases to follow when it makes sense: A-Invariance (what was there before
+still works) → B-Context switch (the new role/state is really active) → C-New
+behavior (does what it should, not what it shouldn't — obligation 4 matters most
+here: automate) → D-Below the UI (the same rules hold when calling the route by
+hand) → E-Negative cases (whoever lacks rights is rejected, with the right error) →
+F-Guided tour (the only phase the user does: look with their own eyes, with the
+fixtures still live) → G-Teardown (configuration restored, fixtures removed, script
+deleted).
+
+A negative test alone does not prove a security guard: you always need the pair
+own-resource (positive control, must succeed) / someone-else's-resource (the test,
+must fail), with the exact same file/data. Closing the guided test: restore any
+modified config, remove fixtures and test attachments, delete the script, and record
+the outcome somewhere that outlives the session (CLAUDE.md or equivalent) — a guided
+test that isn't recorded counts as not done.
+
+---
+
+## How it applies in this repo
+
+The repo already has all the guided-testing tooling configured (see the "Guided
+testing tooling" section in [CLAUDE.md](CLAUDE.md)); below are only the concrete
+commands and paths.
+
+**Verified commands** (`package.json`):
 - `npm run test` → Jest (unit/integration)
 - `npm run lint` → ESLint
-- `npx tsc --noEmit` → type-check (nessuno script dedicato in `package.json`, ma
-  `tsconfig.json` è presente e `tsc` risolve il progetto)
-- `npx next build --webpack` → build di verifica (comando raccomandato da
-  CLAUDE.md, più affidabile di `npm run build` per catturare errori)
+- `npx tsc --noEmit` → type-check (no dedicated script in `package.json`, but
+  `tsconfig.json` is present and `tsc` resolves the project)
+- `npx next build --webpack` → verification build (the command recommended by
+  CLAUDE.md, more reliable than `npm run build` at catching errors)
 - `npm run test:e2e` → Playwright (`playwright.config.ts`, `testDir: ./e2e`)
-- Non esiste CI (`.github/workflows` assente): i comandi sopra vanno lanciati a
-  mano prima di proporre un commit.
+- There is no CI (`.github/workflows` is absent): the commands above must be run by
+  hand before proposing a commit.
 
-**Ambiente locale isolato**: Firebase Emulator Suite, già cablata.
-- `npm run emulators` → avvia Auth (`:9099`), Firestore (`:8080`), Storage
-  (`:9199`), UI su `:4000` (config in `firebase.json`)
-- `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` → punta il client SDK
-  (`src/lib/firebase/config.ts`, `src/lib/firebase/storage.ts`) sugli emulatori
-  invece che su produzione
-- L'Admin SDK (`src/lib/firebase/admin.ts`) si aggancia da solo agli emulatori
-  quando sono settate le env standard `FIRESTORE_EMULATOR_HOST` /
-  `FIREBASE_AUTH_EMULATOR_HOST` — nessun flag da passare, nessuna credenziale
-  service-account reale richiesta in questo caso
+**Isolated local environment**: Firebase Emulator Suite, already wired up.
+- `npm run emulators` → starts Auth (`:9099`), Firestore (`:8080`), Storage
+  (`:9199`), UI on `:4000` (config in `firebase.json`)
+- `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` → points the client SDK
+  (`src/lib/firebase/config.ts`, `src/lib/firebase/storage.ts`) at the emulators
+  instead of production
+- The Admin SDK (`src/lib/firebase/admin.ts`) attaches to the emulators on its own
+  when the standard `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` env
+  vars are set — no flag to pass, and no real service-account credentials required
+  in that case
 
-**Identità di prova**: nessun helper riutilizzabile esiste ancora (per scelta,
-vedi sotto) — lo script usa-e-getta del collaudo crea l'utente al volo con il
-Firebase client SDK (`createUserWithEmailAndPassword` contro l'Auth emulator, dato
-che il flag `NEXT_PUBLIC_USE_FIREBASE_EMULATOR` ci instrada già lì) o via Firebase
-Admin SDK (`getAuth().createUser(...)`, con `FIREBASE_AUTH_EMULATOR_HOST`
-settato). Da lì si ottiene l'ID token e/o lo `storageState` di Playwright per una
-sessione autenticata reale, non simulata.
+**Test identities**: no reusable helper exists yet (by choice, see below) — the
+guided test's throwaway script creates the user on the fly with the Firebase client
+SDK (`createUserWithEmailAndPassword` against the Auth emulator, since the
+`NEXT_PUBLIC_USE_FIREBASE_EMULATOR` flag already routes there) or via the Firebase
+Admin SDK (`getAuth().createUser(...)`, with `FIREBASE_AUTH_EMULATOR_HOST` set). From
+there you get the ID token and/or Playwright's `storageState` for a real, not
+simulated, authenticated session.
 
-**Ispezione dello stato reale dei dati**: usare l'Admin SDK con
-`FIRESTORE_EMULATOR_HOST` settato (stesso pattern delle route API, che già lo
-fanno) per leggere direttamente le collection elencate in CLAUDE.md
-(`recipes`, `meal_plans`, `pantry_items`, `cooking_history`, ecc.) — mai dedurre lo
-stato dal solo rendering della pagina. In alternativa, l'Emulator UI su
-`localhost:4000` per un'ispezione visiva rapida durante il debug (non per
-l'asserzione automatica, che resta compito dello script).
+**Mirroring the real account (realistic data)**: synthetic fixtures prove the logic
+does what it should, but they don't contain what only the real archive contains —
+volume, legacy recipes with only `categoryId`, inert `subcategories` documents,
+hand-written text, old weekly plans. When the guided test touches pre-existing data
+(reads, read-time corrections, sorting, aggregations, UI over long archives), start
+from a **copy of the user's personal account inside the emulators**, never from
+production.
+- **Which account**: the identity is never written in the repo, which is public. It
+  lives in `.env.local` (gitignored) as `MIRROR_SOURCE_EMAIL`; if it's missing, ask
+  the user for it and have them add it there. Never paste it into tracked scripts,
+  commits, CLAUDE.md or guided-test records — the same goes for its uid.
+- **Production is read-only**: the phase that reads from production uses the Admin
+  credentials in `.env.local` and only does `get`/queries. No `set`/`update`/`delete`,
+  no writes to Auth or Storage: a mistake there hits the user's real data, not a
+  fixture.
+- **Two processes, not one**: the Admin SDK routes to the emulator for the whole
+  process as soon as `FIRESTORE_EMULATOR_HOST` is set, so the same script can't read
+  from production and write to the emulator (and without `gcloud` there is no managed
+  Firestore export, which would copy every user anyway).
+  1. *Dump* (no emulator env): `getAuth().getUserByEmail()` for the uid, then
+     `users/{uid}` and every document with `userId == uid` in the collections of
+     `firebase/firestore.rules` (currently `recipes`, `categories`, `techniques`,
+     `cooking_sessions`, `cooking_history`, `meal_plans`, `pantry_items` — realign if
+     new ones appear), saved as JSON in `e2e/scratch/mirror/`. Serialize `Timestamp`s
+     in a reversible form: `JSON.stringify` flattens them into plain objects and
+     sorting by `createdAt`/`completedAt` breaks.
+  2. *Load* (with `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST`):
+     `getAuth().createUser({ uid, email, password })` with **the same uid**, so
+     ownership rules and `userId` filters match without rewriting anything, then the
+     documents with the same ids and the `Timestamp`s rebuilt.
+- **Password**: the real one is not copied and isn't needed. In the emulator the user
+  has a throwaway local password chosen by the script, same email: the guided tour
+  uses an email/password login even if production sign-in is via Google.
+- **Images**: `recipe.images` holds download URLs from the production bucket, which
+  the browser loads read-only anyway, so Storage doesn't need copying. Uploads made
+  during the guided test land in the Storage emulator.
+- **Spy words still apply**: assertions never target content from the real archive
+  (it changes over time, and writing it into scripts or records would make it
+  public). The script adds its own spy-word fixtures on top of the mirror and asserts
+  on those; the mirror provides context. Aggregate assertions on real data are fine
+  (before/after counts, "no recipe loses its categories").
+- **Teardown (phase G)**: `e2e/scratch/mirror/` contains personal data and is deleted
+  at the end of the guided test together with the script. The emulators persist
+  nothing unless `--export-on-exit` is passed: don't pass it with a mirror loaded. In
+  the guided-test record in CLAUDE.md write "mirror of the personal account" plus any
+  counts, never recipe names, email or uid.
 
-**Dove vanno gli script**: `e2e/scratch/` — gitignored (`.gitignore` righe
-64-65), sopravvive solo `.gitkeep`. Ogni collaudo scrive lì il proprio script e lo
-cancella a fine collaudo, come da protocollo. Helper riutilizzabili, se mai
-emergono da collaudi ripetuti, vanno promossi in `e2e/` tracciato — ma finché non
-succede, questa è la scelta intenzionale del repo, non una lacuna.
+**Inspecting the real data state**: use the Admin SDK with `FIRESTORE_EMULATOR_HOST`
+set (the same pattern as the API routes, which already do it) to read the collections
+listed in CLAUDE.md directly (`recipes`, `meal_plans`, `pantry_items`,
+`cooking_history`, etc.) — never infer state from the page rendering alone.
+Alternatively, the Emulator UI on `localhost:4000` for a quick visual inspection
+while debugging (not for automated assertions, which remain the script's job).
 
-**Giro guidato (obbligo 5)**: l'app non ha CI né ambiente di anteprima (nessuna
-cartella `.github/workflows`), quindi il dev server locale è l'unico modo per
-mostrare la UI viva.
-- Avviarlo con `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` (Next.js,
-  porta di default `:3000`, sovrascrivibile con `-p`) mentre `npm run emulators`
-  gira in un altro terminale — stessa coppia di comandi del collaudo automatico,
-  così il dev server vede gli stessi dati seedati dallo script.
-- **Come arrivarci già autenticati**: non esiste un modo per "regalare" una
-  sessione già pronta a un browser umano (niente storageState condivisibile fuori
-  da Playwright, niente magic link). Lo script di seed crea l'utente di prova con
-  email/password nota (via Firebase client SDK `createUserWithEmailAndPassword`
-  contro l'Auth emulator, o Admin SDK `getAuth().createUser(...)`); il giro guidato
-  consiste quindi nel dare l'URL `http://localhost:3000/login` e quelle credenziali
-  precise, così l'utente fa un login vero (due click) e si trova sui dati seedati.
-- **Ruoli**: l'app non ha viste per ruolo (nessun campo `role`/`isAdmin` nel
-  modello dati) — ogni utente autenticato vede la stessa UI, isolata per
-  `userId`. Non esiste quindi una "vista che l'utente non può aprire con il
-  proprio account" da dover raggiungere con un'identità diversa: l'account
-  personale dell'utente basta per qualunque giro guidato, a meno che il collaudo
-  non richieda uno stato dati specifico (in tal caso è lo script di seed a
-  crearlo sull'account di prova, non sull'account personale).
+**Where scripts go**: `e2e/scratch/` — gitignored (`.gitignore` lines 64-65), only
+`.gitkeep` survives. Each guided test writes its own script there and deletes it at
+the end, per the protocol. Reusable helpers, if they ever emerge from repeated guided
+tests, get promoted to tracked `e2e/` — but until that happens, this is the repo's
+intentional choice, not a gap.
 
-**Branch**: `main` è il branch di produzione/release, `develop` è il branch di
-integrazione (i branch di sessione partono da `develop` e ci confluiscono via PR;
-`develop` confluisce in `main` separatamente). Verificato da `git branch -a` e
-dalla history (`Merge branch '...' into develop`, poi `Merge pull request ...`
-verso `main`).
+**Guided tour (obligation 5)**: the app has neither CI nor a preview environment (no
+`.github/workflows` folder), so the local dev server is the only way to show the live
+UI.
+- Start it with `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` (Next.js,
+  default port `:3000`, overridable with `-p`) while `npm run emulators` runs in
+  another terminal — the same pair of commands as the automated guided test, so the
+  dev server sees the same data seeded by the script.
+- **How to get there already authenticated**: there is no way to "hand over" a
+  ready-made session to a human browser (no storageState shareable outside
+  Playwright, no magic link). The seed script creates the test user with a known
+  email/password (via the Firebase client SDK `createUserWithEmailAndPassword`
+  against the Auth emulator, or Admin SDK `getAuth().createUser(...)`); the guided
+  tour therefore consists of giving the URL `http://localhost:3000/login` and those
+  exact credentials, so the user does a real login (two clicks) and lands on the
+  seeded data.
+- **Roles**: the app has no per-role views (no `role`/`isAdmin` field in the data
+  model) — every authenticated user sees the same UI, isolated by `userId`. So there
+  is no "view the user can't open with their own account" to reach with a different
+  identity. In the emulators, however, the personal account exists only if the
+  guided test mirrored it (see above): in that case the guided tour uses it (same
+  email, local password chosen by the script); otherwise the test account created by
+  the seed. Any specific data state a guided test needs is always created by the
+  script, in the emulator, never on the production account.
 
-**Dove si annota l'esito di un collaudo**: sezione "Guided testing tooling" di
-CLAUDE.md, tabella "Collaudi eseguiti con questa tooling" — aggiungere una riga per
-ogni collaudo chiuso, come già previsto lì.
+**Branches**: `main` is the production/release branch, `develop` is the integration
+branch (session branches start from `develop` and merge back into it via PR;
+`develop` merges into `main` separately). Verified via `git branch -a` and the
+history (`Merge branch '...' into develop`, then `Merge pull request ...` into
+`main`).
+
+**Where a guided test's outcome is recorded**: the "Guided testing tooling" section
+of CLAUDE.md, list "Guided tests run with this tooling" — add one line for each
+closed guided test, as already provided there.

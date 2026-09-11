@@ -1,32 +1,32 @@
-# Spec F — Piano famiglia (pasto base + varianti per membro) + redesign pagina pianificatore
+# Spec F — Family plan (base meal + per-member variants) + planner page redesign
 
-> Note coperte: 3 (piano per famiglia + redesign UI pianificatore) | Dipendenze: **Spec A (obbligatoria** — `sortMealTypes`, `spuntino`/`merenda` in `SELECTABLE_MEAL_TYPES`**)**, Spec C (opzionale — macro nel planner, vedi §4.3.4) | Branch: `feature/family-meal-plan`
+> Notes covered: 3 (family plan + planner UI redesign) | Dependencies: **Spec A (mandatory** — `sortMealTypes`, `spuntino`/`merenda` in `SELECTABLE_MEAL_TYPES`**)**, Spec C (optional — macros in the planner, see §4.3.4) | Branch: `feature/family-meal-plan`
 
-Questa spec va letta insieme a `specs/00-roadmap.md` (contratti 1, 4 e 5 e decisioni di prodotto 5 e 6). In caso di conflitto vince il roadmap.
+This spec must be read together with `specs/00-roadmap.md` (contracts 1, 4 and 5 and product decisions 5 and 6). In case of conflict the roadmap wins.
 
-**Nota sui riferimenti file:linea**: verificati sul codice al 2026-08-12, **prima** dell'implementazione di Spec A. Dopo Spec A alcune righe di `meal-types.ts`, `useMealPlanner.ts` e `MealPlanSetupForm.tsx` slitteranno di poco; i simboli citati restano validi.
-
----
-
-## 1. Obiettivo
-
-Oggi il pianificatore non sa per quante persone si cucina: la lista della spesa copia le quantità così come sono scritte nella ricetta (qualunque sia il suo `servings`) e le kcal giornaliere contano una porzione per slot. Con questa spec:
-
-- ogni slot del piano dichiara **per quante persone** si prepara il pasto base (`servingsPlanned`, default = numero componenti del profilo famiglia, fallback 2);
-- uno slot può avere **varianti per membro**: "martedì cena tutti pasta al forno, ma Sofia mangia il minestrone" — la variante referenzia una ricetta esistente del ricettario e uno o più componenti della famiglia;
-- la **lista della spesa scala** ogni contributo col fattore `personeServite / (recipe.servings || 4)` via `scaleQuantity()`; le varianti generano contributi propri;
-- le **kcal del planner diventano per-persona**: valore del percorso base in evidenza, totali alternativi per i membri con varianti in tooltip/dettaglio;
-- la **pagina pianificatore viene ridisegnata**: setup progressivo invece del form monolitico, calendario con badge varianti e kcal/persona, struttura del piano integrata, empty state, rimozione del dead code dello step `generating`.
-
-**Invariante di retro-compatibilità (critico)**: `servingsPlanned == null` (tutti i piani esistenti) = comportamento legacy, **nessuno scaling**, quantità as-is. Le liste della spesa dei piani già creati non devono cambiare da sole.
+**Note on file:line references**: verified against the code as of 2026-08-12, **before** Spec A was implemented. After Spec A some lines of `meal-types.ts`, `useMealPlanner.ts` and `MealPlanSetupForm.tsx` will shift slightly; the symbols cited remain valid.
 
 ---
 
-## 2. Stato attuale
+## 1. Goal
 
-### 2.1 Modello dati
+Today the planner doesn't know how many people it is cooking for: the shopping list copies quantities exactly as written in the recipe (whatever its `servings`) and daily kcal count one serving per slot. With this spec:
 
-`MealSlot` (src/types/index.ts:403-413) non ha alcun concetto di persone/porzioni/famiglia:
+- every plan slot declares **for how many people** the base meal is prepared (`servingsPlanned`, default = number of members in the family profile, fallback 2);
+- a slot can have **per-member variants**: "Tuesday dinner everyone has baked pasta, but Sofia eats the minestrone" — the variant references an existing recipe from the cookbook and one or more family members;
+- the **shopping list scales** each contribution by the factor `personsServed / (recipe.servings || 4)` via `scaleQuantity()`; variants generate their own contributions;
+- **planner kcal become per-person**: the base-path value is highlighted, alternative totals for members with variants go in a tooltip/detail;
+- **the planner page is redesigned**: progressive setup instead of the monolithic form, calendar with variant badges and kcal/person, integrated plan structure, empty state, removal of the dead code of the `generating` step.
+
+**Backward-compatibility invariant (critical)**: `servingsPlanned == null` (all existing plans) = legacy behavior, **no scaling**, quantities as-is. The shopping lists of plans already created must not change on their own.
+
+---
+
+## 2. Current state
+
+### 2.1 Data model
+
+`MealSlot` (src/types/index.ts:403-413) has no concept of people/servings/family:
 
 ```ts
 export interface MealSlot {
@@ -42,13 +42,13 @@ export interface MealSlot {
 }
 ```
 
-L'identità dello slot è la coppia `(dayIndex, mealType)` (commento a src/types/index.ts:391); le chiavi stringa `${dayIndex}-${mealType}` sono usate in useMealPlanner.ts:317, pianificatore/page.tsx:243-245 e WeeklyCalendarGrid.tsx:151/:196. **Questa identità non si tocca.**
+A slot's identity is the pair `(dayIndex, mealType)` (comment at src/types/index.ts:391); the string keys `${dayIndex}-${mealType}` are used in useMealPlanner.ts:317, pianificatore/page.tsx:243-245 and WeeklyCalendarGrid.tsx:151/:196. **This identity is not to be touched.**
 
-`FamilyProfile`/`FamilyMember` (src/types/index.ts:43-52): `FamilyMember { id: string; age: number; label?: string | null }`, `FamilyProfile { members: FamilyMember[]; notes?: string | null }`, salvato su `users/{uid}.familyProfile`. `useFamilyProfile` (src/lib/hooks/useFamilyProfile.ts:24-81, query key `['familyProfile', uid]`, staleTime 5 min, `enabled: !!user`) è **oggi consumato solo dai flussi AI** (verificato: nessun hit di `familyProfile` in pianificatore, meal-planner components, useMealPlanner, meal-plan-shuffle, useShoppingList, ingredient-aggregator). Il fallback label "Componente N" esiste in `buildFamilyContextPrompt` (src/lib/utils/family-context.ts:55: `const label = member.label ?? \`Componente ${index + 1}\`;`).
+`FamilyProfile`/`FamilyMember` (src/types/index.ts:43-52): `FamilyMember { id: string; age: number; label?: string | null }`, `FamilyProfile { members: FamilyMember[]; notes?: string | null }`, saved on `users/{uid}.familyProfile`. `useFamilyProfile` (src/lib/hooks/useFamilyProfile.ts:24-81, query key `['familyProfile', uid]`, staleTime 5 min, `enabled: !!user`) is **currently consumed only by the AI flows** (verified: no hits for `familyProfile` in pianificatore, meal-planner components, useMealPlanner, meal-plan-shuffle, useShoppingList, ingredient-aggregator). The "Componente N" label fallback exists in `buildFamilyContextPrompt` (src/lib/utils/family-context.ts:55: `const label = member.label ?? \`Componente ${index + 1}\`;`).
 
-### 2.2 Lista della spesa
+### 2.2 Shopping list
 
-`buildContributions` (src/lib/utils/ingredient-aggregator.ts:19-54) itera **tutti** gli `plan.slots` (senza filtrare per `activeMealTypes` — invariante: mai slot orfani persistiti) e copia le quantità as-is:
+`buildContributions` (src/lib/utils/ingredient-aggregator.ts:19-54) iterates **all** `plan.slots` (without filtering by `activeMealTypes` — invariant: orphan slots are never persisted) and copies quantities as-is:
 
 ```ts
 for (const ing of ingredients) {
@@ -63,7 +63,7 @@ for (const ing of ingredients) {
 }
 ```
 
-`useShoppingList` (src/lib/hooks/useShoppingList.ts:107-118) fa il batch fetch delle sole ricette referenziate da `slot.existingRecipeId`:
+`useShoppingList` (src/lib/hooks/useShoppingList.ts:107-118) batch-fetches only the recipes referenced by `slot.existingRecipeId`:
 
 ```ts
 const existingIds = plan.slots
@@ -73,15 +73,15 @@ const existingIds = plan.slots
 const recipesById = await getRecipesByIds(existingIds, user!.uid);
 ```
 
-`scaleQuantity` (src/lib/utils/ingredient-scaler.ts:29-56) esiste già ed è usata solo in cottura e nei token `{{qty:id}}`: ritorna la stringa invariata quando `originalServings <= 0 || newServings <= 0 || originalServings === newServings` e per le quantità non scalabili (`q.b.`, `un pizzico`, `a piacere`, ingredient-scaler.ts:43-47).
+`scaleQuantity` (src/lib/utils/ingredient-scaler.ts:29-56) already exists and is used only in cooking mode and in the `{{qty:id}}` tokens: it returns the string unchanged when `originalServings <= 0 || newServings <= 0 || originalServings === newServings` and for non-scalable quantities (`q.b.`, `un pizzico`, `a piacere`, ingredient-scaler.ts:43-47).
 
-### 2.3 Calorie del planner
+### 2.3 Planner calories
 
-`computeDayCalories` (src/lib/utils/meal-plan-calories.ts:62-92) somma `caloriesPerServing` una volta per slot pieno ("Sum of kcal per serving across the day's resolvable slots", :19); `readSlotCalories` (:37-48) risolve `existingRecipeId → recipesById`, poi `newRecipe`. `computeWeekCalories` (:100-112) itera `plan.activeDays ?? [0..6]`. Il render è in `WeeklyCalendarGrid.renderDayCalories` (src/components/meal-planner/WeeklyCalendarGrid.tsx:72-88): nasconde i giorni con `total === 0`, prefissa `≥` sui parziali, tooltip via `title`.
+`computeDayCalories` (src/lib/utils/meal-plan-calories.ts:62-92) sums `caloriesPerServing` once per filled slot ("Sum of kcal per serving across the day's resolvable slots", :19); `readSlotCalories` (:37-48) resolves `existingRecipeId → recipesById`, then `newRecipe`. `computeWeekCalories` (:100-112) iterates `plan.activeDays ?? [0..6]`. Rendering is in `WeeklyCalendarGrid.renderDayCalories` (src/components/meal-planner/WeeklyCalendarGrid.tsx:72-88): it hides days with `total === 0`, prefixes `≥` on partial ones, tooltip via `title`.
 
-### 2.4 Mutazioni del piano
+### 2.4 Plan mutations
 
-In `useMealPlanner` (src/lib/hooks/useMealPlanner.ts): `updateSlot` (:262-286) e `reshuffleSlot` (:310-368) ricostruiscono lo slot **da zero** con il pattern filter+push, es. updateSlot:274-280:
+In `useMealPlanner` (src/lib/hooks/useMealPlanner.ts): `updateSlot` (:262-286) and `reshuffleSlot` (:310-368) rebuild the slot **from scratch** with the filter+push pattern, e.g. updateSlot:274-280:
 
 ```ts
 updatedSlots.push({
@@ -93,59 +93,59 @@ updatedSlots.push({
 });
 ```
 
-(qualsiasi campo extra dello slot precedente andrebbe perso — va cambiato, vedi §4.4). `clearSlot` (:291-302) rimuove lo slot intero. `copyPlanToWeek` (:192-213) copia `currentPlan.slots` verbatim (:204) — i nuovi campi slot viaggiano gratis. `removeMealType` (:473-495) cancella anche gli slot (commento :467-471). `addDay` (:407-417) non invalida la lista spesa (per design); tutte le altre mutazioni chiamano `invalidateShoppingList()` (:89-92, chiave parziale `['shoppingList', uid]`). Nota: la dep array di `reshuffleSlot` (:368) omette `invalidateShoppingList` (fragile, da sistemare).
+(any extra field of the previous slot would be lost — this must change, see §4.4). `clearSlot` (:291-302) removes the whole slot. `copyPlanToWeek` (:192-213) copies `currentPlan.slots` verbatim (:204) — new slot fields travel for free. `removeMealType` (:473-495) also deletes the slots (comment :467-471). `addDay` (:407-417) does not invalidate the shopping list (by design); all other mutations call `invalidateShoppingList()` (:89-92, partial key `['shoppingList', uid]`). Note: the dep array of `reshuffleSlot` (:368) omits `invalidateShoppingList` (fragile, to be fixed).
 
-`buildShuffledSlots` (src/lib/utils/meal-plan-shuffle.ts:39-69) crea gli slot a :58-64 con i soli 5 campi base; `ShuffleConfig` (:19-24) non ha nozione di persone.
+`buildShuffledSlots` (src/lib/utils/meal-plan-shuffle.ts:39-69) creates the slots at :58-64 with only the 5 base fields; `ShuffleConfig` (:19-24) has no notion of people.
 
-### 2.5 Pagina pianificatore
+### 2.5 Planner page
 
-`pianificatore/page.tsx`: titolo → `PlannerHeader` (:378-389) → step `setup` (:392-453: card "Piani già salvati", info box "Come usare il pianificatore", `MealPlanSetupForm` monolitico in colonna `max-w-lg`) → step `generating` **morto** (:456-464: `EditorialLoader`; nulla setta mai `step='generating'` — `PlannerStep` è dichiarato in useMealPlanner.ts:38, `isGenerating` serve solo a disabilitare i bottoni) → step `calendar` (:467-526: `PlanStructureCard` + `WeeklyCalendarGrid` + "Ricette da rivedere"). Overlay: `RecipePickerSheet` (:529-541), Dialog copia piano (:543-589), `ConfirmDialog` elimina piano (:591-599).
+`pianificatore/page.tsx`: title → `PlannerHeader` (:378-389) → `setup` step (:392-453: "Piani già salvati" card, "Come usare il pianificatore" info box, monolithic `MealPlanSetupForm` in a `max-w-lg` column) → **dead** `generating` step (:456-464: `EditorialLoader`; nothing ever sets `step='generating'` — `PlannerStep` is declared in useMealPlanner.ts:38, `isGenerating` is only used to disable buttons) → `calendar` step (:467-526: `PlanStructureCard` + `WeeklyCalendarGrid` + "Ricette da rivedere"). Overlays: `RecipePickerSheet` (:529-541), copy-plan Dialog (:543-589), delete-plan `ConfirmDialog` (:591-599).
 
-`MealPlanSetupForm` (src/components/meal-planner/MealPlanSetupForm.tsx:31-327): stagione, chip giorni, checkbox portate (default `['pranzo','cena']`, :39), config per-portata "Categorie per portata" visibili **solo al setup** (:197-295), due CTA (:306-324). `RecipePickerSheet` (src/components/meal-planner/RecipePickerSheet.tsx:48-233): bottom sheet `h-[85vh]` con ricerca/filtro stagione/filtro categoria, un tap = selezione+chiusura (:89-92), azione "Rimuovi ricetta da questo slot" (:220-229, senza conferma). `MealSlotCell` (src/components/meal-planner/MealSlotCell.tsx:49-203): stati vuoto/ricettario/AI-new/regenerating; il bottone rimescola usa il pattern `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100` (:111).
+`MealPlanSetupForm` (src/components/meal-planner/MealPlanSetupForm.tsx:31-327): season, day chips, meal checkboxes (default `['pranzo','cena']`, :39), per-meal config "Categorie per portata" visible **only at setup** (:197-295), two CTAs (:306-324). `RecipePickerSheet` (src/components/meal-planner/RecipePickerSheet.tsx:48-233): `h-[85vh]` bottom sheet with search/season filter/category filter, one tap = select+close (:89-92), "Rimuovi ricetta da questo slot" action (:220-229, no confirmation). `MealSlotCell` (src/components/meal-planner/MealSlotCell.tsx:49-203): empty/cookbook/AI-new/regenerating states; the reshuffle button uses the pattern `opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100` (:111).
 
-Griglia (`WeeklyCalendarGrid.tsx`): desktop/landscape `hidden lg:block max-lg:portrait:hidden max-lg:landscape:block overflow-x-auto` (:117) con `gridTemplateColumns: \`88px repeat(${activeDays.length}, minmax(150px, 1fr))\`` (:121, :139); mobile portrait card giorno impilate (:172-218).
-
----
-
-## 3. Decisioni di prodotto (vincolanti, dal roadmap)
-
-1. **Pasto base + varianti** (decisione 5): ogni slot ha una ricetta default per tutta la famiglia; dove serve si aggiunge una variante per uno o più membri specifici. **Niente griglia completa per membro.**
-2. **Contratto 5**: identità slot `(dayIndex, mealType)` intatta; `MealSlot` guadagna `servingsPlanned?: number | null` e `variants?: MealSlotVariant[] | null` con `MealSlotVariant = { id: string; memberIds: string[]; existingRecipeId: string | null; recipeTitle: string | null }`; il pasto base copre i membri non coperti da varianti.
-3. **Scaling lista spesa** (decisione 6): fattore per contributo = `personeServite / (recipe.servings || 4)` applicato con `scaleQuantity()`; slot legacy (`servingsPlanned == null`) → fattore 1.
-4. **Kcal per-persona** (decisione 6): i totali giornalieri del planner diventano per-persona; macro incluse se Spec C è già implementata.
-5. **Varianti solo da ricette esistenti** (niente `newRecipe` nelle varianti). Motivazione: `newRecipe` inline è un residuo del vecchio generatore AI (lo shuffle non genera mai `newRecipe`, AGENTS.md §9 "Backward-compat"); ammetterlo nelle varianti significherebbe duplicare l'intero flusso review/salvataggio (`NewRecipeReviewCard`), aggiungere un terzo percorso di risoluzione in aggregatore e calorie, e far crescere il documento `meal_plans` di una ricetta completa per variante. Il caso d'uso reale ("il bambino mangia una cosa più semplice") è coperto dal ricettario; se la ricetta non esiste ancora, la si crea prima (manuale o AI) e poi la si seleziona.
-6. **Nessuna migrazione batch**: dual-read lazy come `categoryIds` — i campi nuovi sono opzionali, i documenti esistenti non vengono toccati finché l'utente non edita uno slot.
-7. **Ordine canonico portate** da Spec A: usare `sortMealTypes()` ovunque si scriva/renda `activeMealTypes`.
+Grid (`WeeklyCalendarGrid.tsx`): desktop/landscape `hidden lg:block max-lg:portrait:hidden max-lg:landscape:block overflow-x-auto` (:117) with `gridTemplateColumns: \`88px repeat(${activeDays.length}, minmax(150px, 1fr))\`` (:121, :139); mobile portrait stacked day cards (:172-218).
 
 ---
 
-## 4. Design proposto
+## 3. Product decisions (binding, from the roadmap)
 
-### 4.1 Modello dati
+1. **Base meal + variants** (decision 5): every slot has a default recipe for the whole family; where needed a variant is added for one or more specific members. **No full per-member grid.**
+2. **Contract 5**: slot identity `(dayIndex, mealType)` intact; `MealSlot` gains `servingsPlanned?: number | null` and `variants?: MealSlotVariant[] | null` with `MealSlotVariant = { id: string; memberIds: string[]; existingRecipeId: string | null; recipeTitle: string | null }`; the base meal covers the members not covered by variants.
+3. **Shopping list scaling** (decision 6): per-contribution factor = `personsServed / (recipe.servings || 4)` applied with `scaleQuantity()`; legacy slot (`servingsPlanned == null`) → factor 1.
+4. **Per-person kcal** (decision 6): the planner's daily totals become per-person; macros included if Spec C is already implemented.
+5. **Variants only from existing recipes** (no `newRecipe` in variants). Rationale: inline `newRecipe` is a leftover of the old AI generator (the shuffle never generates `newRecipe`, AGENTS.md §9 "Backward-compat"); allowing it in variants would mean duplicating the whole review/save flow (`NewRecipeReviewCard`), adding a third resolution path in the aggregator and calories, and growing the `meal_plans` document by a full recipe per variant. The real use case ("the child eats something simpler") is covered by the cookbook; if the recipe doesn't exist yet, it is created first (manually or with AI) and then selected.
+6. **No batch migration**: lazy dual-read like `categoryIds` — the new fields are optional, existing documents are not touched until the user edits a slot.
+7. **Canonical meal order** from Spec A: use `sortMealTypes()` wherever `activeMealTypes` is written/rendered.
 
-**Prima** (src/types/index.ts:403-413): vedi §2.1.
+---
 
-**Dopo** (stesso file, aggiungere `MealSlotVariant` sopra `MealSlot`):
+## 4. Proposed design
+
+### 4.1 Data model
+
+**Before** (src/types/index.ts:403-413): see §2.1.
+
+**After** (same file, add `MealSlotVariant` above `MealSlot`):
 
 ```ts
 /**
- * Variante per-membro di uno slot: uno o più componenti della famiglia mangiano
- * una ricetta diversa dal pasto base.
+ * Per-member variant of a slot: one or more family members eat
+ * a recipe different from the base meal.
  *
- * SOLO RICETTE ESISTENTI: niente `newRecipe` inline — le varianti referenziano il
- * ricettario. Vedi Spec F §3 (decisione 5) per la motivazione (evita di duplicare
- * il flusso di review AI e di gonfiare il documento meal_plans).
+ * EXISTING RECIPES ONLY: no inline `newRecipe` — variants reference the
+ * cookbook. See Spec F §3 (decision 5) for the rationale (avoids duplicating
+ * the AI review flow and bloating the meal_plans document).
  *
- * memberIds referenzia FamilyMember.id del profilo famiglia. Un membro rimosso dal
- * profilo lascia una "variante orfana": lo scaling continua a contare
- * memberIds.length (le persone pianificate), la UI marca il chip come
- * "Componente rimosso" (vedi §4.5.5).
+ * memberIds references FamilyMember.id from the family profile. A member removed from
+ * the profile leaves an "orphan variant": scaling keeps counting
+ * memberIds.length (the planned people), the UI marks the chip as
+ * "Componente rimosso" (see §4.5.5).
  */
 export interface MealSlotVariant {
   id: string;                       // crypto.randomUUID()
-  memberIds: string[];              // sempre >= 1 elemento (guardia client-side)
-  existingRecipeId: string | null;  // ricetta del ricettario; null solo per dati corrotti (skip difensivo)
-  recipeTitle: string | null;       // denormalizzato per il render O(1), come MealSlot.recipeTitle
+  memberIds: string[];              // always >= 1 element (client-side guard)
+  existingRecipeId: string | null;  // cookbook recipe; null only for corrupt data (defensive skip)
+  recipeTitle: string | null;       // denormalized for O(1) render, like MealSlot.recipeTitle
 }
 
 export interface MealSlot {
@@ -157,57 +157,57 @@ export interface MealSlot {
   suggestedCategoryName?: string;
   suggestedSeasons?: Season[];
   /**
-   * Persone per cui si cucina il pasto base (varianti escluse: il base copre
-   * servingsPlanned − Σ variants[].memberIds.length persone, clampato a 0).
+   * People the base meal is cooked for (variants excluded: the base covers
+   * servingsPlanned − Σ variants[].memberIds.length people, clamped to 0).
    *
-   * INVARIANTE LEGACY (non negoziabile): null/undefined = piano creato prima di
-   * questa feature O slot mai riconfigurato → NESSUNO scaling, quantità as-is.
-   * Le liste della spesa esistenti non devono cambiare da sole. Il valore viene
-   * scritto solo da: shuffle (default famiglia), editor slot, updateSlot su slot nuovo.
+   * LEGACY INVARIANT (non-negotiable): null/undefined = plan created before
+   * this feature OR slot never reconfigured → NO scaling, quantities as-is.
+   * Existing shopping lists must not change on their own. The value is
+   * written only by: shuffle (family default), slot editor, updateSlot on a new slot.
    */
   servingsPlanned?: number | null;
-  /** Varianti per membro; null/undefined/[] = nessuna. Persistere null, mai undefined. */
+  /** Per-member variants; null/undefined/[] = none. Persist null, never undefined. */
   variants?: MealSlotVariant[] | null;
 }
 ```
 
-Regole Firestore: `servingsPlanned` e `variants` si scrivono come `null` o si omettono, **mai `undefined`** (CLAUDE.md "Never persist undefined"). Le scritture passano tutte da `updateMealPlanSlots`/`updateMealPlan` (src/lib/firebase/meal-plans.ts:146-168), che riscrivono l'array slots intero: basta che gli oggetti slot costruiti client-side non contengano chiavi `undefined` (usare spread condizionale o valori `null` espliciti).
+Firestore rules: `servingsPlanned` and `variants` are written as `null` or omitted, **never `undefined`** (CLAUDE.md "Never persist undefined"). All writes go through `updateMealPlanSlots`/`updateMealPlan` (src/lib/firebase/meal-plans.ts:146-168), which rewrite the whole slots array: it is enough that the slot objects built client-side contain no `undefined` keys (use conditional spread or explicit `null` values).
 
-**Dimensione documento**: una variante pesa ~120 byte serializzata (id UUID + 1-2 memberIds + recipeId + titolo). Caso limite 7 giorni × 5 portate × 3 varianti ≈ 105 varianti ≈ 13 KB extra su un documento che oggi pesa pochi KB — irrilevante rispetto al limite Firestore di 1 MiB. Le varianti inline evitano una collection nuova (regole, indice, N read per piano), coerente con la scelta già fatta per `shoppingCustomItems` sul piano e `adHocShoppingRecipes` su `users/{uid}`.
+**Document size**: a variant weighs ~120 bytes serialized (UUID id + 1-2 memberIds + recipeId + title). Worst case 7 days × 5 meals × 3 variants ≈ 105 variants ≈ 13 KB extra on a document that today weighs a few KB — irrelevant compared to Firestore's 1 MiB limit. Inline variants avoid a new collection (rules, index, N reads per plan), consistent with the choice already made for `shoppingCustomItems` on the plan and `adHocShoppingRecipes` on `users/{uid}`.
 
-**Default persone**: `defaultServingsPlanned = normalizeFamilyProfile(familyProfile)?.members.length ?? 2` (usare `normalizeFamilyProfile` di src/lib/utils/family-context.ts:12-39 per scartare membri invalidi, come fanno i flussi AI). Calcolato in `useMealPlanner` componendo `useFamilyProfile()` (staleTime 5 min: un profilo appena modificato può impiegare fino a 5 minuti a riflettersi nel default — accettabile, il valore è comunque editabile per slot).
+**Default people**: `defaultServingsPlanned = normalizeFamilyProfile(familyProfile)?.members.length ?? 2` (use `normalizeFamilyProfile` from src/lib/utils/family-context.ts:12-39 to discard invalid members, as the AI flows do). Computed in `useMealPlanner` by composing `useFamilyProfile()` (staleTime 5 min: a just-edited profile may take up to 5 minutes to be reflected in the default — acceptable, the value is editable per slot anyway).
 
-### 4.2 Scaling lista della spesa (`ingredient-aggregator.ts`)
+### 4.2 Shopping list scaling (`ingredient-aggregator.ts`)
 
-`buildContributions(plan, recipesById)` mantiene la firma. Nuova logica per slot (pseudocodice TS aderente):
+`buildContributions(plan, recipesById)` keeps its signature. New per-slot logic (faithful TS pseudocode):
 
 ```ts
-const DEFAULT_RECIPE_SERVINGS = 4; // stesso fallback di cooking mode (recipe.servings || 4)
+const DEFAULT_RECIPE_SERVINGS = 4; // same fallback as cooking mode (recipe.servings || 4)
 
 for (const slot of plan.slots) {
   const variants = (slot.variants ?? []).filter(v => v.existingRecipeId && v.memberIds.length > 0);
   const variantPersons = variants.reduce((sum, v) => sum + v.memberIds.length, 0);
 
-  // ── Contributi del pasto base ──
-  // null → LEGACY: fattore 1, quantità as-is (invariante §1).
+  // ── Base meal contributions ──
+  // null → LEGACY: factor 1, quantities as-is (invariant §1).
   const basePersons = slot.servingsPlanned == null
     ? null
     : Math.max(0, slot.servingsPlanned - variantPersons);
 
-  if (/* slot ha ricetta base risolvibile (existingRecipeId in recipesById, o newRecipe) */) {
+  if (/* slot has a resolvable base recipe (existingRecipeId in recipesById, or newRecipe) */) {
     if (basePersons === null) {
-      // push quantità invariate — identico al codice attuale (:41-50)
+      // push unchanged quantities — identical to the current code (:41-50)
     } else if (basePersons > 0) {
-      const baseServings = recipe.servings || DEFAULT_RECIPE_SERVINGS; // vale sia per Recipe che per ParsedRecipe
-      // push con quantity: scaleQuantity(ing.quantity, baseServings, basePersons)
+      const baseServings = recipe.servings || DEFAULT_RECIPE_SERVINGS; // applies to both Recipe and ParsedRecipe
+      // push with quantity: scaleQuantity(ing.quantity, baseServings, basePersons)
     }
-    // basePersons === 0 → il base non entra in lista (le varianti coprono tutti)
+    // basePersons === 0 → the base doesn't enter the list (variants cover everyone)
   }
 
-  // ── Contributi delle varianti (sempre, anche se servingsPlanned è null — caso difensivo) ──
+  // ── Variant contributions (always, even if servingsPlanned is null — defensive case) ──
   for (const v of variants) {
     const vRecipe = recipesById.get(v.existingRecipeId!);
-    if (!vRecipe) continue; // ricetta cancellata: skip, come per gli slot base (:31)
+    if (!vRecipe) continue; // deleted recipe: skip, as for base slots (:31)
     const persons = v.memberIds.length;
     for (const ing of vRecipe.ingredients) {
       contributions.push({
@@ -223,14 +223,14 @@ for (const slot of plan.slots) {
 }
 ```
 
-Note:
-- `scaleQuantity` importata da `@/lib/utils/ingredient-scaler` — le stringhe non scalabili (`q.b.`, `a piacere`, range, frazioni) sono già gestite lì: passano invariate o scalano correttamente; **non** reimplementare il parsing.
-- `scaleQuantity(q, base, base)` ritorna la stringa invariata (ingredient-scaler.ts:35): uno slot con `servingsPlanned === recipe.servings` produce quantità identiche al legacy — nessuna riformattazione spuria.
-- L'interfaccia `IngredientContribution` (:3-10) **non cambia**: la quantità arriva già scalata all'aggregazione, e `aggregateIngredients`/`mergeQuantities` restano intatte.
-- Lo stato `servingsPlanned != null && variants presenti su slot senza base` non è raggiungibile da UI (l'editor richiede la ricetta base, §4.5); il codice lo tollera comunque (varianti contribuiscono, base no).
-- Gli id degli item (`toSlug(canonicalIngredientKey(name))`, :127) non dipendono dalle quantità → lo stato spuntato (`shoppingCheckedIds`) sopravvive allo scaling.
+Notes:
+- `scaleQuantity` imported from `@/lib/utils/ingredient-scaler` — non-scalable strings (`q.b.`, `a piacere`, ranges, fractions) are already handled there: they pass through unchanged or scale correctly; do **not** reimplement the parsing.
+- `scaleQuantity(q, base, base)` returns the string unchanged (ingredient-scaler.ts:35): a slot with `servingsPlanned === recipe.servings` produces quantities identical to legacy — no spurious reformatting.
+- The `IngredientContribution` interface (:3-10) **does not change**: the quantity reaches aggregation already scaled, and `aggregateIngredients`/`mergeQuantities` stay intact.
+- The state `servingsPlanned != null && variants present on a slot without a base` is not reachable from the UI (the editor requires the base recipe, §4.5); the code tolerates it anyway (variants contribute, base doesn't).
+- Item ids (`toSlug(canonicalIngredientKey(name))`, :127) don't depend on quantities → the checked state (`shoppingCheckedIds`) survives scaling.
 
-**`useShoppingList` — batch fetch**: estendere la raccolta id (src/lib/hooks/useShoppingList.ts:111-113) alle ricette delle varianti:
+**`useShoppingList` — batch fetch**: extend the id collection (src/lib/hooks/useShoppingList.ts:111-113) to the variants' recipes:
 
 ```ts
 const existingIds = plan.slots.flatMap(s => [
@@ -239,54 +239,54 @@ const existingIds = plan.slots.flatMap(s => [
 ]);
 ```
 
-(`getRecipesByIds` deduplica già gli id in ingresso — `const uniqueIds = [...new Set(recipeIds)]`, src/lib/firebase/firestore.ts:147 — quindi i duplicati base/variante non costano read extra e non serve dedupe lato chiamante.)
+(`getRecipesByIds` already deduplicates incoming ids — `const uniqueIds = [...new Set(recipeIds)]`, src/lib/firebase/firestore.ts:147 — so base/variant duplicates cost no extra reads and no caller-side dedupe is needed.)
 
-### 4.3 Kcal per-persona (`meal-plan-calories.ts`)
+### 4.3 Per-person kcal (`meal-plan-calories.ts`)
 
-> **Coordinamento con Spec C** (come per la nota sui riferimenti file:linea in testa alla spec): se Spec C è già implementata, `meal-plan-calories.ts` non espone più `DayCalories`/`computeDayCalories`/`computeWeekCalories` ma `DayNutrition` (con `calories: NutrientTotal` e blocco `macros`), `computeDayNutrition`/`computeWeekNutrition`, e il render in `WeeklyCalendarGrid` si chiama `renderDayNutrition` (Spec C §4.f). In quel caso le modifiche di questa sezione si applicano a **quei** nomi e a quella forma — `memberDeltas` si aggiunge al modello del giorno, la risoluzione base/variante vale per kcal e (via §4.3.4) per i macro — senza ripristinare i vecchi nomi. I riferimenti a `DayCalories`/`computeDayCalories` qui sotto descrivono il caso in cui Spec C non sia ancora implementata.
+> **Coordination with Spec C** (as with the note on file:line references at the top of the spec): if Spec C is already implemented, `meal-plan-calories.ts` no longer exposes `DayCalories`/`computeDayCalories`/`computeWeekCalories` but `DayNutrition` (with `calories: NutrientTotal` and a `macros` block), `computeDayNutrition`/`computeWeekNutrition`, and the render in `WeeklyCalendarGrid` is called `renderDayNutrition` (Spec C §4.f). In that case the changes in this section apply to **those** names and that shape — `memberDeltas` is added to the day model, the base/variant resolution applies to kcal and (via §4.3.4) to macros — without restoring the old names. The references to `DayCalories`/`computeDayCalories` below describe the case where Spec C is not yet implemented.
 
-#### 4.3.1 Semantica
+#### 4.3.1 Semantics
 
-- **Percorso base (in evidenza)**: kcal per **una persona** che mangia il pasto base di ogni slot pieno del giorno = somma di `caloriesPerServing` delle ricette base. È **lo stesso numero di oggi** — cambia solo l'etichetta (da totale-giorno implicito a "kcal/pers."). I piani legacy mostrano quindi lo stesso valore di prima.
-- **Totali per membro**: per ogni membro del profilo famiglia coperto da **almeno una variante** in quel giorno, il suo totale = per ogni slot pieno, `caloriesPerServing` della variante che lo copre se esiste, altrimenti della base. I membri senza varianti nel giorno coincidono col percorso base e non compaiono nell'elenco.
-- `servingsPlanned` **non** entra nelle kcal (sono per-persona, non totali del pentolone).
-- Parzialità: si mantiene la convenzione `isPartial`/`≥` (meal-plan-calories.ts:11-15), calcolata per traccia (base e per-membro separatamente).
+- **Base path (highlighted)**: kcal for **one person** eating the base meal of every filled slot of the day = sum of the base recipes' `caloriesPerServing`. It is **the same number as today** — only the label changes (from implicit day total to "kcal/pers."). Legacy plans therefore show the same value as before.
+- **Per-member totals**: for each family profile member covered by **at least one variant** on that day, their total = for every filled slot, the `caloriesPerServing` of the variant covering them if it exists, otherwise of the base. Members without variants on that day coincide with the base path and don't appear in the list.
+- `servingsPlanned` does **not** enter kcal (they are per-person, not totals for the whole pot).
+- Partiality: the `isPartial`/`≥` convention is kept (meal-plan-calories.ts:11-15), computed per track (base and per-member separately).
 
-#### 4.3.2 Tipi
+#### 4.3.2 Types
 
-**Prima** (`DayCalories`, meal-plan-calories.ts:18-27): `{ total, countedSlots, uncountedSlots, isPartial }`.
+**Before** (`DayCalories`, meal-plan-calories.ts:18-27): `{ total, countedSlots, uncountedSlots, isPartial }`.
 
-**Dopo**:
+**After**:
 
 ```ts
 export interface MemberDayCalories {
   memberId: string;
-  label: string;        // FamilyMember.label ?? `Componente ${index+1}` (stesso fallback di family-context.ts:55)
+  label: string;        // FamilyMember.label ?? `Componente ${index+1}` (same fallback as family-context.ts:55)
   total: number;
   isPartial: boolean;
 }
 
 export interface DayCalories {
-  /** kcal per UNA persona sul percorso base. Uguale al vecchio `total` sui piani senza varianti. */
+  /** kcal for ONE person on the base path. Equal to the old `total` on plans without variants. */
   total: number;
   countedSlots: number;
   uncountedSlots: number;
   isPartial: boolean;
-  /** Totali alternativi dei soli membri coperti da varianti nel giorno; [] altrimenti. */
+  /** Alternative totals for only the members covered by variants on the day; [] otherwise. */
   memberDeltas: MemberDayCalories[];
 }
 ```
 
-#### 4.3.3 Firme
+#### 4.3.3 Signatures
 
 ```ts
-export interface PlannerMember { id: string; label: string; } // già risolto col fallback "Componente N"
+export interface PlannerMember { id: string; label: string; } // already resolved with the "Componente N" fallback
 
 export function computeDayCalories(
   plan: MealPlan,
   dayIndex: number,
   recipesById: Map<string, Recipe>,
-  members: PlannerMember[] = []      // [] = nessun profilo → memberDeltas sempre []
+  members: PlannerMember[] = []      // [] = no profile → memberDeltas always []
 ): DayCalories;
 
 export function computeWeekCalories(
@@ -296,269 +296,269 @@ export function computeWeekCalories(
 ): Map<number, DayCalories>;
 ```
 
-Algoritmo `memberDeltas`: raccogliere i `memberId` presenti nelle varianti degli slot pieni del giorno **e** presenti in `members` (i membri orfani non compaiono — la loro etichetta non è più ricostruibile). Per ciascuno, iterare gli slot pieni del giorno: kcal = `readVariantCalories(variante che lo copre)` se esiste, altrimenti `readSlotCalories(slot)` (funzione esistente :37-48, invariata); `null` → `isPartial` per quel membro. `readVariantCalories(v)` = `recipesById.get(v.existingRecipeId)?.caloriesPerServing ?? null`.
+`memberDeltas` algorithm: collect the `memberId`s present in the variants of the day's filled slots **and** present in `members` (orphan members don't appear — their label can no longer be reconstructed). For each, iterate the day's filled slots: kcal = `readVariantCalories(variant covering them)` if it exists, otherwise `readSlotCalories(slot)` (existing function :37-48, unchanged); `null` → `isPartial` for that member. `readVariantCalories(v)` = `recipesById.get(v.existingRecipeId)?.caloriesPerServing ?? null`.
 
-Chi risolve `members`: la pagina pianificatore, con `useFamilyProfile()` + `normalizeFamilyProfile` + fallback label, passandoli a `WeeklyCalendarGrid` come prop `members: PlannerMember[]`. `WeeklyCalendarGrid` aggiorna la memo (:56-59) in `computeWeekCalories(plan, recipesById, members)`.
+Who resolves `members`: the planner page, with `useFamilyProfile()` + `normalizeFamilyProfile` + label fallback, passing them to `WeeklyCalendarGrid` as the `members: PlannerMember[]` prop. `WeeklyCalendarGrid` updates the memo (:56-59) to `computeWeekCalories(plan, recipesById, members)`.
 
-#### 4.3.4 Macro (punto di estensione Spec C)
+#### 4.3.4 Macros (Spec C extension point)
 
-Se al momento dell'implementazione `Recipe.macrosPerServing` esiste (Spec C spuntata nella checklist del roadmap), aggiungere a `DayCalories` e `MemberDayCalories` i campi opzionali `macros?: { proteinGrams: number; carbsGrams: number; fatGrams: number } | null` (somma con la stessa risoluzione base/variante; `null` se anche una sola ricetta contata ne è priva — niente somme parziali silenziose) e mostrarli nel dettaglio kcal del giorno (§4.6.3). Se Spec C non è ancora implementata: **non** aggiungere i campi; lasciare un commento `// ESTENSIONE SPEC C: macros per-persona — vedi specs/spec-f §4.3.4` nel punto esatto (dopo il calcolo di `total` in `computeDayCalories`).
+If at implementation time `Recipe.macrosPerServing` exists (Spec C checked off in the roadmap checklist), add to `DayCalories` and `MemberDayCalories` the optional fields `macros?: { proteinGrams: number; carbsGrams: number; fatGrams: number } | null` (summed with the same base/variant resolution; `null` if even a single counted recipe lacks them — no silent partial sums) and show them in the day's kcal detail (§4.6.3). If Spec C is not yet implemented: do **not** add the fields; leave a comment `// SPEC C EXTENSION: per-person macros — see specs/spec-f §4.3.4` at the exact spot (after the `total` computation in `computeDayCalories`).
 
 #### 4.3.5 Display
 
-- Badge giorno: `≈1250 kcal/pers.` (prefisso `≥` se parziale, invariato; `total === 0` → niente badge, invariato, WeeklyCalendarGrid.tsx:74).
-- Con `memberDeltas.length > 0`: il badge guadagna un indicatore (icona `Users` di lucide, `h-3 w-3`) e:
-  - **desktop (`lg`)**: `title` esteso, es. `Base ≈1250 kcal/pers. · Sofia ≈1100 · Marco ≈1450` (pattern tooltip già in uso, :79-83);
-  - **mobile portrait**: il badge diventa un `<button>` (`aria-expanded`) che espande una riga di dettaglio nella card del giorno: `Sofia ≈1.100 kcal · Marco ≈1.450 kcal` — render condizionale semplice, niente hover-only (gotcha touch). Nessuna nuova dipendenza (no popover Radix).
+- Day badge: `≈1250 kcal/pers.` (`≥` prefix if partial, unchanged; `total === 0` → no badge, unchanged, WeeklyCalendarGrid.tsx:74).
+- With `memberDeltas.length > 0`: the badge gains an indicator (lucide `Users` icon, `h-3 w-3`) and:
+  - **desktop (`lg`)**: extended `title`, e.g. `Base ≈1250 kcal/pers. · Sofia ≈1100 · Marco ≈1450` (tooltip pattern already in use, :79-83);
+  - **mobile portrait**: the badge becomes a `<button>` (`aria-expanded`) that expands a detail row in the day card: `Sofia ≈1.100 kcal · Marco ≈1.450 kcal` — simple conditional render, no hover-only (touch gotcha). No new dependency (no Radix popover).
 
-### 4.4 Mutazioni `useMealPlanner`
+### 4.4 `useMealPlanner` mutations
 
-Tutte le mutazioni continuano il pattern optimistic-write (`setCurrentPlan` → `updateMealPlanSlots`/`updateMealPlan`) e **tutte** (tranne `addDay`, invariato per design) chiamano `invalidateShoppingList()` (:89-92).
+All mutations keep the optimistic-write pattern (`setCurrentPlan` → `updateMealPlanSlots`/`updateMealPlan`) and **all** of them (except `addDay`, unchanged by design) call `invalidateShoppingList()` (:89-92).
 
-| Funzione | Cambiamento |
+| Function | Change |
 |---|---|
-| `updateSlot(dayIndex, mealType, recipeId, title)` | Il push (:274-280) **preserva** `servingsPlanned` e `variants` dello slot precedente (cambiare piatto base non cambia chi mangia cosa). Se lo slot non esisteva (cella vuota): `servingsPlanned: defaultServingsPlanned`, `variants: null`. |
-| `clearSlot` | Invariato: rimuove lo slot intero, varianti comprese (svuotare il pasto = nessuno mangia lì). |
-| `reshuffleSlot` | Lo slot sostitutivo (:349-355) **preserva** `servingsPlanned` e `variants` e cambia solo `existingRecipeId`/`recipeTitle`. Motivazione: il re-roll risponde a "proponimi un piatto base diverso"; chi mangia e chi devia è ortogonale, e azzerare le varianti per un tap accidentale sul ↺ distruggerebbe configurazione manuale accurata. Già che si tocca la funzione: aggiungere `invalidateShoppingList` alla dep array (:368, oggi omessa). |
-| `setSlotServings(dayIndex, mealType, servingsPlanned: number)` | **Nuova.** Clamp `1..20`. Aggiorna il campo sullo slot esistente (no-op con toast d'errore se lo slot è vuoto — non raggiungibile da UI). Scrive con `updateMealPlanSlots` + invalidazione. |
-| `setSlotVariants(dayIndex, mealType, variants: MealSlotVariant[])` | **Nuova.** Filtra varianti con `memberIds` vuoto; array vuoto → persiste `variants: null`. Se lo slot ha `servingsPlanned == null`, lo imposta a `defaultServingsPlanned` nella stessa scrittura (una variante implica il modello famiglia: evita lo stato difensivo "varianti su slot legacy"). Scrive + invalida. |
-| `copyPlanToWeek` | **Nessuna modifica di codice** (:204 copia `currentPlan.slots` verbatim → `servingsPlanned`+`variants` viaggiano); aggiungere test esplicito. |
-| `addMealType` / `removeMealType` / `addDay` / `removeDay` | Invariati nella logica (Spec A vi introduce `sortMealTypes`). `removeMealType`/`removeDay` cancellano gli slot interi → niente varianti orfane (invariante buildContributions, :467-471). `addMealType` con autofill passa `defaultServingsPlanned` allo shuffle (sotto). |
-| `generateShuffledPlan` | Passa `defaultServingsPlanned` a `buildShuffledSlots`. |
-| Hook return | Espone in più: `setSlotServings`, `setSlotVariants`, `defaultServingsPlanned: number`. |
+| `updateSlot(dayIndex, mealType, recipeId, title)` | The push (:274-280) **preserves** the previous slot's `servingsPlanned` and `variants` (changing the base dish doesn't change who eats what). If the slot didn't exist (empty cell): `servingsPlanned: defaultServingsPlanned`, `variants: null`. |
+| `clearSlot` | Unchanged: removes the whole slot, variants included (emptying the meal = nobody eats there). |
+| `reshuffleSlot` | The replacement slot (:349-355) **preserves** `servingsPlanned` and `variants` and changes only `existingRecipeId`/`recipeTitle`. Rationale: the re-roll answers "suggest a different base dish"; who eats and who deviates is orthogonal, and wiping variants on an accidental tap of ↺ would destroy careful manual configuration. While touching the function: add `invalidateShoppingList` to the dep array (:368, currently omitted). |
+| `setSlotServings(dayIndex, mealType, servingsPlanned: number)` | **New.** Clamp `1..20`. Updates the field on the existing slot (no-op with an error toast if the slot is empty — not reachable from the UI). Writes with `updateMealPlanSlots` + invalidation. |
+| `setSlotVariants(dayIndex, mealType, variants: MealSlotVariant[])` | **New.** Filters out variants with empty `memberIds`; empty array → persists `variants: null`. If the slot has `servingsPlanned == null`, sets it to `defaultServingsPlanned` in the same write (a variant implies the family model: avoids the defensive state "variants on a legacy slot"). Writes + invalidates. |
+| `copyPlanToWeek` | **No code change** (:204 copies `currentPlan.slots` verbatim → `servingsPlanned`+`variants` travel along); add an explicit test. |
+| `addMealType` / `removeMealType` / `addDay` / `removeDay` | Logic unchanged (Spec A introduces `sortMealTypes` there). `removeMealType`/`removeDay` delete whole slots → no orphan variants (buildContributions invariant, :467-471). `addMealType` with autofill passes `defaultServingsPlanned` to the shuffle (below). |
+| `generateShuffledPlan` | Passes `defaultServingsPlanned` to `buildShuffledSlots`. |
+| Hook return | Additionally exposes: `setSlotServings`, `setSlotVariants`, `defaultServingsPlanned: number`. |
 
-**`buildShuffledSlots`** (meal-plan-shuffle.ts): `ShuffleConfig` guadagna `defaultServingsPlanned?: number | null`; il push dello slot (:58-64) aggiunge `servingsPlanned: config.defaultServingsPlanned ?? null, variants: null`. La funzione resta pura e testabile; i chiamanti che non passano il campo (test esistenti) producono slot legacy — nessun test esistente si rompe.
+**`buildShuffledSlots`** (meal-plan-shuffle.ts): `ShuffleConfig` gains `defaultServingsPlanned?: number | null`; the slot push (:58-64) adds `servingsPlanned: config.defaultServingsPlanned ?? null, variants: null`. The function stays pure and testable; callers that don't pass the field (existing tests) produce legacy slots — no existing test breaks.
 
-**`PlannerStep`** (useMealPlanner.ts:38): rimuovere `'generating'` dal tipo (`'setup' | 'calendar'`) — vedi §4.6.5.
+**`PlannerStep`** (useMealPlanner.ts:38): remove `'generating'` from the type (`'setup' | 'calendar'`) — see §4.6.5.
 
-### 4.5 Editor dello slot: `MealSlotEditorSheet` (nuovo componente)
+### 4.5 Slot editor: `MealSlotEditorSheet` (new component)
 
-**Scelta: sheet dedicato, non estensione di `RecipePickerSheet`.** Motivazione: il picker attuale è una vista mono-scopo "cerca → tap → chiudi" (:89-92); lo slot ora ha tre concern persistenti (ricetta base, persone, varianti) che richiedono uno sheet che resta aperto tra un'azione e l'altra. Incastrare stepper e liste varianti nel picker ne distruggerebbe l'ergonomia. Il riuso avviene al livello giusto: **estrarre da `RecipePickerSheet` il pannello ricerca+filtri+lista** in un componente interno riusabile `RecipePickerPanel` (props: `recipes`, `categories`, `selectedRecipeId?`, `onPick(recipe)`) usato sia per la scelta della base sia per quella della variante. `RecipePickerSheet.tsx` viene sostituito da `MealSlotEditorSheet.tsx` + `RecipePickerPanel.tsx` (il file del vecchio sheet si elimina; la pagina apre sempre l'editor).
+**Choice: a dedicated sheet, not an extension of `RecipePickerSheet`.** Rationale: the current picker is a single-purpose "search → tap → close" view (:89-92); the slot now has three persistent concerns (base recipe, people, variants) that require a sheet which stays open between one action and the next. Cramming steppers and variant lists into the picker would destroy its ergonomics. Reuse happens at the right level: **extract from `RecipePickerSheet` the search+filters+list panel** into a reusable internal component `RecipePickerPanel` (props: `recipes`, `categories`, `selectedRecipeId?`, `onPick(recipe)`) used both for choosing the base and for choosing the variant. `RecipePickerSheet.tsx` is replaced by `MealSlotEditorSheet.tsx` + `RecipePickerPanel.tsx` (the old sheet's file is deleted; the page always opens the editor).
 
-File: `src/components/meal-planner/MealSlotEditorSheet.tsx`, bottom sheet `side="bottom"` `h-[85vh] flex flex-col` (stesso guscio del picker attuale, :111-114). Stato interno a **viste**: `'main' | 'pick-base' | 'variant-members' | 'variant-recipe'` (con back). Props: `open`, `onOpenChange`, `dayIndex`, `mealType`, `recipes`, `categories`, `currentSlot: MealSlot | undefined`, `members: PlannerMember[]`, `defaultServingsPlanned`, callback `onSelectBase`, `onClear`, `onSetServings`, `onSetVariants` (wired alle mutazioni del hook dalla pagina, come oggi :529-541).
+File: `src/components/meal-planner/MealSlotEditorSheet.tsx`, bottom sheet `side="bottom"` `h-[85vh] flex flex-col` (same shell as the current picker, :111-114). Internal state as **views**: `'main' | 'pick-base' | 'variant-members' | 'variant-recipe'` (with back). Props: `open`, `onOpenChange`, `dayIndex`, `mealType`, `recipes`, `categories`, `currentSlot: MealSlot | undefined`, `members: PlannerMember[]`, `defaultServingsPlanned`, callbacks `onSelectBase`, `onClear`, `onSetServings`, `onSetVariants` (wired to the hook's mutations by the page, as today :529-541).
 
-**Vista `main`** (dall'alto):
+**`main` view** (top to bottom):
 
-1. **Header**: `Martedì — Pranzo` (pattern attuale, RecipePickerSheet.tsx:87) + `SheetDescription` sr-only.
-2. **Ricetta base**: card con titolo ricetta + link "Vai alla ricetta" (se `existingRecipeId`) + bottone `Cambia ricetta` → vista `pick-base`. Slot vuoto: bottone primario `Scegli la ricetta base` → `pick-base`; stepper e varianti disabilitati con caption `Prima scegli la ricetta base.`
-3. **Persone**: label `Per quante persone?`, `ServingsStepper` riusato (src/components/recipe/servings-stepper.tsx:35, props `value/onChange/min=1/max=20/size='md'`) con valore `currentSlot.servingsPlanned ?? defaultServingsPlanned`. Caption dinamica:
-   - senza varianti: `Il pasto base copre {n} person{a|e}.`
-   - con varianti: `Base per {n−k} person{a|e} · {k} con variante.`
-   - `n−k <= 0`: warning con `StatusBanner` tono warning: `Le varianti coprono tutte le persone: la ricetta base non entrerà nella lista della spesa.`
-   - Slot legacy (`servingsPlanned == null`): lo stepper mostra il default ma con caption `Quantità non ancora adattate alle persone — conferma per attivare.` e il valore si persiste **solo** alla prima interazione dell'utente (tap ± o modifica input), mai per la sola apertura dello sheet. Questo protegge l'invariante §1: aprire e chiudere l'editor non cambia la lista della spesa.
-   - Persistenza stepper: debounce locale 600 ms (`setTimeout` ref) su `onSetServings`, con **flush su chiusura sheet e unmount** (stesso rischio del gotcha AGENTS "debounce non-flushed": timer azzerato quando scatta, lettura da ref).
-4. **Varianti**: intestazione `Varianti` + sottotitolo `Un piatto diverso per uno o più componenti.`
-   - Lista varianti correnti: per ognuna una riga con chip membri (label o iniziale) + titolo ricetta + bottone `X` (rimozione **diretta**, senza ConfirmDialog: è un'edit di singolo slot ricostruibile in due tap, stesso peso del "Rimuovi ricetta da questo slot" attuale :220-229; i ConfirmDialog restano per le distruzioni multi-slot: giorno, portata, piano).
-   - Bottone `+ Aggiungi variante` → vista `variant-members`. Disabilitato con hint quando: (a) profilo famiglia vuoto/assente → `Per creare varianti aggiungi i componenti nel profilo famiglia.` + link `Vai al profilo famiglia` (`/profilo-famiglia`); (b) tutti i membri già coperti → `Tutti i componenti hanno già una variante.`
-5. **Footer**: bottone ghost destructive `Svuota slot` (comportamento = `clearSlot` attuale: rimuove ricetta, persone e varianti; copy sotto: `Rimuove ricetta, persone e varianti di questo pasto.`) + chiusura sheet.
+1. **Header**: `Martedì — Pranzo` (current pattern, RecipePickerSheet.tsx:87) + sr-only `SheetDescription`.
+2. **Base recipe**: card with the recipe title + "Vai alla ricetta" link (if `existingRecipeId`) + `Cambia ricetta` button → `pick-base` view. Empty slot: primary button `Scegli la ricetta base` → `pick-base`; stepper and variants disabled with caption `Prima scegli la ricetta base.`
+3. **People**: label `Per quante persone?`, reused `ServingsStepper` (src/components/recipe/servings-stepper.tsx:35, props `value/onChange/min=1/max=20/size='md'`) with value `currentSlot.servingsPlanned ?? defaultServingsPlanned`. Dynamic caption:
+   - without variants: `Il pasto base copre {n} person{a|e}.`
+   - with variants: `Base per {n−k} person{a|e} · {k} con variante.`
+   - `n−k <= 0`: warning with a warning-tone `StatusBanner`: `Le varianti coprono tutte le persone: la ricetta base non entrerà nella lista della spesa.`
+   - Legacy slot (`servingsPlanned == null`): the stepper shows the default but with caption `Quantità non ancora adattate alle persone — conferma per attivare.` and the value is persisted **only** on the user's first interaction (± tap or input edit), never merely by opening the sheet. This protects invariant §1: opening and closing the editor doesn't change the shopping list.
+   - Stepper persistence: local 600 ms debounce (`setTimeout` ref) on `onSetServings`, with **flush on sheet close and unmount** (same risk as the AGENTS "debounce non-flushed" gotcha: timer cleared when it fires, read from ref).
+4. **Variants**: heading `Varianti` + subtitle `Un piatto diverso per uno o più componenti.`
+   - List of current variants: for each, a row with member chips (label or initial) + recipe title + `X` button (**direct** removal, without ConfirmDialog: it's a single-slot edit rebuildable in two taps, same weight as the current "Rimuovi ricetta da questo slot" :220-229; ConfirmDialogs remain for multi-slot destruction: day, meal, plan).
+   - `+ Aggiungi variante` button → `variant-members` view. Disabled with a hint when: (a) family profile empty/missing → `Per creare varianti aggiungi i componenti nel profilo famiglia.` + link `Vai al profilo famiglia` (`/profilo-famiglia`); (b) all members already covered → `Tutti i componenti hanno già una variante.`
+5. **Footer**: ghost destructive button `Svuota slot` (behavior = current `clearSlot`: removes recipe, people and variants; copy below: `Rimuove ricetta, persone e varianti di questo pasto.`) + sheet close.
 
-**Vista `variant-members`**: titolo `Per chi?`; chip toggle per ogni membro del profilo (label o `Componente N`), membri già coperti da un'altra variante disabilitati con caption `già coperto da una variante`; CTA `Continua` (disabilitata a 0 selezionati) → `variant-recipe`; `Annulla` → `main`.
+**`variant-members` view**: title `Per chi?`; toggle chip for each profile member (label or `Componente N`), members already covered by another variant disabled with caption `già coperto da una variante`; CTA `Continua` (disabled at 0 selected) → `variant-recipe`; `Annulla` → `main`.
 
-**Vista `variant-recipe`** e **`pick-base`**: `RecipePickerPanel` a tutta altezza; tap su una ricetta = commit immediato (`onSetVariants` con la nuova variante appesa / `onSelectBase`) e ritorno a `main` (lo sheet **non** si chiude: l'utente spesso configura più cose). Ogni commit scrive subito su Firestore via le mutazioni del hook (coerente col modello optimistic-write del planner) e mostra toast di errore in caso di fallimento (pattern page.tsx:170-189).
+**`variant-recipe`** and **`pick-base`** views: full-height `RecipePickerPanel`; tapping a recipe = immediate commit (`onSetVariants` with the new variant appended / `onSelectBase`) and return to `main` (the sheet does **not** close: the user often configures several things). Every commit writes to Firestore immediately via the hook's mutations (consistent with the planner's optimistic-write model) and shows an error toast on failure (pattern page.tsx:170-189).
 
-**Sincronizzazione stato**: lo sheet deriva tutto da `currentSlot` (prop) — non tiene copie locali di ricetta/varianti; l'unico stato locale è la vista corrente, la selezione membri in corso e il draft dello stepper (con `useEffect` di sync sul cambio slot — gotcha `useState(prop)`).
+**State synchronization**: the sheet derives everything from `currentSlot` (prop) — it keeps no local copies of recipe/variants; the only local state is the current view, the in-progress member selection and the stepper draft (with a sync `useEffect` on slot change — `useState(prop)` gotcha).
 
-### 4.5.5 Varianti orfane (membro eliminato dal profilo)
+### 4.5.5 Orphan variants (member deleted from the profile)
 
-Comportamento esplicito, su tre superfici:
-- **Scaling** (aggregatore): usa `memberIds.length` così com'è persistito — le persone pianificate restano tali anche se il profilo cambia; la spesa non si sgonfia in silenzio.
-- **Kcal**: i membri orfani non compaiono in `memberDeltas` (§4.3.3) — l'etichetta non è ricostruibile.
-- **UI**: nel calendario e nell'editor il chip del membro non risolvibile si rende come `Componente rimosso` (`bg-muted text-muted-foreground`, `title="Questo componente non è più nel profilo famiglia"`); nell'editor la riga variante mostra un hint `Modifica o rimuovi questa variante.` L'utente risolve manualmente; nessuna auto-pulizia (una scrittura implicita che cambia la lista della spesa violerebbe il principio dell'invariante §1).
+Explicit behavior, across three surfaces:
+- **Scaling** (aggregator): uses `memberIds.length` as persisted — planned people stay planned even if the profile changes; the shopping list doesn't silently shrink.
+- **Kcal**: orphan members don't appear in `memberDeltas` (§4.3.3) — the label can't be reconstructed.
+- **UI**: in the calendar and in the editor the unresolvable member's chip renders as `Componente rimosso` (`bg-muted text-muted-foreground`, `title="Questo componente non è più nel profilo famiglia"`); in the editor the variant row shows a hint `Modifica o rimuovi questa variante.` The user resolves it manually; no auto-cleanup (an implicit write that changes the shopping list would violate the principle of invariant §1).
 
-### 4.6 Redesign pagina pianificatore (architettura a livello wireframe)
+### 4.6 Planner page redesign (wireframe-level architecture)
 
-Il fine-tuning visivo è demandato alla skill **impeccable** in implementazione (vedi §9). Qui: architettura dell'informazione, comportamenti, copy. Vincoli trasversali: pagina `max-w-[1200px] mx-auto` senza padding proprio (AGENTS §1); token semantici, mai `bg-white`; niente `sticky` dentro `.shell-stage` su desktop (app-shell con scroll interno); terracotta come timbro ≤10% (DESIGN.md "Regola del Timbro"); niente card annidate oltre un livello; `EditorialEmptyState`/`StatusBanner`/`ConfirmDialog` condivisi; breakpoint `max-lg:portrait:`.
+Visual fine-tuning is delegated to the **impeccable** skill during implementation (see §9). Here: information architecture, behaviors, copy. Cross-cutting constraints: page `max-w-[1200px] mx-auto` with no padding of its own (AGENTS §1); semantic tokens, never `bg-white`; no `sticky` inside `.shell-stage` on desktop (app-shell with internal scroll); terracotta as a stamp ≤10% (DESIGN.md "The Stamp Rule"); no cards nested beyond one level; shared `EditorialEmptyState`/`StatusBanner`/`ConfirmDialog`; `max-lg:portrait:` breakpoint.
 
 #### 4.6.1 Header
 
-`PlannerHeader` ridisegnato su una riga (due su mobile portrait): titolo pagina compattato + navigazione settimana (`‹ 17 – 23 marzo 2026 ›`) + bottone `Oggi` (visibile solo quando la settimana visualizzata non è quella corrente; naviga a `getCurrentWeekMonday()`); azioni `Nuovo piano` / `Copia piano` / `Elimina piano` raggruppate a destra su desktop, in una riga sotto su mobile (tutte già esistenti, PlannerHeader.tsx:71-110; touch target `h-11` sotto `lg` conservati).
+`PlannerHeader` redesigned on one row (two on mobile portrait): compacted page title + week navigation (`‹ 17 – 23 marzo 2026 ›`) + `Oggi` button (visible only when the displayed week is not the current one; navigates to `getCurrentWeekMonday()`); `Nuovo piano` / `Copia piano` / `Elimina piano` actions grouped on the right on desktop, in a row below on mobile (all already existing, PlannerHeader.tsx:71-110; `h-11` touch targets below `lg` kept).
 
-#### 4.6.2 Stato "nessun piano" + setup progressivo
+#### 4.6.2 "No plan" state + progressive setup
 
-Quando la settimana non ha piano, niente salto secco al form: **empty state** (`EditorialEmptyState`) con titolo `Nessun piano per questa settimana`, sottotitolo `Genera una proposta dal tuo ricettario o parti da una griglia vuota.`, e i chip "Piani già salvati" (contenuto attuale :394-417) subito sotto per aprire un'altra settimana. Il setup segue nella stessa colonna (`max-w-lg mx-auto`).
+When the week has no plan, no abrupt jump to the form: **empty state** (`EditorialEmptyState`) with title `Nessun piano per questa settimana`, subtitle `Genera una proposta dal tuo ricettario o parti da una griglia vuota.`, and the "Piani già salvati" chips (current content :394-417) right below to open another week. The setup follows in the same column (`max-w-lg mx-auto`).
 
-**Setup: card progressive, non wizard a step.** Motivazione: i campi sono pochi (stagione, giorni, portate, persone, regole shuffle) e un wizard a 3 schermate aggiunge tap senza ridurre il carico; le card progressive mantengono tutto ripercorribile a colpo d'occhio. Struttura:
+**Setup: progressive cards, not a step wizard.** Rationale: there are few fields (season, days, meals, people, shuffle rules) and a 3-screen wizard adds taps without reducing load; progressive cards keep everything reviewable at a glance. Structure:
 
-1. **Card `Giorni e portate`** (sempre aperta): chip giorni + checkbox portate (ordine `sortMealTypes`/`SELECTABLE_MEAL_TYPES` post-Spec A, con `Spuntino`/`Merenda`) + **nuovo campo persone**: label `Per quante persone cucini di solito?`, `ServingsStepper` `size='md'`, prefill `defaultServingsPlanned`; caption `Puoi cambiarlo pasto per pasto dal calendario.` Il valore confluisce in `MealPlanSetupConfig` come nuovo campo `defaultServingsPlanned?: number | null` e da lì allo shuffle e a `createManualPlan` (che lo usa solo come default del hook per gli slot creati dopo).
-2. **Card `Stagione e regole` — disclosure collassata di default** (pattern `grid-rows-[0fr]→[1fr]`, mai `max-h`): stagione (default `getCurrentSeason()`) + le attuali "Categorie per portata" (:197-295) invariate nella logica. **Dove vivono dopo il setup**: da nessuna parte — sono regole di **generazione**, non proprietà del piano (`MealPlanSetupConfig` non è persistito, verificato src/types/index.ts:526-546 "Setup configuration… consumed locally"); il piano vivo si edita per-slot e il re-roll usa i tier categoria della ricetta corrente (`pickReshuffledRecipe`). Questa scelta va scritta nel copy del disclosure: `Queste regole guidano solo la generazione: dopo, modifichi ogni pasto direttamente dal calendario.`
-3. **Barra CTA sticky** (`sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10` — sotto 1440px lo scroll è di finestra, quindi `sticky` è legittimo; su desktop ≥1440px verificare il comportamento dentro lo scroll interno di `<main>` e, se necessario, renderla non-sticky da `lg`): `Genera piano (shuffle)` (primary) + `Crea piano manuale` (outline), labels invariati.
-4. L'info box "Come usare il pianificatore" (:420-436) diventa un disclosure `Come funziona?` collassato in coda al setup (declutter; il contenuto attuale resta).
+1. **`Giorni e portate` card** (always open): day chips + meal checkboxes (order `sortMealTypes`/`SELECTABLE_MEAL_TYPES` post-Spec A, with `Spuntino`/`Merenda`) + **new people field**: label `Per quante persone cucini di solito?`, `ServingsStepper` `size='md'`, prefilled with `defaultServingsPlanned`; caption `Puoi cambiarlo pasto per pasto dal calendario.` The value flows into `MealPlanSetupConfig` as a new field `defaultServingsPlanned?: number | null` and from there into the shuffle and into `createManualPlan` (which uses it only as the hook's default for slots created later).
+2. **`Stagione e regole` card — disclosure collapsed by default** (`grid-rows-[0fr]→[1fr]` pattern, never `max-h`): season (default `getCurrentSeason()`) + the current "Categorie per portata" (:197-295) with unchanged logic. **Where they live after setup**: nowhere — they are **generation** rules, not plan properties (`MealPlanSetupConfig` is not persisted, verified src/types/index.ts:526-546 "Setup configuration… consumed locally"); the live plan is edited per slot and the re-roll uses the current recipe's category tiers (`pickReshuffledRecipe`). This choice must be written in the disclosure copy: `Queste regole guidano solo la generazione: dopo, modifichi ogni pasto direttamente dal calendario.`
+3. **Sticky CTA bar** (`sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10` — below 1440px scrolling is window-level, so `sticky` is legitimate; on desktop ≥1440px verify the behavior inside `<main>`'s internal scroll and, if needed, make it non-sticky from `lg`): `Genera piano (shuffle)` (primary) + `Crea piano manuale` (outline), labels unchanged.
+4. The "Come usare il pianificatore" info box (:420-436) becomes a `Come funziona?` disclosure collapsed at the end of the setup (declutter; the current content stays).
 
-#### 4.6.3 Calendario
+#### 4.6.3 Calendar
 
-- **`PlanStructureCard` integrata**: non più due card sempre aperte sopra la griglia (:469-478) ma un'unica sezione collassabile `Giorni e portate del piano` (chip attuali + add/remove, logica e ConfirmDialog invariati, PlanStructureCard.tsx:46-261) chiusa di default, con riepilogo compatto nell'intestazione (`7 giorni · Pranzo e Cena`). La griglia guadagna la prima posizione visiva.
-- **Griglia desktop**: layout attuale conservato (`88px repeat(n, minmax(150px,1fr))` + `overflow-x-auto`, righe in ordine `sortMealTypes`); enfasi "oggi" invariata (:126). Con 5 portate attive le righe diventano 5: nessuna modifica strutturale necessaria (scroll verticale di `<main>`).
-- **Griglia mobile portrait**: card giorno impilate invariata; al mount **auto-scroll alla card di oggi** (`scrollIntoView({ block: 'start' })` guardato da ref one-time) se la settimana è quella corrente.
-- **Badge kcal/pers. per giorno**: §4.3.5.
-- **Badge varianti sulla cella** (`MealSlotCell`): sotto il titolo della ricetta base, fila di chip compatti — uno per variante — con l'**iniziale** del primo membro (o `+n` se la variante copre più membri), es. `S` `M+1`; `title` = `${labels}: ${recipeTitle}`; membro orfano → chip `?` con title `Componente rimosso`. Max 3 chip + `+n` overflow. Stile: `rounded-full bg-secondary text-[10px] text-muted-foreground h-4 min-w-4 px-1` — niente terracotta (il timbro resta su selezione/azioni). I chip non sono interattivi (tutta la cella apre l'editor); sono sempre visibili, mai hover-only.
-- La cella **non** mostra il numero persone (vive nell'editor e nel calcolo kcal): tenere le celle calme, l'informazione differenziale sono le varianti.
-- **"Ricette da rivedere"** (slot `newRecipe` legacy, :501-524): sezione invariata.
+- **Integrated `PlanStructureCard`**: no longer two always-open cards above the grid (:469-478) but a single collapsible section `Giorni e portate del piano` (current chips + add/remove, logic and ConfirmDialog unchanged, PlanStructureCard.tsx:46-261) closed by default, with a compact summary in the heading (`7 giorni · Pranzo e Cena`). The grid gains the first visual position.
+- **Desktop grid**: current layout kept (`88px repeat(n, minmax(150px,1fr))` + `overflow-x-auto`, rows in `sortMealTypes` order); "today" emphasis unchanged (:126). With 5 active meals the rows become 5: no structural change needed (vertical scroll of `<main>`).
+- **Mobile portrait grid**: stacked day cards unchanged; on mount **auto-scroll to today's card** (`scrollIntoView({ block: 'start' })` guarded by a one-time ref) if the week is the current one.
+- **Per-day kcal/pers. badge**: §4.3.5.
+- **Variant badges on the cell** (`MealSlotCell`): below the base recipe title, a row of compact chips — one per variant — with the **initial** of the first member (or `+n` if the variant covers several members), e.g. `S` `M+1`; `title` = `${labels}: ${recipeTitle}`; orphan member → `?` chip with title `Componente rimosso`. Max 3 chips + `+n` overflow. Style: `rounded-full bg-secondary text-[10px] text-muted-foreground h-4 min-w-4 px-1` — no terracotta (the stamp stays on selection/actions). The chips are not interactive (the whole cell opens the editor); they are always visible, never hover-only.
+- The cell does **not** show the number of people (it lives in the editor and in the kcal computation): keep cells calm, the differential information is the variants.
+- **"Ricette da rivedere"** (legacy `newRecipe` slots, :501-524): section unchanged.
 
-#### 4.6.4 Empty state della griglia
+#### 4.6.4 Grid empty state
 
-Piano manuale appena creato (0 slot pieni): sopra la griglia una riga informativa (`StatusBanner` info): `Tocca una cella per scegliere la ricetta. Con ↺ ti propongo un'alternativa dal ricettario.` Mostrata finché `plan.slots.length === 0`.
+Just-created manual plan (0 filled slots): above the grid an informational row (info `StatusBanner`): `Tocca una cella per scegliere la ricetta. Con ↺ ti propongo un'alternativa dal ricettario.` Shown while `plan.slots.length === 0`.
 
-#### 4.6.5 Dead code `generating` / `EditorialLoader`
+#### 4.6.5 `generating` / `EditorialLoader` dead code
 
-**Rimozione** (non riuso): la generazione è locale e sincrona (`buildShuffledSlots`, nessuna rete) — un loader a schermo intero per <50 ms sarebbe un flash dannoso. Rimuovere: il membro `'generating'` da `PlannerStep` (useMealPlanner.ts:38), il blocco :456-464 di page.tsx e l'import `EditorialLoader` (page.tsx:22) se non riusato altrove nella pagina. `isGenerating` resta per disabilitare i CTA (:449, PlannerHeader).
+**Removal** (not reuse): generation is local and synchronous (`buildShuffledSlots`, no network) — a full-screen loader for <50 ms would be a harmful flash. Remove: the `'generating'` member from `PlannerStep` (useMealPlanner.ts:38), the :456-464 block of page.tsx and the `EditorialLoader` import (page.tsx:22) if not reused elsewhere on the page. `isGenerating` stays to disable the CTAs (:449, PlannerHeader).
 
-### 4.7 Edge case ed errori (uno per uno)
+### 4.7 Edge cases and errors (one by one)
 
-1. **Piano legacy intatto**: `servingsPlanned == null` e `variants == null` su tutti gli slot → `buildContributions` byte-identico a oggi, `computeDayCalories.total` identico a oggi, celle senza chip. Test dedicati.
-2. **Profilo famiglia assente/vuoto**: `defaultServingsPlanned = 2`; stepper funzionante; sezione varianti disabilitata con link al profilo (§4.5.4a). Il piano resta pienamente usabile.
-3. **Membro senza label**: fallback `Componente N` (indice 1-based nell'array membri normalizzato), coerente con family-context.ts:55. Iniziale chip = `C`+N? No: iniziale = prima lettera della label risolta (quindi `C` per i fallback) — accettare l'ambiguità, il `title` disambigua.
-4. **Membro eliminato dal profilo (variante orfana)**: §4.5.5.
-5. **Varianti coprono ≥ servingsPlanned**: base a 0 persone → nessun contributo base in lista; warning nell'editor (§4.5.3). `Math.max(0, …)` impedisce fattori negativi.
-6. **Ricetta variante cancellata dal ricettario**: contributi spesa skippati (come per la base, aggregator :31); kcal del membro → `isPartial`; cella: chip resta (title col titolo denormalizzato); editor: riga variante con titolo denormalizzato + hint di modifica.
-7. **`recipe.servings` 0/undefined**: fallback 4 (`recipe.servings || 4`), identico a cooking mode. `scaleQuantity` con base ≤ 0 ritornerebbe comunque la stringa invariata (doppia rete).
-8. **Quantità non scalabili** (`q.b.`, `a piacere`, `un pizzico`): passano invariate da `scaleQuantity` (ingredient-scaler.ts:43-47) e continuano a finire nel fallback `" + "` di `mergeQuantities`. Nessun cambiamento atteso nei test esistenti su questi casi.
-9. **`servingsPlanned === recipe.servings`**: `scaleQuantity` ritorna la stringa originale (nessuna riformattazione `1/2 → 0,5` spuria).
-10. **Slot `newRecipe` legacy con `servingsPlanned` impostato** (possibile dopo un'edit persone su slot AI legacy): scaling su `slot.newRecipe.servings || 4` — il ramo base dell'aggregatore gestisce entrambe le fonti.
-11. **Stepper spam**: debounce 600 ms + flush su chiusura/unmount; la scrittura è comunque idempotente (full-array).
-12. **Errore Firestore su scrittura slot**: pattern esistente — stato ottimistico già applicato, toast di errore (`toast.error`), nessun rollback automatico (coerente con updateSlot attuale).
-13. **Due dispositivi**: last-write-wins sull'intero array slots (comportamento esistente, invariato e documentato in AGENTS).
-14. **Ordine portate con piani vecchi**: righe della griglia via `sortMealTypes` (Spec A) — i tipi legacy (`primo`…) in coda, rendering garantito da `MEAL_LABELS` esaustivo.
+1. **Legacy plan intact**: `servingsPlanned == null` and `variants == null` on all slots → `buildContributions` byte-identical to today, `computeDayCalories.total` identical to today, cells without chips. Dedicated tests.
+2. **Family profile missing/empty**: `defaultServingsPlanned = 2`; stepper working; variants section disabled with a link to the profile (§4.5.4a). The plan remains fully usable.
+3. **Member without label**: fallback `Componente N` (1-based index in the normalized members array), consistent with family-context.ts:55. Chip initial = `C`+N? No: initial = first letter of the resolved label (so `C` for fallbacks) — accept the ambiguity, the `title` disambiguates.
+4. **Member deleted from the profile (orphan variant)**: §4.5.5.
+5. **Variants cover ≥ servingsPlanned**: base at 0 people → no base contribution in the list; warning in the editor (§4.5.3). `Math.max(0, …)` prevents negative factors.
+6. **Variant recipe deleted from the cookbook**: shopping contributions skipped (as for the base, aggregator :31); the member's kcal → `isPartial`; cell: chip stays (title with the denormalized title); editor: variant row with denormalized title + edit hint.
+7. **`recipe.servings` 0/undefined**: fallback 4 (`recipe.servings || 4`), identical to cooking mode. `scaleQuantity` with base ≤ 0 would return the string unchanged anyway (double safety net).
+8. **Non-scalable quantities** (`q.b.`, `a piacere`, `un pizzico`): pass through `scaleQuantity` unchanged (ingredient-scaler.ts:43-47) and keep ending up in the `" + "` fallback of `mergeQuantities`. No change expected in existing tests for these cases.
+9. **`servingsPlanned === recipe.servings`**: `scaleQuantity` returns the original string (no spurious `1/2 → 0,5` reformatting).
+10. **Legacy `newRecipe` slot with `servingsPlanned` set** (possible after a people edit on a legacy AI slot): scaling on `slot.newRecipe.servings || 4` — the aggregator's base branch handles both sources.
+11. **Stepper spam**: 600 ms debounce + flush on close/unmount; the write is idempotent anyway (full array).
+12. **Firestore error on slot write**: existing pattern — optimistic state already applied, error toast (`toast.error`), no automatic rollback (consistent with the current updateSlot).
+13. **Two devices**: last-write-wins on the whole slots array (existing behavior, unchanged and documented in AGENTS).
+14. **Meal order with old plans**: grid rows via `sortMealTypes` (Spec A) — legacy types (`primo`…) at the end, rendering guaranteed by the exhaustive `MEAL_LABELS`.
 
 ---
 
-## 5. Piano di implementazione a fasi
+## 5. Phased implementation plan
 
-Ogni fase lascia il progetto compilabile (`npx tsc --noEmit` verde).
+Every phase leaves the project compiling (`npx tsc --noEmit` green).
 
-**Fase 1 — Modello dati + scaling + kcal (nessuna UI nuova, comportamento legacy invariato)**
-- `src/types/index.ts`: `MealSlotVariant`, campi `servingsPlanned`/`variants` su `MealSlot` (con doc-comment dell'invariante legacy).
+**Phase 1 — Data model + scaling + kcal (no new UI, legacy behavior unchanged)**
+- `src/types/index.ts`: `MealSlotVariant`, `servingsPlanned`/`variants` fields on `MealSlot` (with the legacy invariant doc-comment).
 - `src/lib/utils/ingredient-aggregator.ts`: scaling in `buildContributions` (§4.2), import `scaleQuantity`.
-- `src/lib/hooks/useShoppingList.ts`: batch fetch esteso alle ricette delle varianti (§4.2).
-- `src/lib/utils/meal-plan-calories.ts`: nuovi tipi e firme (§4.3), `readVariantCalories`.
-- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: adattamento minimo alla nuova firma (`members` prop, default `[]`; label badge → `kcal/pers.`), senza redesign.
-- `src/app/(dashboard)/pianificatore/page.tsx`: passa `members={[]}` provvisorio (o risolve già `useFamilyProfile` — a scelta, purché compili).
-- Test: aggiornare/estendere `ingredient-aggregator.test.ts` e `meal-plan-calories.test.ts` (§6).
+- `src/lib/hooks/useShoppingList.ts`: batch fetch extended to the variants' recipes (§4.2).
+- `src/lib/utils/meal-plan-calories.ts`: new types and signatures (§4.3), `readVariantCalories`.
+- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: minimal adaptation to the new signature (`members` prop, default `[]`; badge label → `kcal/pers.`), without redesign.
+- `src/app/(dashboard)/pianificatore/page.tsx`: passes a provisional `members={[]}` (or already resolves `useFamilyProfile` — either way, as long as it compiles).
+- Tests: update/extend `ingredient-aggregator.test.ts` and `meal-plan-calories.test.ts` (§6).
 
-**Fase 2 — Mutazioni hook + shuffle + famiglia nel planner**
-- `src/lib/hooks/useMealPlanner.ts`: `setSlotServings`, `setSlotVariants`, preservazione campi in `updateSlot`/`reshuffleSlot`, `defaultServingsPlanned` via `useFamilyProfile`, rimozione `'generating'` da `PlannerStep`, fix dep array `reshuffleSlot`.
-- `src/lib/utils/meal-plan-shuffle.ts`: `ShuffleConfig.defaultServingsPlanned`, slot con `servingsPlanned`/`variants`.
+**Phase 2 — Hook mutations + shuffle + family in the planner**
+- `src/lib/hooks/useMealPlanner.ts`: `setSlotServings`, `setSlotVariants`, field preservation in `updateSlot`/`reshuffleSlot`, `defaultServingsPlanned` via `useFamilyProfile`, removal of `'generating'` from `PlannerStep`, `reshuffleSlot` dep array fix.
+- `src/lib/utils/meal-plan-shuffle.ts`: `ShuffleConfig.defaultServingsPlanned`, slots with `servingsPlanned`/`variants`.
 - `src/types/index.ts`: `MealPlanSetupConfig.defaultServingsPlanned?: number | null`.
-- `src/app/(dashboard)/pianificatore/page.tsx`: risoluzione `members` (useFamilyProfile + normalizeFamilyProfile + fallback label) e rimozione del blocco `generating` (:455-464) con l'import `EditorialLoader`.
-- Test: `meal-plan-shuffle.test.ts` (default sui nuovi slot).
+- `src/app/(dashboard)/pianificatore/page.tsx`: `members` resolution (useFamilyProfile + normalizeFamilyProfile + label fallback) and removal of the `generating` block (:455-464) with the `EditorialLoader` import.
+- Tests: `meal-plan-shuffle.test.ts` (default on new slots).
 
-**Fase 3 — UI varianti**
-- Nuovi `src/components/meal-planner/RecipePickerPanel.tsx` (estratto da RecipePickerSheet) e `src/components/meal-planner/MealSlotEditorSheet.tsx` (§4.5); eliminazione `RecipePickerSheet.tsx`; wiring in `page.tsx`.
-- `src/components/meal-planner/MealSlotCell.tsx`: chip varianti (§4.6.3).
-- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: passaggio dati varianti/membri alle celle.
+**Phase 3 — Variants UI**
+- New `src/components/meal-planner/RecipePickerPanel.tsx` (extracted from RecipePickerSheet) and `src/components/meal-planner/MealSlotEditorSheet.tsx` (§4.5); deletion of `RecipePickerSheet.tsx`; wiring in `page.tsx`.
+- `src/components/meal-planner/MealSlotCell.tsx`: variant chips (§4.6.3).
+- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: passing variant/member data to the cells.
 
-**Fase 4 — Redesign pagina (con skill impeccable: direction prima, review dopo)**
-- `src/components/meal-planner/PlannerHeader.tsx`: riga unica + `Oggi` (§4.6.1).
-- `src/components/meal-planner/MealPlanSetupForm.tsx`: card progressive + campo persone + disclosure regole (§4.6.2).
-- `src/components/meal-planner/PlanStructureCard.tsx`: variante collassabile con riepilogo (§4.6.3).
-- `src/app/(dashboard)/pianificatore/page.tsx`: empty state, disclosure "Come funziona?", StatusBanner griglia vuota, auto-scroll a oggi (in `WeeklyCalendarGrid`).
-- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: dettaglio kcal per-membro (tooltip lg / espansione mobile).
+**Phase 4 — Page redesign (with the impeccable skill: direction first, review after)**
+- `src/components/meal-planner/PlannerHeader.tsx`: single row + `Oggi` (§4.6.1).
+- `src/components/meal-planner/MealPlanSetupForm.tsx`: progressive cards + people field + rules disclosure (§4.6.2).
+- `src/components/meal-planner/PlanStructureCard.tsx`: collapsible variant with summary (§4.6.3).
+- `src/app/(dashboard)/pianificatore/page.tsx`: empty state, "Come funziona?" disclosure, empty-grid StatusBanner, auto-scroll to today (in `WeeklyCalendarGrid`).
+- `src/components/meal-planner/WeeklyCalendarGrid.tsx`: per-member kcal detail (lg tooltip / mobile expansion).
 
-**Fase 5 — Chiusura**
-- `npx next build --webpack`; suite Jest completa; aggiornamento CLAUDE.md (Recent Changes + sezione "Critical Patterns" se serve), AGENTS.md (eventuali gotcha emersi), checklist `specs/00-roadmap.md`; proposta di collaudo guidato (§6.2).
+**Phase 5 — Wrap-up**
+- `npx next build --webpack`; full Jest suite; update CLAUDE.md (Recent Changes + "Critical Patterns" section if needed), AGENTS.md (any gotchas that emerged), `specs/00-roadmap.md` checklist; guided test proposal (§6.2).
 
 ---
 
-## 6. Piano di test
+## 6. Test plan
 
-### 6.1 Unit test (Jest — comando reale: `npm test`, script `"test": "jest"` in package.json)
+### 6.1 Unit tests (Jest — actual command: `npm test`, script `"test": "jest"` in package.json)
 
-**`src/lib/utils/ingredient-aggregator.test.ts`** (esteso; l'helper `contribution()` esistente resta per `aggregateIngredients`; per `buildContributions` servono fixture `makePlan`/`makeSlot`/`makeRecipe` sul modello di meal-plan-calories.test.ts:5-49):
-- slot legacy (`servingsPlanned` assente): quantità identiche all'input, byte-per-byte (invariante §1);
+**`src/lib/utils/ingredient-aggregator.test.ts`** (extended; the existing `contribution()` helper stays for `aggregateIngredients`; `buildContributions` needs `makePlan`/`makeSlot`/`makeRecipe` fixtures modeled on meal-plan-calories.test.ts:5-49):
+- legacy slot (`servingsPlanned` absent): quantities identical to the input, byte for byte (invariant §1);
 - `servingsPlanned: 2`, `recipe.servings: 4`, "200 g" → "100 g";
-- `recipe.servings` assente → fallback 4 (`servingsPlanned: 8`, "200 g" → "400 g");
-- `q.b.` invariato sotto scaling;
-- variante: contribuisce con la propria ricetta scalata a `memberIds.length` persone e `recipeTitle` proprio;
-- base a 0 persone (varianti ≥ servingsPlanned): nessun contributo base, sì contributi variante;
-- ricetta variante mancante da `recipesById`: skip senza throw;
-- `servingsPlanned === recipe.servings`: stringa quantità invariata (nessuna riformattazione).
+- `recipe.servings` absent → fallback 4 (`servingsPlanned: 8`, "200 g" → "400 g");
+- `q.b.` unchanged under scaling;
+- variant: contributes with its own recipe scaled to `memberIds.length` people and its own `recipeTitle`;
+- base at 0 people (variants ≥ servingsPlanned): no base contribution, variant contributions yes;
+- variant recipe missing from `recipesById`: skip without throwing;
+- `servingsPlanned === recipe.servings`: quantity string unchanged (no reformatting).
 
-**`src/lib/utils/meal-plan-calories.test.ts`** (esteso):
-- piani senza varianti: `total` identico ai valori attesi attuali (i test esistenti si aggiornano solo nella forma, non nei numeri);
-- giorno con variante: `memberDeltas` con totale corretto (variante negli slot coperti, base altrove) e label fallback `Componente N`;
-- membro orfano (id non in `members`): assente da `memberDeltas`;
-- variante senza stima kcal: `isPartial` sul membro, base non contaminata;
-- `members: []`: `memberDeltas` sempre `[]`.
+**`src/lib/utils/meal-plan-calories.test.ts`** (extended):
+- plans without variants: `total` identical to the current expected values (existing tests are updated only in shape, not in numbers);
+- day with a variant: `memberDeltas` with the correct total (variant in the covered slots, base elsewhere) and fallback label `Componente N`;
+- orphan member (id not in `members`): absent from `memberDeltas`;
+- variant without a kcal estimate: `isPartial` on the member, base not contaminated;
+- `members: []`: `memberDeltas` always `[]`.
 
-**`src/lib/utils/meal-plan-shuffle.test.ts`** (esteso):
-- `defaultServingsPlanned: 3` → ogni slot generato ha `servingsPlanned: 3` e `variants: null`;
-- config senza il campo → slot con `servingsPlanned: null` (compat).
+**`src/lib/utils/meal-plan-shuffle.test.ts`** (extended):
+- `defaultServingsPlanned: 3` → every generated slot has `servingsPlanned: 3` and `variants: null`;
+- config without the field → slots with `servingsPlanned: null` (compat).
 
-### 6.2 Collaudo guidato (protocollo in memoria + sezione "Guided testing tooling" di CLAUDE.md)
+### 6.2 Guided test (protocol in memory + "Guided testing tooling" section of CLAUDE.md)
 
-`npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` + script Playwright usa-e-getta in `e2e/scratch/` (gitignored, eliminati a fine collaudo). Dati preparati da script throwaway con spy word (es. ricette "SPY-Carbonara" con `servings: 4` e quantità note "400 g spaghetti"). Fasi (una per messaggio, esito atteso dichiarato prima):
-1. **Seed**: utente emulato + profilo famiglia (3 membri: "Marco" 40, "Sofia" 8, uno senza label) + 6 ricette con servings/kcal noti + un piano **legacy** scritto direttamente in Firestore senza i campi nuovi.
-2. **Invariante legacy**: aprire `/lista-spesa` della settimana legacy → asserire quantità identiche al seed (nessuno scaling).
-3. **Nuovo piano**: setup con persone=3, shuffle → asserire su Firestore `servingsPlanned: 3` su ogni slot; lista spesa scalata 3/4 rispetto al seed.
-4. **Varianti**: aprire editor slot, aggiungere variante Sofia → ricetta B; asserire `variants` su Firestore (id, memberIds, recipeId, titolo), lista spesa con base a 2 persone + contributi ricetta B a 1 persona; chip `S` visibile nella cella.
-5. **Kcal**: asserire badge `kcal/pers.` col valore base e dettaglio membro (tooltip/espansione) per Sofia.
-6. **Re-roll e copia**: ↺ sullo slot con variante → base cambiata, variante intatta; copia piano su altra settimana → campi copiati.
-7. **Orfano**: rimuovere Sofia dal profilo → chip `Componente rimosso`, lista spesa invariata.
-
----
-
-## 7. Gotcha e vincoli (pertinenti, da AGENTS.md/CLAUDE.md)
-
-- **Mai `undefined` su Firestore** (AGENTS Quick Ref "Firebase optional"): `servingsPlanned`/`variants` → `null` o chiave omessa; attenzione al pattern filter+push di updateSlot/reshuffleSlot che ricostruisce gli oggetti slot.
-- **Slot orfani** (AGENTS "Slot orfani dopo la rimozione di una portata"): `buildContributions` itera tutti gli slot; ogni mutazione che toglie giorni/portate deve cancellare gli slot nella stessa scrittura — le varianti vivono dentro lo slot, quindi seguono gratis, ma non introdurre mai varianti fuori dallo slot.
-- **Lista spesa stale dopo modifica al piano** (AGENTS): ogni nuova mutazione (`setSlotServings`, `setSlotVariants`) chiama `invalidateShoppingList()`; chiave parziale senza `weekStartDate` per coprire `copyPlanToWeek`.
-- **Debounce non-flushed** (AGENTS "Shopping list debounce non-flushed" + "Nuovo target di persistenza dimenticato nel flush"): il debounce dello stepper persone nello sheet vuole il proprio timer/ref **e** flush su chiusura sheet/unmount, leggendo da un ref (no stale closure). Qui non si tocca `flushAll` di `useShoppingList` (nessun nuovo campo persistito da quel hook), ma il principio è identico.
-- **`enabled: !!user`** su ogni query auth-bound (già rispettato da `useFamilyProfile`); **niente `onSnapshot`**.
-- **`ConfirmDialog` per azioni distruttive multi-slot** (elimina piano/giorno/portata — già esistenti); mai `confirm()`/`alert()`; feedback via `react-hot-toast`.
-- **Controlli mai solo `group-hover` sotto `lg`** (AGENTS "Azione nascosta in group-hover su touch"): chip varianti sempre visibili; eventuali azioni hover-reveal solo da `lg` col pattern di MealSlotCell.tsx:111; `aria-label` sempre.
-- **`max-lg:portrait:`** (mai `portrait:` nudo); griglia con `minmax(72px+, 1fr)` + `overflow-x-auto`; **niente `position: sticky` dentro `.shell-stage`** su desktop ≥1440px (app-shell con scroll interno di `<main>`) — la barra CTA sticky del setup va verificata su desktop.
-- **Pagine senza padding esterno proprio**; pianificatore `max-w-[1200px] mx-auto`, sotto-pannelli form `max-w-lg mx-auto` (AGENTS §6 "Layout max-width").
-- **Token semantici** (`bg-background`/`bg-card`/`text-foreground`/`border-border`), mai `bg-white`; elementi nativi (`select`, `input`) con `bg-background text-foreground` espliciti; niente scale OKLCH inesistenti (`bg-primary/10`, non `bg-primary-100`); **side-stripe ban**; collapse con `grid-rows-[0fr]→[1fr]` + `motion-reduce:transition-none`, mai `max-h`.
-- **`useState(prop)` non reagisce ai cambi** → `useEffect` di sync per il draft dello stepper nello sheet (pattern già in ServingsStepper:47-49).
-- **YYYY-MM-DD parsing**: sempre `new Date(dateStr + 'T00:00:00')` (già rispettato in page.tsx/PlannerHeader); `isToday` con confronto locale.
-- **Identità slot `${dayIndex}-${mealType}` intatta**: nessuna nuova chiave, nessuno slot multiplo per pasto.
-- **kcal**: `caloriesPerServing` sempre per porzione, mai totali (AGENTS "kcal totali invece che per porzione"); il planner mostra `≥` sui parziali, mai somme parziali non marcate; kcal **escluse dalla lista spesa** (CLAUDE.md).
-- **staleTime `familyProfile` 5 min**: il `defaultServingsPlanned` può ritardare fino a 5 min dopo un'edit del profilo — accettato e documentato (§4.1).
-- Nessuna route AI toccata: i vincoli su schema JSON/parametri Sonnet 5 non si applicano a questa spec.
+`npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` + throwaway Playwright script in `e2e/scratch/` (gitignored, deleted at the end of the guided test). Data prepared by throwaway scripts with spy words (e.g. recipes "SPY-Carbonara" with `servings: 4` and known quantities "400 g spaghetti"). Phases (one per message, expected outcome declared first):
+1. **Seed**: emulated user + family profile (3 members: "Marco" 40, "Sofia" 8, one without label) + 6 recipes with known servings/kcal + a **legacy** plan written directly to Firestore without the new fields.
+2. **Legacy invariant**: open `/lista-spesa` for the legacy week → assert quantities identical to the seed (no scaling).
+3. **New plan**: setup with people=3, shuffle → assert on Firestore `servingsPlanned: 3` on every slot; shopping list scaled 3/4 relative to the seed.
+4. **Variants**: open the slot editor, add a Sofia variant → recipe B; assert `variants` on Firestore (id, memberIds, recipeId, title), shopping list with base at 2 people + recipe B contributions at 1 person; `S` chip visible in the cell.
+5. **Kcal**: assert the `kcal/pers.` badge with the base value and member detail (tooltip/expansion) for Sofia.
+6. **Re-roll and copy**: ↺ on the slot with a variant → base changed, variant intact; copy plan to another week → fields copied.
+7. **Orphan**: remove Sofia from the profile → `Componente rimosso` chip, shopping list unchanged.
 
 ---
 
-## 8. Fuori scope
+## 7. Gotchas and constraints (relevant, from AGENTS.md/CLAUDE.md)
 
-- **Griglia completa per membro** (esclusa dalla decisione di prodotto 5) e varianti con `newRecipe`/AI inline.
-- Scaling della lista **ad-hoc** "Voglio preparare questo" (quantità copiate as-is per design, types/index.ts:491-495) e qualsiasi modifica a `aggregateIngredients`/`mergeQuantities`/chiavi canoniche.
-- Migrazione batch dei piani esistenti (dual-read lazy).
-- Preferenze/diete per membro (il profilo famiglia resta label+età+note).
-- Persistenza delle regole di generazione per-portata sul piano (restano setup-only, §4.6.2).
-- kcal nella lista della spesa; `confidence` delle stime; macro se Spec C non è implementata (solo punto di estensione §4.3.4).
-- Modifiche a cooking mode, `estimate-calories`, prompt AI, regole/indici Firestore (i campi nuovi vivono in documenti esistenti coperti dalle regole owner-based).
-- Enforcement server-side di "un piano per settimana" (resta client-side come oggi).
+- **Never `undefined` on Firestore** (AGENTS Quick Ref "Firebase optional"): `servingsPlanned`/`variants` → `null` or omitted key; watch out for the filter+push pattern of updateSlot/reshuffleSlot that rebuilds slot objects.
+- **Orphan slots** (AGENTS "Orphan slots after removing a meal type"): `buildContributions` iterates all slots; every mutation that removes days/meals must delete the slots in the same write — variants live inside the slot, so they follow for free, but never introduce variants outside the slot.
+- **Stale shopping list after a plan change** (AGENTS): every new mutation (`setSlotServings`, `setSlotVariants`) calls `invalidateShoppingList()`; partial key without `weekStartDate` to cover `copyPlanToWeek`.
+- **Non-flushed debounce** (AGENTS "Shopping list debounce non-flushed" + "New persistence target forgotten in the flush"): the people stepper debounce in the sheet wants its own timer/ref **and** a flush on sheet close/unmount, reading from a ref (no stale closure). `useShoppingList`'s `flushAll` is not touched here (no new field persisted by that hook), but the principle is identical.
+- **`enabled: !!user`** on every auth-bound query (already respected by `useFamilyProfile`); **no `onSnapshot`**.
+- **`ConfirmDialog` for multi-slot destructive actions** (delete plan/day/meal — already existing); never `confirm()`/`alert()`; feedback via `react-hot-toast`.
+- **Controls never `group-hover`-only below `lg`** (AGENTS "Action hidden in group-hover on touch"): variant chips always visible; any hover-reveal actions only from `lg` with the MealSlotCell.tsx:111 pattern; always an `aria-label`.
+- **`max-lg:portrait:`** (never bare `portrait:`); grid with `minmax(72px+, 1fr)` + `overflow-x-auto`; **no `position: sticky` inside `.shell-stage`** on desktop ≥1440px (app-shell with internal `<main>` scroll) — the setup's sticky CTA bar must be verified on desktop.
+- **Pages without their own outer padding**; planner `max-w-[1200px] mx-auto`, form sub-panels `max-w-lg mx-auto` (AGENTS §6 "Layout max-width").
+- **Semantic tokens** (`bg-background`/`bg-card`/`text-foreground`/`border-border`), never `bg-white`; native elements (`select`, `input`) with explicit `bg-background text-foreground`; no nonexistent OKLCH scales (`bg-primary/10`, not `bg-primary-100`); **side-stripe ban**; collapse with `grid-rows-[0fr]→[1fr]` + `motion-reduce:transition-none`, never `max-h`.
+- **`useState(prop)` doesn't react to changes** → sync `useEffect` for the stepper draft in the sheet (pattern already in ServingsStepper:47-49).
+- **YYYY-MM-DD parsing**: always `new Date(dateStr + 'T00:00:00')` (already respected in page.tsx/PlannerHeader); `isToday` with local comparison.
+- **Slot identity `${dayIndex}-${mealType}` intact**: no new key, no multiple slots per meal.
+- **kcal**: `caloriesPerServing` always per serving, never totals (AGENTS "Total kcal instead of per serving"); the planner shows `≥` on partial values, never unmarked partial sums; kcal **excluded from the shopping list** (CLAUDE.md).
+- **`familyProfile` staleTime 5 min**: `defaultServingsPlanned` may lag up to 5 min after a profile edit — accepted and documented (§4.1).
+- No AI route touched: the JSON schema/Sonnet 5 parameter constraints don't apply to this spec.
 
 ---
 
-## 9. Prompt di implementazione
+## 8. Out of scope
+
+- **Full per-member grid** (excluded by product decision 5) and variants with inline `newRecipe`/AI.
+- Scaling of the **ad-hoc** "Voglio preparare questo" list (quantities copied as-is by design, types/index.ts:491-495) and any change to `aggregateIngredients`/`mergeQuantities`/canonical keys.
+- Batch migration of existing plans (lazy dual-read).
+- Per-member preferences/diets (the family profile stays label+age+notes).
+- Persisting per-meal generation rules on the plan (they stay setup-only, §4.6.2).
+- kcal in the shopping list; estimate `confidence`; macros if Spec C is not implemented (extension point only, §4.3.4).
+- Changes to cooking mode, `estimate-calories`, AI prompts, Firestore rules/indexes (the new fields live in existing documents covered by the owner-based rules).
+- Server-side enforcement of "one plan per week" (stays client-side as today).
+
+---
+
+## 9. Implementation prompt
 
 ```markdown
-Implementa la Spec F del progetto "Il Mio Ricettario" (piano famiglia + redesign pianificatore).
+Implement Spec F of the "Il Mio Ricettario" project (family plan + planner redesign).
 
-PREPARAZIONE (obbligatoria, nell'ordine):
-1. Leggi e applica CLAUDE.md, AGENTS.md, COMMENTS.md e DEVELOPMENT_GUIDELINES.md nella root del repo.
-2. Leggi PER INTERO specs/00-roadmap.md (contratti vincolanti 1, 4, 5) e specs/spec-f-piano-famiglia-redesign.md: la spec è il tuo mandato, il roadmap prevale in caso di conflitto.
-3. Verifica nella checklist del roadmap che la Spec A sia completata (sortMealTypes, spuntino/merenda): è una dipendenza obbligatoria. Verifica se la Spec C è completata: decide il punto di estensione macro (§4.3.4 della spec).
-4. Crea il branch feature/family-meal-plan da develop.
+PREPARATION (mandatory, in order):
+1. Read and apply CLAUDE.md, AGENTS.md, COMMENTS.md and DEVELOPMENT_GUIDELINES.md in the repo root.
+2. Read IN FULL specs/00-roadmap.md (binding contracts 1, 4, 5) and specs/spec-f-piano-famiglia-redesign.md: the spec is your mandate, the roadmap prevails in case of conflict.
+3. Check in the roadmap checklist that Spec A is completed (sortMealTypes, spuntino/merenda): it is a mandatory dependency. Check whether Spec C is completed: it decides the macro extension point (§4.3.4 of the spec).
+4. Create the branch feature/family-meal-plan from develop.
 
-IMPLEMENTAZIONE:
-- Procedi fase per fase secondo §5 della spec (1: modello+scaling+kcal dietro comportamento legacy; 2: mutazioni hook+shuffle+famiglia; 3: UI varianti; 4: redesign pagina; 5: chiusura). Dopo OGNI fase esegui `npx tsc --noEmit` e correggi prima di proseguire.
-- L'invariante di retro-compatibilità è sacro: slot con servingsPlanned == null → nessuno scaling, quantità as-is. Scrivi i test che lo dimostrano PRIMA di rifinire il resto.
-- Per la FASE 4 (redesign) DEVI caricare la skill `impeccable`: usala prima per la direction del redesign (architettura in §4.6 della spec come base) e poi per la review finale delle schermate. Rispetta DESIGN.md "Carta e Terracotta" (timbro terracotta ≤10%, niente card annidate, token semantici).
-- Mai `undefined` verso Firestore; ogni mutazione del piano chiama invalidateShoppingList(); nessun onSnapshot; ConfirmDialog per le azioni distruttive multi-slot.
+IMPLEMENTATION:
+- Proceed phase by phase following §5 of the spec (1: model+scaling+kcal behind legacy behavior; 2: hook mutations+shuffle+family; 3: variants UI; 4: page redesign; 5: wrap-up). After EVERY phase run `npx tsc --noEmit` and fix before moving on.
+- The backward-compatibility invariant is sacred: slots with servingsPlanned == null → no scaling, quantities as-is. Write the tests that prove it BEFORE polishing the rest.
+- For PHASE 4 (redesign) you MUST load the `impeccable` skill: use it first for the redesign direction (architecture in §4.6 of the spec as a base) and then for the final review of the screens. Respect DESIGN.md "Paper and Terracotta" ("Carta e Terracotta"; terracotta stamp ≤10%, no nested cards, semantic tokens).
+- Never `undefined` to Firestore; every plan mutation calls invalidateShoppingList(); no onSnapshot; ConfirmDialog for multi-slot destructive actions.
 
-VERIFICA:
-- Test unit: `npm test` (script reale in package.json: "test": "jest"). Aggiorna/estendi ingredient-aggregator.test.ts, meal-plan-calories.test.ts, meal-plan-shuffle.test.ts come da §6.1.
-- Build finale: `npx next build --webpack`. Se fallisce con `spawn EPERM` nel sandbox, rilanciala fuori sandbox prima di indagare il codice.
+VERIFICATION:
+- Unit tests: `npm test` (actual script in package.json: "test": "jest"). Update/extend ingredient-aggregator.test.ts, meal-plan-calories.test.ts, meal-plan-shuffle.test.ts as per §6.1.
+- Final build: `npx next build --webpack`. If it fails with `spawn EPERM` in the sandbox, rerun it outside the sandbox before investigating the code.
 
-CHIUSURA:
-- Aggiorna CLAUDE.md (sezione "Recent Changes" + pattern critici se emersi), AGENTS.md (nuovi gotcha SOLO se hanno costato debug reale) e spunta la Spec F nella checklist di specs/00-roadmap.md.
-- NON committare MAI senza OK esplicito dell'utente (regola di sessione: un branch/commit a sessione).
-- Al termine proponi un collaudo guidato fase-per-fase con emulatori Firebase + Playwright (script usa-e-getta in e2e/scratch/, spy words nei dati di seed, un fase per messaggio con esito atteso dichiarato prima), seguendo §6.2 della spec e la sezione "Guided testing tooling" di CLAUDE.md.
+WRAP-UP:
+- Update CLAUDE.md ("Recent Changes" section + critical patterns if any emerged), AGENTS.md (new gotchas ONLY if they cost real debugging) and check off Spec F in the checklist of specs/00-roadmap.md.
+- NEVER commit without the user's explicit OK (session rule: one branch/commit per session).
+- At the end propose a phase-by-phase guided test with Firebase emulators + Playwright (throwaway scripts in e2e/scratch/, spy words in the seed data, one phase per message with the expected outcome declared first), following §6.2 of the spec and the "Guided testing tooling" section of CLAUDE.md.
 ```
 
 ---
 
-## 10. Modello e effort consigliati
+## 10. Recommended model and effort
 
-**Fable (o Opus) · effort xhigh + skill impeccable per il redesign — modello dati con back-compat delicata e redesign completo di pagina.** L'invariante legacy sullo scaling e il rifacimento UI a più superfici richiedono il massimo livello di ragionamento e una direction visiva dedicata.
+**Fable (or Opus) · effort xhigh + impeccable skill for the redesign — data model with delicate back-compat and a full page redesign.** The legacy invariant on scaling and the multi-surface UI rework require the highest level of reasoning and a dedicated visual direction.

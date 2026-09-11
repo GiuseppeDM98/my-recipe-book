@@ -1,6 +1,6 @@
 ---
 name: Il Mio Ricettario
-description: Ricettario digitale privato per famiglie italiane — caldo, editoriale, materico
+description: Private digital recipe book for Italian families — warm, editorial, tactile
 colors:
   terracotta: "oklch(52% 0.13 42)"
   terracotta-deep: "oklch(43% 0.12 42)"
@@ -83,132 +83,132 @@ components:
 
 ## 1. Overview
 
-**Creative North Star: "Carta e Terracotta"**
+**Creative North Star: "Paper and Terracotta" ("Carta e Terracotta")**
 
-Questo sistema vuole avere la consistenza fisica di un oggetto ben fatto: la grana di una carta panna pregiata e lo smalto caldo di una ceramica artigianale. Le superfici non devono sembrare pannelli di vetro retroilluminato; devono sembrare avere materia. Il calore non arriva da un colore "carino" spalmato ovunque, ma dalla combinazione di uno sfondo crema mai bianco, inchiostro marrone mai nero, e un singolo accento terracotta usato come timbro, non come vernice.
+This system aims for the physical consistency of a well-made object: the grain of a fine cream paper and the warm glaze of handmade ceramics. Surfaces must not look like backlit glass panels; they must feel like they have substance. The warmth doesn't come from a "pretty" color smeared everywhere, but from the combination of a cream background that is never white, brown ink that is never black, and a single terracotta accent used as a stamp, not as paint.
 
-È un ricettario, non un'app. Ogni schermata è una pagina di un cookbook curato: il contenuto (titoli di ricette in Bodoni, ingredienti, passaggi) è la sostanza, e la cornice la serve in silenzio. La densità è bassa e respirata sulle pagine di lettura, può crescere solo dove l'utente sta davvero gestendo dati (pianificatore, dispensa, lista della spesa). Il registro è "product": la familiarità è una virtù, la sorpresa è un costo. Le primitive (bottoni, input, card) seguono convenzioni note; la personalità vive nello strato editoriale sopra di esse — `shell-stage`, `cinematic-heading`, i filetti terracotta-salvia.
+It's a cookbook, not an app. Every screen is a page of a curated cookbook: the content (recipe titles in Bodoni, ingredients, steps) is the substance, and the frame serves it quietly. Density is low and airy on reading pages, and may grow only where the user is genuinely managing data (meal planner, pantry, shopping list). The register is "product": familiarity is a virtue, surprise is a cost. The primitives (buttons, inputs, cards) follow known conventions; the personality lives in the editorial layer above them — `shell-stage`, `cinematic-heading`, the terracotta-sage rules.
 
-Questo sistema rifiuta esplicitamente quattro cose, ereditate da PRODUCT.md: il *food social* (niente foto enormi, like, follower), l'estetica *AI/SaaS* (niente dashboard fredde, gradienti viola-blu, glow neon, glassmorphism decorativo), la *delivery app* (niente carrelli, prezzi, promozioni) e il *corporate* (niente blu, niente grigio freddo neutro).
+This system explicitly rejects four things, inherited from PRODUCT.md: *food social* (no huge photos, likes, followers), the *AI/SaaS* aesthetic (no cold dashboards, purple-blue gradients, neon glow, decorative glassmorphism), the *delivery app* (no carts, prices, promotions) and the *corporate* look (no blue, no cold neutral gray).
 
 **Key Characteristics:**
-- Sfondo crema caldo (`oklch(97% 0.01 75)`), mai bianco puro; inchiostro marrone scuro (`oklch(18% 0.03 55)`), mai nero.
-- Un solo accento terracotta come timbro raro; salvia come seconda voce ancora più rara.
-- Bodoni Moda per i titoli (autorevolezza editoriale), Jost per il corpo (leggibilità in cucina).
-- Profondità materica su desktop (ombre morbide, deriva ambientale), piatta su mobile per performance.
-- Tocco generoso e contrasto alto: l'utente legge con le mani sporche di farina.
+- Warm cream background (`oklch(97% 0.01 75)`), never pure white; dark brown ink (`oklch(18% 0.03 55)`), never black.
+- A single terracotta accent as a rare stamp; sage as an even rarer second voice.
+- Bodoni Moda for headings (editorial authority), Jost for body (readability in the kitchen).
+- Tactile depth on desktop (soft shadows, ambient drift), flat on mobile for performance.
+- Generous touch and high contrast: the user reads with flour-covered hands.
 
 ## 2. Colors
 
-Una palette terrosa e calda costruita interamente in OKLCH attorno a un'unica famiglia di toni (hue ~42–75 caldi, più una salvia 148), così che ogni superficie appartenga allo stesso oggetto fisico.
+An earthy, warm palette built entirely in OKLCH around a single family of tones (warm hues ~42–75, plus a sage at 148), so that every surface belongs to the same physical object.
 
 ### Primary
-- **Terracotta** (`oklch(52% 0.13 42)`): l'unico vero accento. Azioni primarie, selezione corrente, ring di focus, filetti editoriali. È un timbro su carta, non una vernice da stendere.
-- **Terracotta Profonda** (`oklch(43% 0.12 42)`): stato hover dei bottoni primari e testo accento su sfondi chiari quando serve più contrasto.
+- **Terracotta** (`oklch(52% 0.13 42)`): the only true accent. Primary actions, current selection, focus ring, editorial rules. It's a stamp on paper, not paint to spread.
+- **Deep Terracotta** (`oklch(43% 0.12 42)`): hover state of primary buttons and accent text on light backgrounds when more contrast is needed.
 
 ### Secondary
-- **Salvia** (`oklch(50% 0.08 148)`): seconda voce, ancora più rara della terracotta. Conferme, accenti di stato positivo, secondo capo dei filetti gradiente. Mai in competizione con la terracotta nello stesso sguardo.
+- **Sage** (`oklch(50% 0.08 148)`): second voice, even rarer than terracotta. Confirmations, positive-state accents, second end of the gradient rules. Never competing with terracotta in the same glance.
 
 ### Tertiary
-- **Ruggine d'Allerta** (`oklch(58% 0.22 25)`): solo distruttivo/errore (elimina, scadenze in dispensa). È l'unico rosso ad alta saturazione ammesso, e solo come segnale.
+- **Alert Rust** (`oklch(58% 0.22 25)`): destructive/error only (delete, pantry expiries). It's the only high-saturation red allowed, and only as a signal.
 
 ### Neutral
-- **Crema Panna** (`oklch(97% 0.01 75)`): sfondo primario, superfici card e popover. Il colore della pagina.
-- **Inchiostro** (`oklch(18% 0.03 55)`): testo principale. Marrone molto scuro, mai `#000`.
-- **Inchiostro Tenue** (`oklch(45% 0.04 55)`): testo muted, descrizioni, label secondarie. Marrone medio — verificato sopra crema a contrasto ≥4.5:1.
-- **Crema Scura** (`oklch(91% 0.02 75)`): superficie secondaria, fondali di toolbar/sezioni, stati hover ghost.
-- **Taupe Chiaro** (`oklch(88% 0.02 75)`): bordi, divisori, contorno input.
+- **Cream** (`oklch(97% 0.01 75)`): primary background, card and popover surfaces. The color of the page.
+- **Ink** (`oklch(18% 0.03 55)`): main text. Very dark brown, never `#000`.
+- **Muted Ink** (`oklch(45% 0.04 55)`): muted text, descriptions, secondary labels. Medium brown — verified on cream at ≥4.5:1 contrast.
+- **Dark Cream** (`oklch(91% 0.02 75)`): secondary surface, toolbar/section backdrops, ghost hover states.
+- **Light Taupe** (`oklch(88% 0.02 75)`): borders, dividers, input outlines.
 
 ### Named Rules
-**La Regola del Timbro.** La terracotta compare su ≤10% di qualunque schermata. È un timbro a inchiostro, non una tinta di fondo. La sua rarità è ciò che la rende autorevole; se due elementi terracotta competono nello stesso sguardo, uno è di troppo.
+**The Stamp Rule.** Terracotta appears on ≤10% of any screen. It's an ink stamp, not a background tint. Its rarity is what makes it authoritative; if two terracotta elements compete in the same glance, one is too many.
 
-**La Regola Mai-Bianco-Mai-Nero.** Nessuna superficie è `#ffffff`, nessun testo è `#000000`. Lo sfondo è sempre crema, l'inchiostro sempre marrone. Il bianco puro tradisce la "app"; rompe l'illusione della carta.
+**The Never-White-Never-Black Rule.** No surface is `#ffffff`, no text is `#000000`. The background is always cream, the ink always brown. Pure white gives away the "app"; it breaks the paper illusion.
 
-**La Regola Anti-Freddo.** Vietato il blu, vietato il grigio neutro freddo. Ogni neutro porta chroma caldo verso hue 75. Un grigio freddo in questo sistema è un bug, non una scelta.
+**The Anti-Cold Rule.** Blue is forbidden, cold neutral gray is forbidden. Every neutral carries warm chroma toward hue 75. A cold gray in this system is a bug, not a choice.
 
 ## 3. Typography
 
-**Display Font:** Bodoni Moda (con fallback Georgia, serif)
-**Body Font:** Jost (con fallback system-ui, sans-serif)
+**Display Font:** Bodoni Moda (with fallback Georgia, serif)
+**Body Font:** Jost (with fallback system-ui, sans-serif)
 
-**Character:** Una coppia ad asse di contrasto, non di somiglianza: un didone italiano ad alto contrasto (Bodoni, revival di Giambattista Bodoni — secoli di editoria e moda italiana) contro un umanista geometrico contemporaneo (Jost). Il Bodoni porta autorevolezza e calore nelle curve; il Jost porta leggibilità a tutte le dimensioni. La firma editoriale è il Bodoni **in corsivo** per i titoli di pagina e gli empty state.
+**Character:** A pairing on an axis of contrast, not similarity: a high-contrast Italian Didone (Bodoni, a revival of Giambattista Bodoni — centuries of Italian publishing and fashion) against a contemporary geometric humanist (Jost). Bodoni brings authority and warmth in its curves; Jost brings readability at every size. The editorial signature is Bodoni **in italics** for page titles and empty states.
 
 ### Hierarchy
-- **Display** (Bodoni, 600, spesso corsivo, ~`text-3xl`/1.875rem, line-height ~1.05): titoli di pagina, intestazioni degli empty state, momenti editoriali. Usa `text-wrap: balance`.
-- **Headline** (Bodoni, 600, `text-lg`–`text-2xl`): titoli di sezione e card title. Si applica `font-display` solo a `h1–h4`.
-- **Title** (Jost, 600, `text-lg`/1.125rem, leading-none, tracking-tight): titoli di card compatte e header di pannello.
-- **Body** (Jost, 400, `text-sm`/0.875rem, line-height 1.5): testo corrente, descrizioni, valori. Tetto prosa 65–75ch; ingredienti e tabelle possono correre più densi.
-- **Label** (Jost, 600, `text-[0.7rem]`, letter-spacing 0.24em, MAIUSCOLO): kicker editoriali e badge. Solo etichette brevi (≤4 parole).
+- **Display** (Bodoni, 600, often italic, ~`text-3xl`/1.875rem, line-height ~1.05): page titles, empty-state headings, editorial moments. Uses `text-wrap: balance`.
+- **Headline** (Bodoni, 600, `text-lg`–`text-2xl`): section titles and card titles. `font-display` is applied only to `h1–h4`.
+- **Title** (Jost, 600, `text-lg`/1.125rem, leading-none, tracking-tight): compact card titles and panel headers.
+- **Body** (Jost, 400, `text-sm`/0.875rem, line-height 1.5): running text, descriptions, values. Prose cap 65–75ch; ingredients and tables may run denser.
+- **Label** (Jost, 600, `text-[0.7rem]`, letter-spacing 0.24em, UPPERCASE): editorial kickers and badges. Short labels only (≤4 words).
 
 ### Named Rules
-**La Regola del Corsivo Editoriale.** Il corsivo è riservato al Bodoni nei titoli e nei momenti editoriali (empty state, heading di pagina). Non si mette in corsivo il corpo Jost per "enfasi": l'enfasi nel corpo passa dal peso, non dall'inclinazione.
+**The Editorial Italic Rule.** Italics are reserved for Bodoni in titles and editorial moments (empty states, page headings). Jost body text is never italicized for "emphasis": emphasis in the body comes from weight, not slant.
 
-**La Regola Maiuscolo-Solo-Label.** Il maiuscolo con tracking 0.24em (`editorial-kicker`) è ammesso solo su etichette ≤4 parole. Mai una frase, mai un paragrafo in maiuscolo.
+**The Uppercase-Labels-Only Rule.** Uppercase with 0.24em tracking (`editorial-kicker`) is allowed only on labels of ≤4 words. Never a sentence, never a paragraph in uppercase.
 
 ## 4. Elevation
 
-Sistema **ibrido e dipendente dalla capacità del dispositivo**. Su desktop (≥1440px) la profondità è materica: ombre morbide a raggio ampio e offset negativo (l'ombra sta sotto e dentro l'oggetto, come carta posata su carta), più una leggerissima deriva ambientale di gradienti caldi dietro `shell-stage`. Su mobile (<1440px) tutto lo strato decorativo viene rimosso — bordi, ombre e pseudo-elementi spariscono e `shell-stage` diventa una tinta piatta crema — perché lo stage copre l'intera viewport e la rasterizzazione non darebbe alcun beneficio percepibile, solo costo.
+A **hybrid system that depends on device capability**. On desktop (≥1440px) depth is tactile: soft, wide-radius shadows with negative offset (the shadow sits under and inside the object, like paper laid on paper), plus a very faint ambient drift of warm gradients behind `shell-stage`. On mobile (<1440px) the whole decorative layer is removed — borders, shadows and pseudo-elements disappear and `shell-stage` becomes a flat cream tint — because the stage covers the entire viewport and rasterization would bring no perceptible benefit, only cost.
 
-### Shadow Vocabulary (solo desktop)
-- **Card a riposo** (`box-shadow: shadow-sm` di Tailwind): sollevamento minimo, la carta appena staccata dalla pagina.
-- **Pannello editoriale** (`box-shadow: 0 20px 55px -42px oklch(var(--foreground)/0.3), inset 0 1px 0 oklch(100% 0 0 /0.6)`): profondità diffusa con un filo di luce in alto, per `shell-panel` ed empty state.
-- **Stage** (`box-shadow: 0 30px 80px -52px oklch(var(--foreground)/0.28), inset 0 1px 0 oklch(100% 0 0 /0.7)`): la cornice esterna della pagina, l'ombra più ampia e morbida del sistema.
+### Shadow Vocabulary (desktop only)
+- **Resting card** (`box-shadow: shadow-sm` from Tailwind): minimal lift, the paper just peeling off the page.
+- **Editorial panel** (`box-shadow: 0 20px 55px -42px oklch(var(--foreground)/0.3), inset 0 1px 0 oklch(100% 0 0 /0.6)`): diffuse depth with a thread of light at the top, for `shell-panel` and empty states.
+- **Stage** (`box-shadow: 0 30px 80px -52px oklch(var(--foreground)/0.28), inset 0 1px 0 oklch(100% 0 0 /0.7)`): the page's outer frame, the widest and softest shadow in the system.
 
 ### Named Rules
-**La Regola dell'Ombra Marrone.** Le ombre non sono mai nere: usano `oklch(var(--foreground)/α)`, cioè marrone trasparente. Un'ombra nera su crema vira al grigio freddo e tradisce la materia calda.
+**The Brown Shadow Rule.** Shadows are never black: they use `oklch(var(--foreground)/α)`, i.e. transparent brown. A black shadow on cream turns cold gray and betrays the warm material.
 
-**La Regola Mobile-Piatto.** Sotto 1440px ogni decorazione di profondità si spegne. La materialità è un lusso da desktop; in cucina, su telefono, vince la performance e la tinta piatta.
+**The Flat-Mobile Rule.** Below 1440px every depth decoration switches off. Materiality is a desktop luxury; in the kitchen, on a phone, performance and flat tint win.
 
 ## 5. Components
 
-Le primitive sono shadcn/Radix con `class-variance-authority`: familiari di proposito. Il carattere vive nello strato editoriale sopra di esse.
+The primitives are shadcn/Radix with `class-variance-authority`: familiar on purpose. The character lives in the editorial layer above them.
 
 ### Buttons
-- **Shape:** angoli morbidi (`rounded-md`, 6px). Altezze fisse: `default` 40px, `sm` 36px, `lg` 44px, `icon` 40×40.
-- **Primary:** fondo terracotta, testo crema, padding `8px 16px` (`h-10 px-4`). Transizione solo di colore.
-- **Hover / Focus:** hover → `bg-primary/90` (vira a terracotta profonda); focus-visible → ring 2px terracotta con offset 2px sul background. Mai rimuovere il focus ring.
-- **Secondary / Outline / Ghost / Link:** secondary su crema scura; outline con bordo taupe su crema, hover salvia tenue; ghost trasparente con hover salvia tenue; link terracotta con underline-offset. Destructive usa la ruggine d'allerta.
+- **Shape:** soft corners (`rounded-md`, 6px). Fixed heights: `default` 40px, `sm` 36px, `lg` 44px, `icon` 40×40.
+- **Primary:** terracotta background, cream text, padding `8px 16px` (`h-10 px-4`). Color-only transition.
+- **Hover / Focus:** hover → `bg-primary/90` (shifts toward deep terracotta); focus-visible → 2px terracotta ring with 2px offset on the background. Never remove the focus ring.
+- **Secondary / Outline / Ghost / Link:** secondary on dark cream; outline with taupe border on cream, soft sage hover; transparent ghost with soft sage hover; terracotta link with underline-offset. Destructive uses alert rust.
 
 ### Chips (kicker)
-- **Style:** pillola crema con bordo terracotta tenue (`border-primary/15`), testo Jost 600 maiuscolo con tracking 0.24em in inchiostro tenue. Spesso accoppiata a un'icona in cerchio terracotta-tenue.
-- **State:** decorativa/etichetta, non interattiva. Per i filtri attivi, il chip selezionato porta fondo terracotta tenue e testo terracotta.
+- **Style:** cream pill with a soft terracotta border (`border-primary/15`), Jost 600 uppercase text with 0.24em tracking in muted ink. Often paired with an icon in a soft-terracotta circle.
+- **State:** decorative/label, not interactive. For active filters, the selected chip carries a soft terracotta background and terracotta text.
 
 ### Cards / Containers
-- **Corner Style:** `rounded-lg` (8px) per le card standard; `rounded-[1.8rem]` (~29px) per i pannelli editoriali e gli empty state.
-- **Background:** crema (`bg-card`), con i pannelli editoriali su un gradiente verticale crema→crema appena più scura.
-- **Shadow Strategy:** vedi Elevation — `shadow-sm` a riposo sulle card, ombra di pannello sugli `shell-panel` (solo desktop).
-- **Border:** 1px taupe (`border`), spesso a opacità ridotta (`border/0.7`).
-- **Internal Padding:** `p-6` (24px) standard di card.
-- **Mai card annidate.** Una card dentro una card è sempre un errore di struttura.
+- **Corner Style:** `rounded-lg` (8px) for standard cards; `rounded-[1.8rem]` (~29px) for editorial panels and empty states.
+- **Background:** cream (`bg-card`), with editorial panels on a vertical gradient from cream to a slightly darker cream.
+- **Shadow Strategy:** see Elevation — `shadow-sm` at rest on cards, panel shadow on `shell-panel` (desktop only).
+- **Border:** 1px taupe (`border`), often at reduced opacity (`border/0.7`).
+- **Internal Padding:** `p-6` (24px) standard card padding.
+- **Never nested cards.** A card inside a card is always a structural mistake.
 
 ### Inputs / Fields
-- **Style:** altezza 40px, bordo taupe (`border-input`), fondo crema, `rounded-md`, testo `text-sm`. Placeholder in inchiostro tenue (mai più chiaro: deve reggere 4.5:1).
-- **Focus:** ring 2px terracotta con offset 2px (`focus-visible:ring-ring`), niente glow.
-- **Disabled:** cursor-not-allowed, opacità 50%.
+- **Style:** 40px height, taupe border (`border-input`), cream background, `rounded-md`, `text-sm` text. Placeholder in muted ink (never lighter: it must hold 4.5:1).
+- **Focus:** 2px terracotta ring with 2px offset (`focus-visible:ring-ring`), no glow.
+- **Disabled:** cursor-not-allowed, 50% opacity.
 
 ### Navigation
-- **Desktop (≥1440px):** sidebar. **Mobile portrait:** bottom navigation (azioni nella thumb zone). **Mobile landscape:** hamburger + drawer (sheet). Stato attivo segnalato in terracotta; label sempre presenti sotto le icone, mai navigazione solo-icona.
+- **Desktop (≥1440px):** sidebar. **Mobile portrait:** bottom navigation (actions in the thumb zone). **Mobile landscape:** hamburger + drawer (sheet). Active state marked in terracotta; labels always present under the icons, never icon-only navigation.
 
-### Signature: lo Stage editoriale
-`shell-stage` e `shell-panel` sono la firma del prodotto: cornici con bordo taupe, gradienti caldi radiali terracotta/salvia a bassissima opacità, un filo di luce interno in alto, e (stage) una deriva ambientale di 18s. `cinematic-heading` aggiunge un filetto gradiente terracotta→salvia→trasparente sotto il titolo. Sono ciò che trasforma una pagina-strumento in una pagina-cookbook. Da usare per le cornici di pagina, non per ogni piccolo contenitore.
+### Signature: the editorial Stage
+`shell-stage` and `shell-panel` are the product's signature: frames with a taupe border, radial warm terracotta/sage gradients at very low opacity, a thread of inner light at the top, and (stage) an 18s ambient drift. `cinematic-heading` adds a terracotta→sage→transparent gradient rule under the title. They're what turns a tool page into a cookbook page. Use them for page frames, not for every small container.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** mantenere lo sfondo crema (`oklch(97% 0.01 75)`) e l'inchiostro marrone (`oklch(18% 0.03 55)`) ovunque; sono il colore della carta e dell'inchiostro.
-- **Do** usare la terracotta come timbro raro (≤10% della schermata): azioni primarie, selezione, focus ring, filetti.
-- **Do** riservare il Bodoni corsivo ai titoli e ai momenti editoriali; tenere il corpo in Jost regolare.
-- **Do** colorare le ombre in marrone trasparente (`oklch(var(--foreground)/α)`), mai nero.
-- **Do** spegnere lo strato decorativo di profondità sotto 1440px; in cucina vince la performance.
-- **Do** dare tocco generoso e contrasto alto: l'utente legge con le mani occupate.
-- **Do** etichettare sempre le icone di navigazione; usare il maiuscolo tracciato solo per label ≤4 parole.
+- **Do** keep the cream background (`oklch(97% 0.01 75)`) and brown ink (`oklch(18% 0.03 55)`) everywhere; they're the color of the paper and the ink.
+- **Do** use terracotta as a rare stamp (≤10% of the screen): primary actions, selection, focus ring, rules.
+- **Do** reserve italic Bodoni for titles and editorial moments; keep body text in regular Jost.
+- **Do** tint shadows in transparent brown (`oklch(var(--foreground)/α)`), never black.
+- **Do** switch off the decorative depth layer below 1440px; in the kitchen, performance wins.
+- **Do** provide generous touch and high contrast: the user reads with busy hands.
+- **Do** always label navigation icons; use tracked uppercase only for labels of ≤4 words.
 
 ### Don't:
-- **Don't** usare bianco puro (`#fff`) per le superfici o nero puro (`#000`) per il testo: tradisce l'illusione della carta.
-- **Don't** introdurre blu o grigi freddi neutri; ogni neutro porta chroma caldo verso hue 75.
-- **Don't** scadere nell'estetica AI/SaaS: niente gradienti viola-blu, glow neon, glassmorphism decorativo, dashboard fredde.
-- **Don't** scadere nel food social: niente foto enormi, like, follower, conteggi sociali.
-- **Don't** scadere nella delivery app: niente carrelli, prezzi, badge promozionali.
-- **Don't** annidare card dentro card, né usare `background-clip: text` con gradiente (gradient text), né bordi laterali colorati >1px come accento.
-- **Don't** mettere frasi o paragrafi in MAIUSCOLO; il maiuscolo tracciato è solo per kicker brevi.
-- **Don't** far competere terracotta e salvia nello stesso sguardo: la salvia è la seconda voce, più rara.
+- **Don't** use pure white (`#fff`) for surfaces or pure black (`#000`) for text: it betrays the paper illusion.
+- **Don't** introduce blue or cold neutral grays; every neutral carries warm chroma toward hue 75.
+- **Don't** slip into the AI/SaaS aesthetic: no purple-blue gradients, neon glow, decorative glassmorphism, cold dashboards.
+- **Don't** slip into food social: no huge photos, likes, followers, social counts.
+- **Don't** slip into the delivery app: no carts, prices, promotional badges.
+- **Don't** nest cards inside cards, use `background-clip: text` with a gradient (gradient text), or use colored side borders >1px as an accent.
+- **Don't** put sentences or paragraphs in UPPERCASE; tracked uppercase is only for short kickers.
+- **Don't** let terracotta and sage compete in the same glance: sage is the second, rarer voice.
