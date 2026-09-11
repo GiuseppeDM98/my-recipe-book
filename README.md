@@ -140,13 +140,15 @@ Three ways to get recipes in — all powered by Claude AI:
 - **Intelligent Categorization**: AI suggests 1-3 appropriate categories per recipe (using existing ones or proposing new ones), editable before saving
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
 - **Smart Normalization**: Converts times to minutes, capitalizes section headers, standardizes formatting
+- **Recipe Sections**: Multi-part dishes are split into named sections ("Per il ragù", "La pasta") for both ingredients and method, with matching names on the two sides. Chat and free text create sections when the dish genuinely has distinct components; PDF extraction only preserves the sections the source already has
+- **Organise Into Sections**: A recipe already saved as one long list can be split after the fact — the AI proposes the components, you review the split in a preview, and only the grouping is written (ingredient names, quantities and step texts are never rewritten, so an active cooking session stays valid)
 - **Editable Preview**: Review and modify all recipes before saving
 - **Transparency**: Recipes and categories suggested by AI are clearly marked with badges
 
 **Technical Details**:
 - Powered by Claude Sonnet 5 (1M token context window)
 - Native PDF support with base64 encoding
-- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (kcal)
+- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (kcal), `/api/reorganize-recipe` (sections)
 - The chat can optionally search the web and read attached photos (both opt-in per message); PDF and free-text extraction stay strictly faithful to the source you provide
 - AI-generated recipes include `[DUR:N]` tokens on timed steps; the parser converts them to `step.duration` automatically
 
@@ -1190,7 +1192,7 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 5. Add Vercel domain to Firebase authorized domains
 
 **Production auth note**:
-- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/estimate-calories` all verify Firebase ID tokens server-side
+- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, `/api/estimate-calories`, and `/api/reorganize-recipe` all verify Firebase ID tokens server-side
 - `NEXT_PUBLIC_FIREBASE_*` alone are not enough for those endpoints
 - On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64` to avoid multiline private key formatting issues
 
@@ -1662,6 +1664,58 @@ AI suggests 1-3 categories and a season for a recipe.
 - **Estate**: pomodori, melanzane, zucchine, basilico, pesche
 - **Autunno**: zucca, funghi, castagne, radicchio, uva
 - **Inverno**: cavolo nero, agrumi, cime di rapa, finocchi
+
+---
+
+### POST /api/reorganize-recipe
+
+AI proposes how to split an already-saved flat recipe into named sections.
+
+**Endpoint**: `POST /api/reorganize-recipe`
+
+**Content-Type**: `application/json`
+
+**Request** (ids come from the stored recipe and are echoed back verbatim):
+```json
+{
+  "title": "Lasagne alla bolognese",
+  "ingredients": [
+    { "id": "a1", "name": "Sfoglie di lasagna", "quantity": "250 g" },
+    { "id": "a2", "name": "Carne macinata", "quantity": "500 g" }
+  ],
+  "steps": [
+    { "id": "s1", "description": "Rosola la carne con il soffritto." },
+    { "id": "s2", "description": "Alterna sfoglie, ragù e besciamella." }
+  ]
+}
+```
+
+**Response** (a split was found):
+```json
+{
+  "success": true,
+  "reorganized": true,
+  "ingredientSections": [
+    { "ingredientId": "a2", "section": "Per il ragù" },
+    { "ingredientId": "a1", "section": "Per l'assemblaggio" }
+  ],
+  "stepSections": [
+    { "stepId": "s1", "section": "Per il ragù", "sectionOrder": 1 },
+    { "stepId": "s2", "section": "Per l'assemblaggio", "sectionOrder": 2 }
+  ]
+}
+```
+
+**Response** (single-component recipe — a success, not an error):
+```json
+{ "success": true, "reorganized": false }
+```
+
+**Guarantees**:
+- The response contains **only** section assignments keyed on the ids you sent. No name, quantity or step text is ever returned or rewritten, so active cooking sessions (which track checked items by id) and `{{qty:ingredientId}}` tokens inside steps stay valid.
+- The endpoint never writes to Firestore. It returns a proposal; the client persists it after the user confirms in a preview dialog.
+- `sectionOrder` is recomputed server-side by walking the steps in their real order, so the numbering does not depend on the model's arithmetic.
+- Assignments referencing unknown ids are discarded; if that leaves fewer than two distinct ingredient sections, the response becomes `reorganized: false`.
 
 ---
 

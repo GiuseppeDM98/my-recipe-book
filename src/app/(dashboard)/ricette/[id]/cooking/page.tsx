@@ -20,6 +20,7 @@ import { IngredientListCollapsible } from '@/components/recipe/ingredient-list-c
 import { ArrowLeft, X, ChefHat, Scale, AlertTriangle } from 'lucide-react';
 import NoSleep from 'nosleep.js';
 import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
+import { orderedSectionNamesFromSteps } from '@/lib/utils/section-assignments';
 import { useCountdownTimer } from '@/lib/hooks/useCountdownTimer';
 import { ServingsStepper } from '@/components/recipe/servings-stepper';
 import { StatusBanner } from '@/components/ui/status-banner';
@@ -472,6 +473,7 @@ export default function CookingModePage() {
           <h2 className="font-display text-3xl font-semibold mb-4">Ingredienti</h2>
           <IngredientListCollapsible
             ingredients={scaledIngredients.length > 0 ? scaledIngredients : recipe.ingredients}
+            orderedSections={orderedSectionNamesFromSteps(recipe.steps)}
             defaultExpanded={true}
             interactive={true}
             checkedIngredients={checkedIngredients}

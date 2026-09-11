@@ -95,10 +95,12 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 - Esempio CORRETTO: "Lasciar lievitare in luogo tiepido per 1 ora. [DUR:60]"
 - NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più azioni con tempi diversi
 
-### 4. SEZIONI MULTIPLE
-- Se la ricetta ha componenti distinti (es: pasta fresca + ragù + besciamella), crea sezioni separate
+### 4. SEZIONI MULTIPLE - REGOLA IMPORTANTE
+- Se la ricetta ha componenti logicamente distinte (es: impasto + farcitura, pasta fresca + ragù + besciamella, base + crema), DEVI creare sezioni separate sia per gli ingredienti sia per il procedimento, anche se il testo dell'utente non le separa esplicitamente
+- I nomi delle sezioni devono essere COERENTI tra ingredienti e procedimento: se esiste "## Ingredienti per il ragù" deve esistere "## Procedimento per il ragù"
 - Usa ESATTAMENTE i nomi delle sezioni come forniti dall'utente, o nomi appropriati se non specificati
 - Mantieni "Per" se presente (es: "Per il sugo", "Per la pasta")
+- Le ricette semplici a componente unica restano SENZA sezioni: "## Ingredienti" e "## Procedimento" semplici
 
 ### 5. METADATA
 - Includi solo ciò che è verificabile dal testo o deducibile con certezza

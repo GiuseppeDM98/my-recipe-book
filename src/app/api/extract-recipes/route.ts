@@ -23,6 +23,13 @@ import { FamilyProfile } from '@/types';
 // - Index page detection (skip index, extract actual recipes)
 // - Section name preservation (exact names without abbreviation)
 // - Variable recipe structures (2-6+ sections per recipe)
+//
+// SCOPE NOTE — do NOT mirror the prescriptive sections rule here.
+// chat-recipe and format-recipe instruct the model to CREATE sections when a dish has
+// distinct components. This endpoint deliberately does not: it promises fidelity to the
+// PDF, so inventing a structure the source doesn't have would silently return a recipe
+// the user never uploaded. §3 below only preserves the section names already there.
+// (Same scoping doctrine as the family context and web search — see AGENTS.md §7.)
 const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette presenti** nel documento.
 
 **Fornisci il risultato completo formattando ogni ricetta secondo questa struttura:
