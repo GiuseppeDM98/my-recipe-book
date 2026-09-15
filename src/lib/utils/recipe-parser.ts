@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Ingredient, Step, AISuggestion, Recipe } from '@/types';
+import { Ingredient, Step, AISuggestion, Recipe, MacrosPerServing } from '@/types';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { createStepQuantityToken } from './step-description';
 import { SectionProposal } from './section-assignments';
@@ -14,6 +14,10 @@ export interface ParsedRecipe {
   notes?: string;
   /** Estimated kcal for one serving (see Recipe.caloriesPerServing in types/index.ts). */
   caloriesPerServing?: number;
+  /** Estimated weight of ONE serving, in grams (see Recipe.servingWeightGrams). */
+  servingWeightGrams?: number;
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
+  macrosPerServing?: MacrosPerServing;
   aiSuggestion?: AISuggestion;
 }
 
@@ -595,21 +599,29 @@ export async function getAISuggestionForRecipe(
   }
 }
 
+/** Nutrition estimate returned by `/api/estimate-calories`, one field per persisted value. */
+export interface RecipeNutritionEstimate {
+  caloriesPerServing: number | null;
+  servingWeightGrams: number | null;
+  macrosPerServing: MacrosPerServing | null;
+}
+
 /**
- * Ask the AI to estimate kcal per serving for a recipe.
+ * Ask the AI to estimate kcal, serving weight and macronutrients per serving for a recipe.
  *
  * @param recipeTitle - Recipe title, used as context for the kind of dish
  * @param ingredients - Ingredients with their quantities; both fields matter here,
  *                      unlike the category suggestion which only needs names
  * @param servings - Servings the ingredient list yields. Must be at least 1.
- * @returns The estimate, or null when the recipe is too vague to estimate, the
- *          request fails, or servings is unusable. Callers must not persist null.
+ * @returns The estimate (each field independently nullable when unestimable), or null
+ *          when the request fails or servings is unusable. Callers must not persist a
+ *          null field.
  */
-export async function getAICalorieEstimateForRecipe(
+export async function getAINutritionEstimateForRecipe(
   recipeTitle: string,
   ingredients: Ingredient[],
   servings: number | undefined
-): Promise<number | null> {
+): Promise<RecipeNutritionEstimate | null> {
   // Without a serving count there is nothing to divide by, and guessing one would
   // silently scale the result. Skip the call instead.
   if (!servings || servings < 1) {
@@ -634,14 +646,31 @@ export async function getAICalorieEstimateForRecipe(
     });
 
     if (!response.ok) {
-      console.error('Error estimating calories:', response.statusText);
+      console.error('Error estimating nutrition:', response.statusText);
       return null;
     }
 
     const data = await response.json();
-    return typeof data.caloriesPerServing === 'number' ? data.caloriesPerServing : null;
+    const macros =
+      data.macrosPerServing &&
+      typeof data.macrosPerServing === 'object' &&
+      Number.isFinite(data.macrosPerServing.proteinGrams) &&
+      Number.isFinite(data.macrosPerServing.carbsGrams) &&
+      Number.isFinite(data.macrosPerServing.fatGrams)
+        ? {
+            proteinGrams: data.macrosPerServing.proteinGrams,
+            carbsGrams: data.macrosPerServing.carbsGrams,
+            fatGrams: data.macrosPerServing.fatGrams,
+          }
+        : null;
+
+    return {
+      caloriesPerServing: typeof data.caloriesPerServing === 'number' ? data.caloriesPerServing : null,
+      servingWeightGrams: typeof data.servingWeightGrams === 'number' ? data.servingWeightGrams : null,
+      macrosPerServing: macros,
+    };
   } catch (error) {
-    console.error('Error estimating calories:', error);
+    console.error('Error estimating nutrition:', error);
     return null;
   }
 }

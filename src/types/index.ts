@@ -151,6 +151,19 @@ export type Season = 'primavera' | 'estate' | 'autunno' | 'inverno' | 'tutte_sta
  * - Displays "✨ Suggerito da AI" badge in UI (season-selector.tsx)
  * - Users can modify AI suggestions before saving
  */
+/**
+ * Estimated macronutrients for ONE serving, in grams.
+ *
+ * Always the complete trio: a partial estimate (protein only, etc.) cannot be expressed
+ * or persisted — either all three or the field is absent. 0 is a legitimate value
+ * (e.g. 0 g of fat): display gates must use `!= null`, never truthiness.
+ */
+export interface MacrosPerServing {
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+}
+
 export interface Recipe {
   id: string;
   userId: string;
@@ -226,6 +239,16 @@ export interface Recipe {
    * sync the first time either changes.
    */
   caloriesPerServing?: number;
+
+  /**
+   * Estimated weight of ONE serving of the FINISHED recipe, in grams (AI or manual).
+   * Per serving for the same reason as caloriesPerServing. kcal/100g is derived
+   * at render time: never persist derived values.
+   */
+  servingWeightGrams?: number;
+
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
+  macrosPerServing?: MacrosPerServing;
 
   notes?: string;
   createdAt: Timestamp;
@@ -360,6 +383,10 @@ export interface ParsedRecipe {
   notes?: string;
   /** Estimated kcal for one serving (see Recipe.caloriesPerServing). */
   caloriesPerServing?: number;
+  /** Estimated weight of ONE serving, in grams (see Recipe.servingWeightGrams). */
+  servingWeightGrams?: number;
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
+  macrosPerServing?: MacrosPerServing;
   ingredients: Ingredient[];
   steps: Step[];
   aiSuggestion?: AISuggestion; // AI-generated category and season suggestion

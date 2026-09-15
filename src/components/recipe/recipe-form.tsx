@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { deleteField } from 'firebase/firestore';
-import { Recipe, Ingredient, Step, Season } from '@/types';
+import { Recipe, Ingredient, Step, Season, MacrosPerServing } from '@/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { createRecipe, updateRecipe } from '@/lib/firebase/firestore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -71,6 +71,20 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
    */
   const [caloriesPerServing, setCaloriesPerServing] = useState(
     recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : ''
+  );
+  // Same string-state pattern as caloriesPerServing, one field per number so a partial
+  // macro trio can be detected on submit (see the validation in handleSubmit).
+  const [servingWeightGrams, setServingWeightGrams] = useState(
+    recipe?.servingWeightGrams != null ? String(recipe.servingWeightGrams) : ''
+  );
+  const [proteinGrams, setProteinGrams] = useState(
+    recipe?.macrosPerServing != null ? String(recipe.macrosPerServing.proteinGrams) : ''
+  );
+  const [carbsGrams, setCarbsGrams] = useState(
+    recipe?.macrosPerServing != null ? String(recipe.macrosPerServing.carbsGrams) : ''
+  );
+  const [fatGrams, setFatGrams] = useState(
+    recipe?.macrosPerServing != null ? String(recipe.macrosPerServing.fatGrams) : ''
   );
   const [ingredientSections, setIngredientSections] = useState<IngredientSection[]>([]);
   const [steps, setSteps] = useState<Step[]>(recipe?.steps || []);
@@ -429,6 +443,35 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
           ? Math.round(caloriesInput)
           : null;
 
+      // Same empty-means-no-estimate rule as calories, generalized to grams. Weight
+      // follows the calories precedent (0 g isn't a weight); macros allow 0 (e.g. 0 g of
+      // fat in a fruit salad is a legitimate value, not a missing one).
+      const parseGrams = (value: string, allowZero: boolean): number | null => {
+        const n = Number(value);
+        if (value.trim() === '' || !Number.isFinite(n)) return null;
+        if (allowZero ? n < 0 : n <= 0) return null;
+        return Math.round(n);
+      };
+      const parsedWeight = parseGrams(servingWeightGrams, false);
+      const parsedProtein = parseGrams(proteinGrams, true);
+      const parsedCarbs = parseGrams(carbsGrams, true);
+      const parsedFat = parseGrams(fatGrams, true);
+
+      // MacrosPerServing is all-or-nothing: a partial trio can't be persisted (the type
+      // has no optional fields), so a user who filled in only one of the three is blocked
+      // rather than silently having the other two dropped.
+      const macroValues = [parsedProtein, parsedCarbs, parsedFat];
+      const filledMacros = macroValues.filter(v => v !== null).length;
+      if (filledMacros > 0 && filledMacros < 3) {
+        toast.error('Per i macronutrienti compila tutti e tre i campi (anche 0) oppure lasciali vuoti');
+        setLoading(false);
+        return;
+      }
+      const parsedMacros: MacrosPerServing | null =
+        filledMacros === 3
+          ? { proteinGrams: parsedProtein!, carbsGrams: parsedCarbs!, fatGrams: parsedFat! }
+          : null;
+
       const recipeData: Omit<Recipe, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
         title,
         description: description || '',
@@ -448,6 +491,8 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
         ...(seasons.length > 0 ? { seasons } : {}),
         ...(typeof recipe?.aiSuggested === 'boolean' ? { aiSuggested: recipe.aiSuggested } : {}),
         ...(parsedCalories !== null ? { caloriesPerServing: parsedCalories } : {}),
+        ...(parsedWeight !== null ? { servingWeightGrams: parsedWeight } : {}),
+        ...(parsedMacros !== null ? { macrosPerServing: parsedMacros } : {}),
       };
 
       if (mode === 'create') {
@@ -464,6 +509,8 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
           ...recipeData,
           categoryId: deleteField(),
           ...(parsedCalories === null ? { caloriesPerServing: deleteField() } : {}),
+          ...(parsedWeight === null ? { servingWeightGrams: deleteField() } : {}),
+          ...(parsedMacros === null ? { macrosPerServing: deleteField() } : {}),
         } as unknown as Partial<Recipe>);
       }
 
@@ -562,6 +609,60 @@ export function RecipeForm({ recipe, mode }: RecipeFormProps) {
             min={0}
             placeholder="—"
           />
+        </div>
+      </div>
+
+      {/* Weight and macros: independent of kcal above, and of each other except that the
+          three macro fields are all-or-nothing (validated in handleSubmit). */}
+      <div>
+        <p className="mb-2 text-sm font-medium">
+          Valori nutrizionali per porzione <span className="text-muted-foreground font-normal">(opzionali)</span>
+        </p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <label htmlFor="recipe-serving-weight" className="block text-sm font-medium mb-2">Peso porz. (g)</label>
+            <Input
+              id="recipe-serving-weight"
+              type="number"
+              value={servingWeightGrams}
+              onChange={(e) => setServingWeightGrams(e.target.value)}
+              min={1}
+              placeholder="—"
+            />
+          </div>
+          <div>
+            <label htmlFor="recipe-protein" className="block text-sm font-medium mb-2">Proteine (g)</label>
+            <Input
+              id="recipe-protein"
+              type="number"
+              value={proteinGrams}
+              onChange={(e) => setProteinGrams(e.target.value)}
+              min={0}
+              placeholder="—"
+            />
+          </div>
+          <div>
+            <label htmlFor="recipe-carbs" className="block text-sm font-medium mb-2">Carboidrati (g)</label>
+            <Input
+              id="recipe-carbs"
+              type="number"
+              value={carbsGrams}
+              onChange={(e) => setCarbsGrams(e.target.value)}
+              min={0}
+              placeholder="—"
+            />
+          </div>
+          <div>
+            <label htmlFor="recipe-fat" className="block text-sm font-medium mb-2">Grassi (g)</label>
+            <Input
+              id="recipe-fat"
+              type="number"
+              value={fatGrams}
+              onChange={(e) => setFatGrams(e.target.value)}
+              min={0}
+              placeholder="—"
+            />
+          </div>
         </div>
       </div>
 

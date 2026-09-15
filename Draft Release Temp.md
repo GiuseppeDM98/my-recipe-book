@@ -45,8 +45,8 @@
 - Added the ability to check off, remove individual ingredients from, or remove an entire ad-hoc recipe addition in the shopping list — these sections appear even on weeks without a saved meal plan, and stay in sync across your devices
 - Added automatic refresh for ad-hoc recipe additions: tapping "Voglio preparare questo" again on a recipe you already added updates its ingredient list in place instead of creating a duplicate section
 
-- Added estimated calories per serving for recipes — enter a value manually, or tap "Estimate calories" on any recipe to have the AI calculate it from the ingredient list; shown on recipe cards, the recipe detail page, and AI extraction previews
-- Added daily calorie totals to the meal planner, summing all recipes planned for each day (days with recipes that have no estimate show a "≥" total instead of hiding the number)
+- Added full nutrition info for recipes: alongside calories per serving, you can now enter or AI-estimate the serving weight and protein/carbs/fat, with kcal per 100 g calculated automatically from the two. The new figures show on the recipe detail page and in the AI extraction preview; recipe cards continue to show calories only
+- Added daily protein, carb, and fat totals to the meal planner, shown alongside the existing calorie totals for each planned day. As with calories, a day where some recipes are missing an estimate shows a "≥" total instead of hiding the number
 - Added an optional "Search the web" toggle to Chat AI, so the assistant can look up real recipes online and cite its sources before generating a result
 - Added support for attaching up to 3 photos (max 3 MB total) to a Chat AI message, so you can ask about a dish from a picture or get suggestions from a photo of your ingredients
 - Added the ability to add or remove meal types (breakfast, lunch, dinner, etc.) on a meal plan that's already in progress, without having to delete and recreate the whole week

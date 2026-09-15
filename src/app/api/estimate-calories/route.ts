@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
 import { AI_MODEL } from '@/lib/utils/constants';
+import { deriveNutritionPerServing } from '@/lib/utils/nutrition-estimate';
 
 /**
- * Calorie Estimation API
+ * Nutrition Estimation API
  *
- * Estimates kcal per serving from a recipe's ingredient list.
+ * Estimates kcal, serving weight and macronutrients per serving from a recipe's
+ * ingredient list, in a single AI call.
  *
  * WHY A SEPARATE ENDPOINT:
  * Extraction and formatting are bound to their source ("riporta le quantità esattamente
- * come nel documento"); a calorie figure is never in the source, it is computed. Keeping
+ * come nel documento"); a nutrition figure is never in the source, it is computed. Keeping
  * the estimate in its own call leaves those endpoints faithful and lets this one serve
  * every flow — PDF, free text, chat, and recipes already in the cookbook. Same split as
  * /api/suggest-category.
@@ -20,12 +22,6 @@ import { AI_MODEL } from '@/lib/utils/constants';
  * stored total would drift out of sync the first time either changed; a per-serving figure
  * stays correct and can always be multiplied back up.
  */
-
-/** Below this, a "recipe" is a garnish or a mistake rather than a serving. */
-const MIN_PLAUSIBLE_KCAL = 20;
-
-/** Above this, the model has almost certainly returned a whole-recipe total. */
-const MAX_PLAUSIBLE_KCAL = 3000;
 
 interface EstimateCaloriesIngredient {
   name: string;
@@ -38,8 +34,11 @@ interface EstimateCaloriesIngredient {
  * The instructions push the model through the arithmetic explicitly (total first, then
  * divide) because asking directly for a per-serving figure invites it to pattern-match a
  * plausible-looking number for the dish instead of adding up what's actually on the list.
+ * Weight and macros are requested as RECIPE TOTALS and divided by the server (see
+ * `deriveNutritionPerServing`): one extra guard against the model silently skipping the
+ * division for the newer fields.
  */
-function createCalorieEstimationPrompt(
+function createNutritionEstimationPrompt(
   recipeTitle: string,
   ingredients: EstimateCaloriesIngredient[],
   servings: number
@@ -48,7 +47,7 @@ function createCalorieEstimationPrompt(
     .map(ingredient => `- ${ingredient.quantity} ${ingredient.name}`.trim())
     .join('\n');
 
-  return `Stima le calorie di questa ricetta italiana.
+  return `Stima i valori nutrizionali di questa ricetta italiana.
 
 **Ricetta:** ${recipeTitle}
 **Porzioni:** ${servings}
@@ -58,14 +57,23 @@ ${ingredientList}
 
 **Come procedere:**
 1. Calcola le kcal totali sommando il contributo di ogni ingrediente con una quantità numerica utilizzabile.
-2. Dividi il totale per il numero di porzioni (${servings}).
-3. Arrotonda il risultato alla decina più vicina.
+2. Dividi il totale per il numero di porzioni (${servings}) e arrotonda alla decina più vicina: questo è caloriesPerServing.
+3. Calcola i grammi TOTALI di proteine, carboidrati e grassi dell'intera ricetta, arrotondati all'intero: questi sono totalMacros. NON dividerli per le porzioni: la divisione la fa il server.
+4. Stima il peso TOTALE in grammi della ricetta PRONTA, come arriva nel piatto: questo è totalWeightGrams. NON dividerlo per le porzioni.
+
+**Regole per il peso della ricetta pronta:**
+- Pasta, riso, cereali e legumi secchi assorbono acqua in cottura: usa il peso da cotti (pasta ≈ 2×, riso ≈ 2,5×, legumi secchi ≈ 2,5×).
+- Sughi, brasati e riduzioni perdono acqua per evaporazione: sottrai una quota ragionevole.
+- Vale la stessa regola delle kcal: conta solo ciò che finisce nel piatto — l'acqua di cottura scolata non pesa, l'olio di frittura assorbito è una frazione di quello nella pentola.
+- Peso, macro e kcal devono descrivere la stessa ricetta pronta, in modo coerente tra loro.
 
 **Regole:**
 - Ignora gli ingredienti senza quantità numerica (es. "sale q.b.", "prezzemolo a piacere"), TRANNE olio, burro e altri grassi da condimento: quelli incidono troppo, stimane una quantità ragionevole per il tipo di piatto.
 - Considera solo ciò che finisce nel piatto: l'olio di frittura assorbito è una frazione di quello nella pentola, l'acqua di cottura della pasta non conta.
 - Usa valori nutrizionali medi per gli ingredienti italiani comuni.
-- Se gli ingredienti sono troppo vaghi o privi di quantità per una stima sensata, restituisci null.
+- Ogni campo è indipendente: se non riesci a stimare il peso ma le kcal sì, restituisci null solo per totalWeightGrams (e viceversa). Se le quantità non bastano per i macro, restituisci totalMacros null.
+- Verifica di coerenza: 4×proteine + 4×carboidrati + 9×grassi (totali) deve avvicinarsi alle kcal totali; se divergono molto, ricontrolla i calcoli prima di rispondere.
+- Se gli ingredienti sono troppo vaghi o privi di quantità per una stima sensata, restituisci null su tutti i campi.
 
 **Confidenza:**
 - "alta": quasi tutti gli ingredienti hanno quantità precise
@@ -76,15 +84,33 @@ ${ingredientList}
 /**
  * JSON schema for the response.
  *
- * `caloriesPerServing` is nullable by design: "non lo so" must be expressible, otherwise
- * the model is forced to invent a number for a recipe it cannot actually estimate.
+ * Every numeric field is nullable by design: "non lo so" must be expressible per field,
+ * otherwise the model is forced to invent a number it cannot actually estimate. Only shape
+ * and types here — no minimum/maximum/multipleOf, which make the whole request fail with
+ * 400 (see AGENTS.md "json_schema with length constraints"); bounds are enforced server-side
+ * by `deriveNutritionPerServing`.
  */
-const CALORIE_ESTIMATION_SCHEMA = {
+const NUTRITION_ESTIMATION_SCHEMA = {
   type: 'object',
   properties: {
     caloriesPerServing: {
       type: ['integer', 'null'],
       description: 'Kcal stimate per una porzione, arrotondate alla decina. null se non stimabile.',
+    },
+    totalWeightGrams: {
+      type: ['integer', 'null'],
+      description: 'Peso totale stimato della ricetta PRONTA in grammi, NON diviso per le porzioni. null se non stimabile.',
+    },
+    totalMacros: {
+      type: ['object', 'null'],
+      description: 'Grammi TOTALI di macronutrienti della ricetta intera, NON divisi per le porzioni. null se non stimabili.',
+      properties: {
+        proteinGrams: { type: 'integer', description: 'Proteine totali in grammi.' },
+        carbsGrams: { type: 'integer', description: 'Carboidrati totali in grammi.' },
+        fatGrams: { type: 'integer', description: 'Grassi totali in grammi.' },
+      },
+      required: ['proteinGrams', 'carbsGrams', 'fatGrams'],
+      additionalProperties: false,
     },
     confidence: {
       type: 'string',
@@ -92,7 +118,7 @@ const CALORIE_ESTIMATION_SCHEMA = {
       description: 'Quanto sono precise le quantità disponibili.',
     },
   },
-  required: ['caloriesPerServing', 'confidence'],
+  required: ['caloriesPerServing', 'totalWeightGrams', 'totalMacros', 'confidence'],
   additionalProperties: false,
 } as const;
 
@@ -100,10 +126,12 @@ const CALORIE_ESTIMATION_SCHEMA = {
  * POST /api/estimate-calories
  *
  * Body: { recipeTitle: string, ingredients: {name, quantity}[], servings: number }
- * Returns: { success: true, caloriesPerServing: number | null, confidence: 'alta'|'media'|'bassa' }
+ * Returns: { success: true, caloriesPerServing: number | null, servingWeightGrams: number | null,
+ *            macrosPerServing: MacrosPerServing | null, confidence: 'alta'|'media'|'bassa' }
  *
  * A `null` estimate is a successful response, not an error: the caller shows a message and
- * writes nothing rather than persisting a fabricated number.
+ * writes nothing rather than persisting a fabricated number. Each field degrades to null
+ * independently (see `deriveNutritionPerServing`).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -145,18 +173,22 @@ export async function POST(request: NextRequest) {
 
     const message = await anthropic.messages.create({
       model: AI_MODEL,
-      max_tokens: 900,
+      // 900 -> 1400: with thinking adaptive, reasoning tokens count within max_tokens, and
+      // estimating kcal + 3 macros + weight per ingredient plus a ~10-field JSON output needs
+      // more headroom than kcal alone. No added cost at rest (output tokens are paid only when
+      // produced).
+      max_tokens: 1400,
       // Adaptive: the estimate is arithmetic across a dozen ingredients, which is worth a
       // little reasoning. Effort stays low — this is not a hard problem, just a multi-step one.
       thinking: { type: 'adaptive' },
       output_config: {
         effort: 'low',
-        format: { type: 'json_schema', schema: CALORIE_ESTIMATION_SCHEMA },
+        format: { type: 'json_schema', schema: NUTRITION_ESTIMATION_SCHEMA },
       },
       messages: [
         {
           role: 'user',
-          content: createCalorieEstimationPrompt(recipeTitle, ingredients, servingsCount),
+          content: createNutritionEstimationPrompt(recipeTitle, ingredients, servingsCount),
         },
       ],
     });
@@ -168,27 +200,19 @@ export async function POST(request: NextRequest) {
       .trim();
 
     const estimate = JSON.parse(responseText);
-    const rawCalories = estimate.caloriesPerServing;
-
-    // Reject implausible figures rather than storing them. The most common failure is a
-    // whole-recipe total that skipped the division step, which lands far above the ceiling.
-    const isPlausible =
-      typeof rawCalories === 'number' &&
-      Number.isFinite(rawCalories) &&
-      rawCalories >= MIN_PLAUSIBLE_KCAL &&
-      rawCalories <= MAX_PLAUSIBLE_KCAL;
+    const derived = deriveNutritionPerServing(estimate, servingsCount);
 
     return NextResponse.json({
       success: true,
-      caloriesPerServing: isPlausible ? Math.round(rawCalories) : null,
+      ...derived,
       confidence: estimate.confidence ?? 'bassa',
     });
   } catch (error: any) {
-    console.error('Error estimating calories:', error);
+    console.error('Error estimating nutrition:', error);
 
     return NextResponse.json(
       {
-        error: 'Errore durante la stima delle calorie',
+        error: 'Errore durante la stima dei valori nutrizionali',
         details: error.message,
       },
       { status: 500 }

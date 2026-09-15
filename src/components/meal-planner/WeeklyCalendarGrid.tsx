@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { MealPlan, MealSlot, MealType, Recipe, Category } from '@/types';
 import { MEAL_LABELS, sortMealTypes } from '@/lib/constants/meal-types';
-import { computeWeekCalories } from '@/lib/utils/meal-plan-calories';
+import { computeWeekNutrition } from '@/lib/utils/meal-plan-calories';
 import { MealSlotCell, isNewRecipeSlot } from './MealSlotCell';
 import { cn } from '@/lib/utils/cn';
 
@@ -54,8 +54,8 @@ export function WeeklyCalendarGrid({
     [recipes]
   );
 
-  const caloriesByDay = useMemo(
-    () => computeWeekCalories(plan, recipesById),
+  const nutritionByDay = useMemo(
+    () => computeWeekNutrition(plan, recipesById),
     [plan, recipesById]
   );
 
@@ -71,19 +71,44 @@ export function WeeklyCalendarGrid({
    * partial sum as the day's intake would understate it silently.
    */
   function renderDayCalories(dayIndex: number, className: string) {
-    const dayCalories = caloriesByDay.get(dayIndex);
-    if (!dayCalories || dayCalories.total === 0) return null;
+    const calories = nutritionByDay.get(dayIndex)?.calories;
+    if (!calories || calories.total === 0) return null;
 
     return (
       <span
         className={className}
         title={
-          dayCalories.isPartial
-            ? `Almeno ${dayCalories.total} kcal — ${dayCalories.uncountedSlots} ricett${dayCalories.uncountedSlots === 1 ? 'a' : 'e'} senza stima`
-            : `${dayCalories.total} kcal stimate`
+          calories.isPartial
+            ? `Almeno ${calories.total} kcal — ${calories.uncountedSlots} ricett${calories.uncountedSlots === 1 ? 'a' : 'e'} senza stima`
+            : `${calories.total} kcal stimate`
         }
       >
-        {dayCalories.isPartial ? '≥' : ''}{dayCalories.total} kcal
+        {calories.isPartial ? '≥' : ''}{calories.total} kcal
+      </span>
+    );
+  }
+
+  /**
+   * Renders a day's macro totals, or nothing when no slot has an estimate.
+   *
+   * Gated on `countedSlots`, not on the totals being non-zero: a day where every slot
+   * has 0 g of fat is still fully counted and must stay visible (macros are `!= null`
+   * fields, never a truthy check).
+   */
+  function renderDayMacros(dayIndex: number, className: string) {
+    const macros = nutritionByDay.get(dayIndex)?.macros;
+    if (!macros || macros.countedSlots === 0) return null;
+
+    return (
+      <span
+        className={className}
+        title={
+          macros.isPartial
+            ? `Almeno P ${macros.proteinTotal} g · C ${macros.carbsTotal} g · G ${macros.fatTotal} g — ${macros.uncountedSlots} ricett${macros.uncountedSlots === 1 ? 'a' : 'e'} senza macro`
+            : `Proteine ${macros.proteinTotal} g · Carboidrati ${macros.carbsTotal} g · Grassi ${macros.fatTotal} g stimati`
+        }
+      >
+        {macros.isPartial ? '≥ ' : ''}P {macros.proteinTotal} · C {macros.carbsTotal} · G {macros.fatTotal}
       </span>
     );
   }
@@ -128,6 +153,7 @@ export function WeeklyCalendarGrid({
               <p className={cn('text-xs font-semibold', isToday(i) ? 'text-primary' : 'text-foreground')}>{DAY_LABELS_SHORT[i]}</p>
               <p className={cn('text-xs', isToday(i) ? 'text-primary/70' : 'text-muted-foreground')}>{getDayDate(i)}</p>
               {renderDayCalories(i, 'block text-[11px] tabular-nums text-muted-foreground')}
+              {renderDayMacros(i, 'block text-[10px] tabular-nums text-muted-foreground/80')}
             </div>
           ))}
         </div>
@@ -189,6 +215,7 @@ export function WeeklyCalendarGrid({
               <span className={cn('text-xs', isToday(dayIndex) ? 'text-primary/70' : 'text-muted-foreground')}>{getDayDate(dayIndex)}</span>
               {renderDayCalories(dayIndex, 'ml-auto text-xs tabular-nums text-muted-foreground')}
             </div>
+            {renderDayMacros(dayIndex, 'block text-right text-[11px] tabular-nums text-muted-foreground mb-2')}
 
             {/* Meal type rows */}
             <div className="space-y-2">

@@ -11,7 +11,7 @@ import {
   parseExtractedRecipes,
   ParsedRecipe,
   getAISuggestionForRecipe,
-  getAICalorieEstimateForRecipe,
+  getAINutritionEstimateForRecipe,
 } from '@/lib/utils/recipe-parser';
 import { createRecipe } from '@/lib/firebase/firestore';
 import { getUserCategories } from '@/lib/firebase/categories';
@@ -146,30 +146,33 @@ export default function RecipeExtractorPage() {
    * @param emptyMessage - Error message to show if no recipes are parsed
    */
   /**
-   * Adds the AI-derived fields (category/season suggestion and calorie estimate) to
+   * Adds the AI-derived fields (category/season suggestion and nutrition estimate) to
    * freshly parsed recipes.
    *
    * The two enrichment calls are independent, so they run concurrently per recipe and
-   * every recipe runs concurrently too — the calorie estimate costs no extra wall time
-   * beyond the slower of the two. Either can come back null; the recipe is still usable
-   * without them, so a failure here never blocks the preview.
+   * every recipe runs concurrently too — the nutrition estimate (one call covering kcal,
+   * serving weight and macros) costs no extra wall time beyond the slower of the two.
+   * Either can come back null; the recipe is still usable without them, so a failure here
+   * never blocks the preview.
    */
   const enrichRecipesWithAI = async (parsedRecipes: ParsedRecipe[]): Promise<ParsedRecipe[]> => {
     return Promise.all(
       parsedRecipes.map(async (recipe) => {
-        const [suggestion, caloriesPerServing] = await Promise.all([
+        const [suggestion, nutrition] = await Promise.all([
           getAISuggestionForRecipe(
             recipe.title,
             recipe.ingredients,
             userCategories.map(c => ({ name: c.name }))
           ),
-          getAICalorieEstimateForRecipe(recipe.title, recipe.ingredients, recipe.servings),
+          getAINutritionEstimateForRecipe(recipe.title, recipe.ingredients, recipe.servings),
         ]);
 
         return {
           ...recipe,
           aiSuggestion: suggestion || undefined,
-          ...(caloriesPerServing !== null ? { caloriesPerServing } : {}),
+          ...(nutrition?.caloriesPerServing != null ? { caloriesPerServing: nutrition.caloriesPerServing } : {}),
+          ...(nutrition?.servingWeightGrams != null ? { servingWeightGrams: nutrition.servingWeightGrams } : {}),
+          ...(nutrition?.macrosPerServing != null ? { macrosPerServing: nutrition.macrosPerServing } : {}),
         };
       })
     );
@@ -394,6 +397,8 @@ export default function RecipeExtractorPage() {
         ...(seasons.length > 0 ? { seasons } : {}),
         // Omit the key entirely when the estimate is missing — Firestore rejects undefined.
         ...(recipe.caloriesPerServing ? { caloriesPerServing: recipe.caloriesPerServing } : {}),
+        ...(recipe.servingWeightGrams != null ? { servingWeightGrams: recipe.servingWeightGrams } : {}),
+        ...(recipe.macrosPerServing != null ? { macrosPerServing: recipe.macrosPerServing } : {}),
       };
 
       await createRecipe(user.uid, recipeData);
