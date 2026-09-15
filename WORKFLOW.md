@@ -222,6 +222,17 @@ branch (session branches start from `develop` and merge back into it via PR;
 history (`Merge branch '...' into develop`, then `Merge pull request ...` into
 `main`).
 
-**Where a guided test's outcome is recorded**: the "Guided testing tooling" section
-of CLAUDE.md, list "Guided tests run with this tooling" — add one line for each
-closed guided test, as already provided there.
+**Where things are recorded**:
+- A guided test's outcome: the "Guided testing tooling" section of CLAUDE.md, list
+  "Guided tests run with this tooling" — one line for each closed guided test.
+- Project state: CLAUDE.md "Recent Changes" keeps only the latest session's entry;
+  older ones live in `git log`.
+- Repo-wide gotchas: AGENTS.md. A domain lesson goes in `doc/guide/<topic>.md`, and
+  AGENTS.md keeps only the listing with the link.
+- User-facing release notes: `Draft Release Temp.md` is a draft that **accumulates
+  until the tag** — only the user empties it, when publishing the release. Edit it in
+  place (never rewrite the file: the diff must only add or rewrite lines); before
+  adding an entry, look for one on the same surface and rewrite that one to its final
+  state (a feature added and removed before the tag simply disappears); group entries
+  by area; English, user-facing, "Added/Fixed/Improved", at most two sentences, no
+  file/function names or test figures; 60,000-character ceiling.

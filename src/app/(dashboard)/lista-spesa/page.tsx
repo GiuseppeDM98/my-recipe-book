@@ -33,6 +33,11 @@ export default function ListaSpesaPage() {
     toggleAdHocItem,
     removeAdHocRecipe,
     removeAdHocItem,
+    pantryInfoById,
+    pantryOwnedIds,
+    togglePantryIncluded,
+    confirmPantryAlias,
+    dismissPantrySuggestion,
   } = useShoppingList(weekStartDate);
 
   function goToPrevWeek() {
@@ -122,6 +127,11 @@ export default function ListaSpesaPage() {
           onToggleAdHocItem={toggleAdHocItem}
           onRemoveAdHocRecipe={removeAdHocRecipe}
           onRemoveAdHocItem={removeAdHocItem}
+          pantryInfoById={pantryInfoById}
+          pantryOwnedIds={pantryOwnedIds}
+          onTogglePantryIncluded={togglePantryIncluded}
+          onConfirmPantryAlias={confirmPantryAlias}
+          onDismissPantrySuggestion={dismissPantrySuggestion}
         />
       )}
     </div>

@@ -313,6 +313,13 @@ export interface CookingSession {
   servings?: number; // Servings being cooked (enables real-time ingredient scaling with scaleQuantity())
   checkedIngredients: string[];
   checkedSteps: string[];
+  /**
+   * true once "Scala la dispensa" has been applied for this cooking. Persisted
+   * (not just a ref) so a page reload between the pantry batch and the end of
+   * "Termina cottura" can't propose — and apply — the deduction twice.
+   * Absent on sessions that never deducted.
+   */
+  pantryDeducted?: boolean;
   startedAt: Timestamp;
   lastUpdatedAt: Timestamp;
 }
@@ -474,6 +481,12 @@ export interface MealPlan {
   /** Shopping list state stored here to sync across devices. */
   shoppingCheckedIds?: string[] | null;
   shoppingCustomItems?: ShoppingItem[] | null;
+  /**
+   * Item ids (ShoppingItem.id) the user re-included in the list despite having
+   * the ingredient in the pantry ("Mi serve comunque"). Persisted together with
+   * checked/custom in the same write (no new persistence target).
+   */
+  shoppingPantryIncludedIds?: string[] | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -532,6 +545,12 @@ export interface AdHocShoppingItem {
   name: string;
   quantity: string;
   checked: boolean;
+  /**
+   * true = re-included in the list despite the pantry match. Absent = false.
+   * Never written as undefined/false inside the persisted array: the key is
+   * set to true or omitted (see withPantryIncluded in useShoppingList).
+   */
+  pantryIncluded?: boolean;
 }
 
 /**

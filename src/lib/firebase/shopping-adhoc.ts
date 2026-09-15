@@ -2,6 +2,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from './config';
 import { getUserProfile } from './user-profile';
 import { AdHocShoppingItem, AdHocShoppingRecipe, Recipe } from '@/types';
+import { isTrivialIngredient } from '@/lib/utils/ingredient-matching';
 
 /**
  * Ad-hoc shopping list ("Voglio preparare questo") — CRUD on users/{uid}.adHocShoppingRecipes.
@@ -47,12 +48,17 @@ export async function addRecipeToAdHocShoppingList(
     recipeId: recipe.id ?? null,
     recipeTitle: recipe.title,
     addedAt: Date.now(),
-    items: recipe.ingredients.map((ingredient): AdHocShoppingItem => ({
-      id: crypto.randomUUID(),
-      name: ingredient.name,
-      quantity: ingredient.quantity,
-      checked: false,
-    })),
+    // Trivial ingredients (water, ice) are dropped at copy time, not at render,
+    // so the persisted group and its progress counts stay clean. Groups saved
+    // before this filter existed keep theirs until removed or re-added.
+    items: recipe.ingredients
+      .filter(ingredient => !isTrivialIngredient(ingredient.name))
+      .map((ingredient): AdHocShoppingItem => ({
+        id: crypto.randomUUID(),
+        name: ingredient.name,
+        quantity: ingredient.quantity,
+        checked: false,
+      })),
   };
 
   const nextList = existingIndex >= 0

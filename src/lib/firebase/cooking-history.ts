@@ -1,10 +1,12 @@
 import {
   addDoc,
   collection,
+  doc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   where,
 } from 'firebase/firestore';
 import { CookingHistoryEntry } from '@/types';
@@ -22,6 +24,11 @@ interface CreateCookingHistoryEntryInput {
   recipeId: string;
   recipeTitle: string;
   servings?: number | null;
+  /**
+   * Deterministic document id (the cooking session id). When set, a retry of
+   * "Termina cottura" overwrites the same entry instead of adding a duplicate.
+   */
+  entryId?: string;
 }
 
 export interface RecipeCookingStat {
@@ -31,22 +38,38 @@ export interface RecipeCookingStat {
   lastCompletedAt: CookingHistoryEntry['completedAt'];
 }
 
+/**
+ * Records one completed cooking.
+ *
+ * IDEMPOTENCY: with `entryId` the write is a setDoc on that id, so it can be
+ * safely repeated — this closes the old duplicate-history bug where the
+ * history write succeeded, deleting the session failed, and the retry added a
+ * second entry. Without `entryId` it falls back to addDoc (random id).
+ * The document shape is identical either way, so statistics are unaffected.
+ *
+ * @returns the document id
+ */
 export async function createCookingHistoryEntry({
   userId,
   recipeId,
   recipeTitle,
   servings,
+  entryId,
 }: CreateCookingHistoryEntryInput): Promise<string> {
-  const historyRef = collection(db, 'cooking_history');
-
-  const docRef = await addDoc(historyRef, {
+  const entryData = {
     userId,
     recipeId,
     recipeTitle,
     servings: servings ?? null,
     completedAt: serverTimestamp(),
-  });
+  };
 
+  if (entryId) {
+    await setDoc(doc(db, 'cooking_history', entryId), entryData);
+    return entryId;
+  }
+
+  const docRef = await addDoc(collection(db, 'cooking_history'), entryData);
   return docRef.id;
 }
 

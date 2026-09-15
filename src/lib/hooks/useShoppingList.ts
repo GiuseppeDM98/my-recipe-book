@@ -3,11 +3,19 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { usePantry, pantryQueryKey } from '@/lib/hooks/usePantry';
 import { getMealPlanByWeek, updateMealPlanShoppingState } from '@/lib/firebase/meal-plans';
 import { getRecipesByIds } from '@/lib/firebase/firestore';
 import { getAdHocShoppingList, updateAdHocShoppingList } from '@/lib/firebase/shopping-adhoc';
+import { addPantryItemAlias } from '@/lib/firebase/pantry';
 import { buildContributions, aggregateIngredients } from '@/lib/utils/ingredient-aggregator';
-import { AdHocShoppingRecipe, MealType, ShoppingItem } from '@/types';
+import {
+  canonicalIngredientKey,
+  classifyPantryAvailability,
+  PantryMatchInfo,
+} from '@/lib/utils/ingredient-matching';
+import { AdHocShoppingItem, AdHocShoppingRecipe, ShoppingItem } from '@/types';
+import { PantryItem } from '@/types/pantry';
 
 // ---------------------------------------------------------------------------
 // localStorage helpers (fallback when no meal plan exists for the week)
@@ -20,15 +28,26 @@ function storageKey(userId: string, weekStartDate: string): string {
 interface PersistedState {
   checkedIds: string[];
   customItems: ShoppingItem[];
+  pantryIncludedIds: string[];
+}
+
+function emptyPersistedState(): PersistedState {
+  return { checkedIds: [], customItems: [], pantryIncludedIds: [] };
 }
 
 function loadPersistedState(key: string): PersistedState {
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return { checkedIds: [], customItems: [] };
-    return JSON.parse(raw) as PersistedState;
+    if (!raw) return emptyPersistedState();
+    // Every field defaulted: JSON saved before Spec D has no pantryIncludedIds.
+    const parsed = JSON.parse(raw) as Partial<PersistedState>;
+    return {
+      checkedIds: parsed.checkedIds ?? [],
+      customItems: parsed.customItems ?? [],
+      pantryIncludedIds: parsed.pantryIncludedIds ?? [],
+    };
   } catch {
-    return { checkedIds: [], customItems: [] };
+    return emptyPersistedState();
   }
 }
 
@@ -38,6 +57,21 @@ function savePersistedState(key: string, state: PersistedState): void {
   } catch {
     // Storage quota exceeded or unavailable — silently skip.
   }
+}
+
+/**
+ * Returns a copy of an ad-hoc item with the "re-included despite the pantry"
+ * flag set or removed. The key is dropped rather than set to false/undefined:
+ * the item lives inside an array written to Firestore, which rejects undefined.
+ */
+function withPantryIncluded(item: AdHocShoppingItem, isIncluded: boolean): AdHocShoppingItem {
+  const next: AdHocShoppingItem = { ...item };
+  if (isIncluded) {
+    next.pantryIncluded = true;
+  } else {
+    delete next.pantryIncluded;
+  }
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,12 +88,24 @@ export interface UseShoppingListReturn {
   removeCustomItem: (id: string) => void;
   clearChecked: () => void;
   sectionNames: string[];
+  /** Excludes items parked in "Hai già in casa", so 100% stays reachable. */
   progress: { checked: number; total: number };
   /** "Voglio preparare questo" groups — global, independent of weekStartDate. */
   adHocRecipes: AdHocShoppingRecipe[];
   toggleAdHocItem: (groupId: string, itemId: string) => void;
   removeAdHocRecipe: (groupId: string) => void;
   removeAdHocItem: (groupId: string, itemId: string) => void;
+  /** Pantry classification of plan and ad-hoc items (custom items are never classified). */
+  pantryInfoById: Map<string, PantryMatchInfo>;
+  /** Plan item ids re-included despite a pantry match ("Mi serve comunque"). */
+  pantryIncludedIds: Set<string>;
+  /** Plan and ad-hoc item ids currently shown in "Hai già in casa" instead of the list. */
+  pantryOwnedIds: Set<string>;
+  /** Plan item when adHocGroupId is omitted, ad-hoc item otherwise. */
+  togglePantryIncluded: (id: string, adHocGroupId?: string) => void;
+  confirmPantryAlias: (pantryItem: PantryItem, ingredientName: string) => Promise<void>;
+  /** Hides a suggestion for this session only (not persisted). */
+  dismissPantrySuggestion: (id: string) => void;
 }
 
 /**
@@ -68,8 +114,9 @@ export interface UseShoppingListReturn {
  * DATA FLOW:
  * 1. React Query fetches the MealPlan + all referenced recipes (batch, deduped).
  * 2. buildContributions + aggregateIngredients derive the computed ShoppingItem[].
- * 3. Checked state and custom items are persisted in the MealPlan Firestore document
- *    (fields: shoppingCheckedIds, shoppingCustomItems) so they sync across devices.
+ * 3. Checked state, custom items and pantry re-includes are persisted in the
+ *    MealPlan Firestore document (shoppingCheckedIds, shoppingCustomItems,
+ *    shoppingPantryIncludedIds) so they sync across devices.
  * 4. If no plan exists for the week, localStorage is used as a fallback (rare case).
  *
  * MIGRATION: on first load after this change, if Firestore has no shopping state but
@@ -78,12 +125,25 @@ export interface UseShoppingListReturn {
  *
  * DEBOUNCE: Firestore writes are debounced 500ms to coalesce rapid checkbox taps.
  *
+ * PANTRY: plan and ad-hoc items are classified against the pantry query
+ * (usePantry, staleTime 2min). Changes made on another device may show up with
+ * that delay; local mutations (alias, batch add, cooking deduction) invalidate
+ * the pantry key and recategorize immediately. No onSnapshot, by design.
+ *
+ * CHECKLIST — every plan-level shopping field (checked, custom, pantry
+ * re-includes) must go through ALL of: useState, latestStateRef + its sync
+ * effect, flushPendingShoppingState, the week-change reset, the init effect
+ * (both the "Firestore has state" test and the localStorage branch), the React
+ * Query cache sync effect, the persist effect, PersistedState/loadPersistedState
+ * and updateMealPlanShoppingState. Missing one silently loses that field only.
+ *
  * SECTIONS: named sections sort alphabetically; null section ("Senza categoria")
  * is placed last so named groups appear at the top.
  */
 export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { items: pantryItems } = usePantry();
 
   const lsKey = user ? storageKey(user.uid, weekStartDate) : '';
 
@@ -96,6 +156,7 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     planId: string;
     initialCheckedIds: string[];
     initialCustomItems: ShoppingItem[];
+    initialPantryIncludedIds: string[];
   }
 
   const shoppingListQueryKey = ['shoppingList', user?.uid ?? '', weekStartDate] as const;
@@ -125,6 +186,7 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
         planId: plan.id,
         initialCheckedIds: plan.shoppingCheckedIds ?? [],
         initialCustomItems: plan.shoppingCustomItems ?? [],
+        initialPantryIncludedIds: plan.shoppingPantryIncludedIds ?? [],
       };
     },
   });
@@ -155,6 +217,9 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
 
   const [checkedIdsList, setCheckedIdsList] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<ShoppingItem[]>([]);
+  // Third field of the SAME plan persistence target (not a new target): it
+  // rides the existing debounce/flush — see the CHECKLIST in the doc comment.
+  const [pantryIncludedIdsList, setPantryIncludedIdsList] = useState<string[]>([]);
 
   // Tracks which lsKey the current state belongs to, so we can guard
   // the persist effect from firing before initialization.
@@ -170,7 +235,8 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     planId: string | null;
     checkedIdsList: string[];
     customItems: ShoppingItem[];
-  }>({ lsKey: '', planId: null, checkedIdsList: [], customItems: [] });
+    pantryIncludedIdsList: string[];
+  }>({ lsKey: '', planId: null, checkedIdsList: [], customItems: [], pantryIncludedIdsList: [] });
 
   // Keep the snapshot in sync after every commit.
   useEffect(() => {
@@ -179,6 +245,7 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
       planId: planIdRef.current,
       checkedIdsList,
       customItems,
+      pantryIncludedIdsList,
     };
   });
 
@@ -196,18 +263,29 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     clearTimeout(persistTimerRef.current);
     persistTimerRef.current = null;
 
-    const { lsKey: key, planId, checkedIdsList: checked, customItems: custom } =
-      latestStateRef.current;
+    const {
+      lsKey: key,
+      planId,
+      checkedIdsList: checked,
+      customItems: custom,
+      pantryIncludedIdsList: included,
+    } = latestStateRef.current;
     if (!key) return;
+
+    const snapshot: PersistedState = {
+      checkedIds: checked,
+      customItems: custom,
+      pantryIncludedIds: included,
+    };
 
     if (planId) {
       // Fire-and-forget: on unmount/hide we cannot await, but issuing the write
       // now (instead of cancelling it) is what prevents the lost-check bug.
-      updateMealPlanShoppingState(planId, checked, custom).catch(() => {
-        savePersistedState(key, { checkedIds: checked, customItems: custom });
+      updateMealPlanShoppingState(planId, checked, custom, included).catch(() => {
+        savePersistedState(key, snapshot);
       });
     } else {
-      savePersistedState(key, { checkedIds: checked, customItems: custom });
+      savePersistedState(key, snapshot);
     }
   }, []);
 
@@ -219,6 +297,9 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   // not be tied to weekStartDate (adHocInitRef is keyed by uid, not lsKey) and
   // must not share a debounce timer with the plan writes above, since the two
   // targets (meal_plans doc vs users doc) are written independently.
+  //
+  // The ad-hoc "re-included despite the pantry" flag lives on each item
+  // (AdHocShoppingItem.pantryIncluded), so it is persisted by this circuit as is.
   // --------------------------------------------------
 
   const [adHocRecipesList, setAdHocRecipesList] = useState<AdHocShoppingRecipe[]>([]);
@@ -279,6 +360,7 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   useEffect(() => {
     setCheckedIdsList([]);
     setCustomItems([]);
+    setPantryIncludedIdsList([]);
     stateKeyRef.current = '';
     planIdRef.current = null;
   }, [lsKey]);
@@ -293,23 +375,33 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     if (data) {
       planIdRef.current = data.planId;
 
-      if (data.initialCheckedIds.length > 0 || data.initialCustomItems.length > 0) {
-        // Firestore has state — use it.
+      // Any one field counts: a plan where the user only re-included an item
+      // (nothing checked yet) must not be mistaken for "no Firestore state" and
+      // overwritten by an empty localStorage fallback.
+      const hasFirestoreState =
+        data.initialCheckedIds.length > 0 ||
+        data.initialCustomItems.length > 0 ||
+        data.initialPantryIncludedIds.length > 0;
+
+      if (hasFirestoreState) {
         setCheckedIdsList(data.initialCheckedIds);
         setCustomItems(data.initialCustomItems);
+        setPantryIncludedIdsList(data.initialPantryIncludedIds);
       } else {
         // Firestore has no shopping state yet — check localStorage for migration.
-        const { checkedIds, customItems: saved } = loadPersistedState(lsKey);
-        setCheckedIdsList(checkedIds);
-        setCustomItems(saved);
+        const saved = loadPersistedState(lsKey);
+        setCheckedIdsList(saved.checkedIds);
+        setCustomItems(saved.customItems);
+        setPantryIncludedIdsList(saved.pantryIncludedIds);
         // The persist effect will write these to Firestore on next state change.
       }
     } else {
       // No plan for this week — use localStorage only.
       planIdRef.current = null;
-      const { checkedIds, customItems: saved } = loadPersistedState(lsKey);
-      setCheckedIdsList(checkedIds);
-      setCustomItems(saved);
+      const saved = loadPersistedState(lsKey);
+      setCheckedIdsList(saved.checkedIds);
+      setCustomItems(saved.customItems);
+      setPantryIncludedIdsList(saved.pantryIncludedIds);
     }
   }, [lsKey, isFetched, data]);
 
@@ -328,10 +420,17 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
   useEffect(() => {
     if (stateKeyRef.current !== lsKey || !lsKey || !planIdRef.current) return;
     queryClient.setQueryData<QueryResult | null>(shoppingListQueryKey, old =>
-      old ? { ...old, initialCheckedIds: checkedIdsList, initialCustomItems: customItems } : old
+      old
+        ? {
+            ...old,
+            initialCheckedIds: checkedIdsList,
+            initialCustomItems: customItems,
+            initialPantryIncludedIds: pantryIncludedIdsList,
+          }
+        : old
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lsKey, checkedIdsList, customItems]);
+  }, [lsKey, checkedIdsList, customItems, pantryIncludedIdsList]);
 
   // Persist state changes. The stateKeyRef guard prevents writes before
   // initialization (e.g. the week-change reset doesn't clobber Firestore).
@@ -340,26 +439,31 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     if (!lsKey) return;
 
     const planId = planIdRef.current;
-    const snapshot = { checkedIdsList, customItems };
+    const snapshot: PersistedState = {
+      checkedIds: checkedIdsList,
+      customItems,
+      pantryIncludedIds: pantryIncludedIdsList,
+    };
 
     if (planId) {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
       persistTimerRef.current = setTimeout(() => {
         // Mark as no longer pending so a later flush doesn't re-issue this write.
         persistTimerRef.current = null;
-        updateMealPlanShoppingState(planId, snapshot.checkedIdsList, snapshot.customItems)
-          .catch(() => {
-            // Firestore write failed — fall back to localStorage so state is not lost.
-            savePersistedState(lsKey, {
-              checkedIds: snapshot.checkedIdsList,
-              customItems: snapshot.customItems,
-            });
-          });
+        updateMealPlanShoppingState(
+          planId,
+          snapshot.checkedIds,
+          snapshot.customItems,
+          snapshot.pantryIncludedIds
+        ).catch(() => {
+          // Firestore write failed — fall back to localStorage so state is not lost.
+          savePersistedState(lsKey, snapshot);
+        });
       }, 500);
     } else {
-      savePersistedState(lsKey, { checkedIds: checkedIdsList, customItems });
+      savePersistedState(lsKey, snapshot);
     }
-  }, [lsKey, checkedIdsList, customItems]);
+  }, [lsKey, checkedIdsList, customItems, pantryIncludedIdsList]);
 
   // Flush pending writes when leaving: on unmount (navigation) and when the
   // page is hidden or unloaded. `visibilitychange` → hidden is the reliable
@@ -422,17 +526,77 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
 
   const checkedIds = useMemo(() => new Set(checkedIdsList), [checkedIdsList]);
 
-  const progress = useMemo(() => {
-    const adHocTotal = adHocRecipesList.reduce((sum, group) => sum + group.items.length, 0);
-    const adHocChecked = adHocRecipesList.reduce(
-      (sum, group) => sum + group.items.filter(item => item.checked).length,
-      0
-    );
-    return {
-      checked: checkedIdsList.length + adHocChecked,
-      total: items.length + adHocTotal,
+  // --------------------------------------------------
+  // Derived: pantry classification
+  // --------------------------------------------------
+
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  // Custom items are deliberately never classified: the user typed them on
+  // purpose. Plan item ids (slugs) and ad-hoc ids (UUIDs) never collide, so one
+  // map serves both. Cost is items × pantry entries per recomputation — both
+  // stay well under 100 in practice, no index needed.
+  const pantryInfoById = useMemo(() => {
+    const infoById = new Map<string, PantryMatchInfo>();
+    if (pantryItems.length === 0) return infoById;
+
+    const classify = (id: string, name: string, quantity: string) => {
+      const info = classifyPantryAvailability(name, quantity, pantryItems);
+      const isDismissed = info.kind === 'suggestion' && dismissedSuggestionIds.has(id);
+      infoById.set(id, isDismissed ? { kind: 'none' } : info);
     };
-  }, [checkedIdsList, items.length, adHocRecipesList]);
+
+    for (const item of planItems) classify(item.id, item.name, item.displayQuantity);
+    for (const group of adHocRecipesList) {
+      for (const item of group.items) classify(item.id, item.name, item.quantity);
+    }
+    return infoById;
+  }, [planItems, adHocRecipesList, pantryItems, dismissedSuggestionIds]);
+
+  const pantryIncludedIds = useMemo(
+    () => new Set(pantryIncludedIdsList),
+    [pantryIncludedIdsList]
+  );
+
+  const pantryOwnedIds = useMemo(() => {
+    const ownedIds = new Set<string>();
+    const isCoveredByPantry = (id: string) => pantryInfoById.get(id)?.kind === 'in-pantry';
+
+    for (const item of planItems) {
+      if (isCoveredByPantry(item.id) && !pantryIncludedIds.has(item.id)) ownedIds.add(item.id);
+    }
+    for (const group of adHocRecipesList) {
+      for (const item of group.items) {
+        if (isCoveredByPantry(item.id) && item.pantryIncluded !== true) ownedIds.add(item.id);
+      }
+    }
+    return ownedIds;
+  }, [planItems, adHocRecipesList, pantryInfoById, pantryIncludedIds]);
+
+  // Counts only rows the user can actually check. Parked items leave both
+  // counters, and so do inert checked ids (items no longer in the list), which
+  // previously could push `checked` above `total`.
+  const progress = useMemo(() => {
+    let checked = 0;
+    let total = 0;
+
+    for (const item of items) {
+      if (pantryOwnedIds.has(item.id)) continue;
+      total += 1;
+      if (checkedIds.has(item.id)) checked += 1;
+    }
+    for (const group of adHocRecipesList) {
+      for (const item of group.items) {
+        if (pantryOwnedIds.has(item.id)) continue;
+        total += 1;
+        if (item.checked) checked += 1;
+      }
+    }
+
+    return { checked, total };
+  }, [items, checkedIds, adHocRecipesList, pantryOwnedIds]);
 
   // --------------------------------------------------
   // Actions
@@ -490,8 +654,58 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     setCheckedIdsList(prev => prev.filter(x => x !== id));
   }
 
+  // Re-includes are a separate decision from "bought": clearing checks keeps them.
   function clearChecked() {
     setCheckedIdsList([]);
+  }
+
+  function togglePantryIncluded(id: string, adHocGroupId?: string) {
+    if (adHocGroupId) {
+      setAdHocRecipesList(prev =>
+        prev.map(group =>
+          group.id === adHocGroupId
+            ? {
+                ...group,
+                items: group.items.map(item =>
+                  item.id === id ? withPantryIncluded(item, item.pantryIncluded !== true) : item
+                ),
+              }
+            : group
+        )
+      );
+      return;
+    }
+
+    setPantryIncludedIdsList(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+
+  /**
+   * Persists "this ingredient is that pantry entry" and recategorizes at once.
+   * The optimistic cache write avoids waiting for the refetch roundtrip; the
+   * invalidation then realigns with Firestore. Errors propagate to the caller,
+   * which owns the user feedback.
+   */
+  async function confirmPantryAlias(pantryItem: PantryItem, ingredientName: string) {
+    if (!user) return;
+    const alias = canonicalIngredientKey(ingredientName);
+
+    await addPantryItemAlias(pantryItem.id, alias);
+
+    const key = pantryQueryKey(user.uid);
+    queryClient.setQueryData<PantryItem[]>(key, old =>
+      old?.map(item =>
+        item.id === pantryItem.id
+          ? { ...item, aliases: [...new Set([...(item.aliases ?? []), alias])] }
+          : item
+      )
+    );
+    void queryClient.invalidateQueries({ queryKey: key });
+  }
+
+  function dismissPantrySuggestion(id: string) {
+    setDismissedSuggestionIds(prev => new Set(prev).add(id));
   }
 
   return {
@@ -509,5 +723,11 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
     toggleAdHocItem,
     removeAdHocRecipe,
     removeAdHocItem,
+    pantryInfoById,
+    pantryIncludedIds,
+    pantryOwnedIds,
+    togglePantryIncluded,
+    confirmPantryAlias,
+    dismissPantrySuggestion,
   };
 }

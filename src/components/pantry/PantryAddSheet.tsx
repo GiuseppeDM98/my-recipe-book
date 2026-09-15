@@ -9,13 +9,10 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Mic, HandIcon, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { PantryItem } from '@/types/pantry';
 import { PANTRY_CATEGORIES, PANTRY_UNITS, PANTRY_POSITIONS } from '@/lib/utils/pantry-utils';
 import { usePantry } from '@/lib/hooks/usePantry';
-
-type Tab = 'manuale' | 'voce' | 'lista';
 
 interface PantryAddSheetProps {
   open: boolean;
@@ -35,8 +32,14 @@ const DEFAULT_FORM = {
   notes: '',
 };
 
+/**
+ * Manual add/edit form for a pantry item.
+ *
+ * Adding from the shopping list lives in the shopping list itself
+ * ("Aggiungi alla dispensa" on checked items, AddCheckedToPantrySheet): that is
+ * where the user is at the end of shopping, so no duplicate entry point here.
+ */
 export function PantryAddSheet({ open, onOpenChange, editItem }: PantryAddSheetProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('manuale');
   const { addItem, updateItem } = usePantry();
 
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -97,12 +100,6 @@ export function PantryAddSheet({ open, onOpenChange, editItem }: PantryAddSheetP
     }
   }
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'manuale', label: 'A mano', icon: <HandIcon className="h-4 w-4" /> },
-    { id: 'voce', label: 'A voce', icon: <Mic className="h-4 w-4" /> },
-    { id: 'lista', label: 'Da lista spesa', icon: <ShoppingCart className="h-4 w-4" /> },
-  ];
-
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
@@ -120,217 +117,157 @@ export function PantryAddSheet({ open, onOpenChange, editItem }: PantryAddSheetP
           </SheetDescription>
         </SheetHeader>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mt-3 bg-muted rounded-xl p-1">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-all duration-200',
-                activeTab === tab.id
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
         <div className="flex-1 overflow-y-auto mt-4">
-          {/* A MANO TAB */}
-          {activeTab === 'manuale' && (
-            <form id="add-pantry-form" onSubmit={handleSubmit} className="space-y-4 pb-4">
-              {/* Name */}
+          <form id="add-pantry-form" onSubmit={handleSubmit} className="space-y-4 pb-4">
+            {/* Name */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">
+                Prodotto <span className="text-destructive">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                placeholder="es. Mozzarella di bufala"
+                value={form.name}
+                onChange={e => update('name', e.target.value)}
+                className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+              />
+            </div>
+
+            {/* Qty + Unit */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Prodotto <span className="text-destructive">*</span>
-                </label>
-                <input
-                  required
-                  type="text"
-                  placeholder="es. Mozzarella di bufala"
-                  value={form.name}
-                  onChange={e => update('name', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                />
-              </div>
-
-              {/* Qty + Unit */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">Quantità</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    value={form.qty}
-                    onChange={e => update('qty', parseFloat(e.target.value) || 0)}
-                    className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">Unità</label>
-                  <select
-                    value={form.unit}
-                    onChange={e => update('unit', e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                  >
-                    {PANTRY_UNITS.map(u => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Category */}
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">Categoria</label>
-                <select
-                  value={form.categoryId}
-                  onChange={e => update('categoryId', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                >
-                  {PANTRY_CATEGORIES.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Position */}
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-2">Posizione</label>
-                <div className="flex gap-2">
-                  {PANTRY_POSITIONS.map(pos => (
-                    <button
-                      key={pos.id}
-                      type="button"
-                      onClick={() => update('position', pos.id as PantryItem['position'])}
-                      className={cn(
-                        'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium border transition-all duration-200',
-                        form.position === pos.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                          : 'bg-background text-foreground border-border hover:border-primary/40'
-                      )}
-                    >
-                      <span>{pos.icon}</span>
-                      <span>{pos.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">Acquistato il</label>
-                  <input
-                    type="date"
-                    value={form.purchased}
-                    onChange={e => update('purchased', e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">Scadenza</label>
-                  <input
-                    type="date"
-                    value={form.expires}
-                    onChange={e => update('expires', e.target.value)}
-                    className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
-                  />
-                </div>
-              </div>
-
-              {/* Min threshold */}
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Soglia minima <span className="text-muted-foreground font-normal">(0 = nessuna)</span>
-                </label>
+                <label className="block text-xs font-medium text-foreground mb-1">Quantità</label>
                 <input
                   type="number"
                   min={0}
-                  step={1}
-                  value={form.min}
-                  onChange={e => update('min', parseInt(e.target.value) || 0)}
+                  step={0.1}
+                  value={form.qty}
+                  onChange={e => update('qty', parseFloat(e.target.value) || 0)}
                   className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
                 />
               </div>
-
-              {/* Notes */}
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1">Note</label>
-                <textarea
-                  rows={2}
-                  placeholder="es. Bio, marca preferita…"
-                  value={form.notes}
-                  onChange={e => update('notes', e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 resize-none"
+                <label className="block text-xs font-medium text-foreground mb-1">Unità</label>
+                <select
+                  value={form.unit}
+                  onChange={e => update('unit', e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                >
+                  {PANTRY_UNITS.map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Categoria</label>
+              <select
+                value={form.categoryId}
+                onChange={e => update('categoryId', e.target.value)}
+                className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+              >
+                {PANTRY_CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Position */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-2">Posizione</label>
+              <div className="flex gap-2">
+                {PANTRY_POSITIONS.map(pos => (
+                  <button
+                    key={pos.id}
+                    type="button"
+                    onClick={() => update('position', pos.id as PantryItem['position'])}
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-medium border transition-all duration-200',
+                      form.position === pos.id
+                        ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                        : 'bg-background text-foreground border-border hover:border-primary/40'
+                    )}
+                  >
+                    <span>{pos.icon}</span>
+                    <span>{pos.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1">Acquistato il</label>
+                <input
+                  type="date"
+                  value={form.purchased}
+                  onChange={e => update('purchased', e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
                 />
               </div>
-            </form>
-          )}
-
-          {/* A VOCE TAB */}
-          {activeTab === 'voce' && (
-            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-              <div className="rounded-full bg-muted p-6">
-                <Mic className="h-10 w-10 text-muted-foreground" />
-              </div>
               <div>
-                <p className="font-medium text-foreground">Inserimento vocale</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Presto potrai dire: <em>"500g di pasta, scadenza domani, dispensa"</em>
-                </p>
+                <label className="block text-xs font-medium text-foreground mb-1">Scadenza</label>
+                <input
+                  type="date"
+                  value={form.expires}
+                  onChange={e => update('expires', e.target.value)}
+                  className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+                />
               </div>
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                In arrivo
-              </span>
             </div>
-          )}
 
-          {/* DA LISTA SPESA TAB */}
-          {activeTab === 'lista' && (
-            <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-              <div className="rounded-full bg-muted p-6">
-                <ShoppingCart className="h-10 w-10 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Importa dalla lista della spesa</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Segna come acquistati e aggiungili direttamente alla dispensa.
-                </p>
-              </div>
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                In arrivo
-              </span>
+            {/* Min threshold */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">
+                Soglia minima <span className="text-muted-foreground font-normal">(0 = nessuna)</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={form.min}
+                onChange={e => update('min', parseInt(e.target.value) || 0)}
+                className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+              />
             </div>
-          )}
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1">Note</label>
+              <textarea
+                rows={2}
+                placeholder="es. Bio, marca preferita…"
+                value={form.notes}
+                onChange={e => update('notes', e.target.value)}
+                className="w-full rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 resize-none"
+              />
+            </div>
+          </form>
         </div>
 
         {/* Footer */}
-        {activeTab === 'manuale' && (
-          <div className="pt-3 border-t border-border/60 flex gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={() => handleOpenChange(false)}
-            >
-              Annulla
-            </Button>
-            <Button
-              type="submit"
-              form="add-pantry-form"
-              className="flex-1"
-              disabled={isSubmitting || !form.name.trim()}
-            >
-              {isSubmitting ? 'Salvataggio…' : editItem ? 'Aggiorna' : 'Aggiungi'}
-            </Button>
-          </div>
-        )}
+        <div className="pt-3 border-t border-border/60 flex gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => handleOpenChange(false)}
+          >
+            Annulla
+          </Button>
+          <Button
+            type="submit"
+            form="add-pantry-form"
+            className="flex-1"
+            disabled={isSubmitting || !form.name.trim()}
+          >
+            {isSubmitting ? 'Salvataggio…' : editItem ? 'Aggiorna' : 'Aggiungi'}
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   );
