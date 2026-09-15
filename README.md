@@ -1448,10 +1448,8 @@ interface Category {
 }
 ```
 
-**Default Categories**: New users get 10 default Italian categories:
-- Antipasti (🥗), Primi Piatti (🍝), Secondi (🍖), Contorni (🥕)
-- Dolci (🍰), Pane e Pizza (🍞), Salse e Condimenti (🧈)
-- Conserve (🫙), Bevande (🍹), Altro (📋)
+**Default Categories**: New users get 5 default Italian categories (`DEFAULT_CATEGORIES` in `src/lib/firebase/categories.ts`):
+- Primi piatti (🍝), Secondi piatti (🥩), Contorni (🥗), Dolci (🍰), Antipasti (🧀)
 
 **Security**: Owner-only access
 
