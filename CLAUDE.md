@@ -10,6 +10,7 @@
 | Resource | Purpose |
 |----------|---------|
 | [AGENTS.md](AGENTS.md) | Debug-heavy gotchas and implementation patterns |
+| [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md) | Domain guide: ingredient ↔ pantry engine, shopping list / pantry / cooking integration |
 | [DESIGN.md](DESIGN.md) | Visual design system spec (tokens, components, do's/don'ts); sidecar `.impeccable/design.json` |
 | [README.md](README.md) | User-facing setup and product overview |
 | [Draft Release Temp.md](Draft Release Temp.md) | User-facing release notes draft |
@@ -28,7 +29,7 @@ Digital recipe book for home cooks with:
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
 - estimated nutrition per serving (kcal, serving weight, macronutrients), AI-estimated or entered by hand, with kcal/100g derived on screen and daily kcal + macro totals in the planner
 - historical cooking statistics
-- pantry/dispensa tracking with expiry management and stock levels
+- pantry/dispensa tracking with expiry management and stock levels, wired to the shopping list (water/ice never listed, "Hai già in casa" for what the stock covers, batch "Aggiungi alla dispensa" of checked items) and to cooking (stock deduction proposed at "Termina cottura")
 - light / dark / system theme (token-driven, system-aware)
 
 Privacy-first architecture: every user-owned document is isolated through Firebase ownership rules.
@@ -119,6 +120,14 @@ src/
 - On a recipe reorganized after the fact the ingredient array no longer implies anything (it is still the old flat listing), so both columns take their order from the steps via `orderedSectionNamesFromSteps()` — pass it as `orderedSections` to `IngredientListCollapsible` wherever a recipe's ingredients and steps are shown together
 - `POST /api/reorganize-recipe` proposes sections for a flat recipe but returns **only** `id → section` assignments: no text, no id is ever rewritten, so active `cooking_sessions` and `{{qty:ingredientId}}` tokens survive. Apply it through `applySectionAssignments()` (`lib/utils/section-assignments.ts`), which writes explicit `null` for unassigned items
 
+### Pantry matching (shopping list, batch add, cooking deduction)
+Full rules in [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md). The non-negotiables:
+- Match an ingredient to the pantry **only** through `lib/utils/ingredient-matching.ts` — never ad-hoc name equality. A non-match is the safe failure: automatic only on exact canonical key or confirmed alias; fuzzy candidates never act alone; no count ↔ mass conversion
+- `PantryItem.aliases` holds `canonicalIngredientKey()` output, a persisted format; write it only with `addPantryItemAlias()` (`arrayUnion`)
+- The trivial list (water, ice) is closed; custom list items are never filtered nor classified
+- Multi-document pantry writes go through `applyPantryBatch()`, accumulated per document first
+- Keep the `finalizeCooking` write order: pantry → `pantryDeducted` → history with `entryId` = session id → session delete
+
 ### Recipe text and timers
 - Recipe text persisted in Firebase should remain plain text
 - `extractStepDuration()` is shared between parser and form-side auto-detect
@@ -150,14 +159,15 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-09-15 — Complete nutrition: serving weight, kcal/100g, macros (Spec C)
-- **New `MacrosPerServing` type** (`types/index.ts`): `{ proteinGrams, carbsGrams, fatGrams }`, all-or-nothing (see "Nutrition" above). `servingWeightGrams?` and `macrosPerServing?` added to `Recipe` and to both `ParsedRecipe` declarations (`types/index.ts` and `recipe-parser.ts`)
-- **`/api/estimate-calories` extended, still one AI call**: prompt renamed `createNutritionEstimationPrompt`, schema `NUTRITION_ESTIMATION_SCHEMA` (shape/types only — no `minimum`/`maximum`, which would 400 the whole request), `max_tokens` 900 → 1400 (thinking-adaptive reasoning tokens plus a bigger JSON output need the headroom). The model returns weight and macros as recipe **totals**; the new `lib/utils/nutrition-estimate.ts` (`deriveNutritionPerServing`, pure and unit-tested) divides by servings and applies plausibility clamps + the Atwater sanity check server-side — the route no longer does this inline
-- **Client**: `getAICalorieEstimateForRecipe` → `getAINutritionEstimateForRecipe` (`recipe-parser.ts`, returns the three fields); `useEstimateCalories` → `useEstimateNutrition` (`lib/hooks/useEstimateNutrition.ts`, **fill-the-gaps**: writes only fields the recipe doesn't already have, so re-estimating never overwrites a manual value)
-- **Form** (`recipe-form.tsx`): 4 new string-state fields (weight + 3 macros, same empty-string-means-no-estimate pattern as kcal); submit is blocked with a toast if only 1-2 of the 3 macro fields are filled (`MacrosPerServing` can't express a partial trio); clearing a field on edit uses `deleteField()` (updateDoc merges, so omitting the key would leave the old value)
-- **Display**: recipe detail gets a secondary nutrition row (`≈ N g`, `N kcal/100 g`, `P/C/G` — all `!= null` gated) below the existing meta row; the "Stima calorie" button becomes "Stima valori nutrizionali" and now also shows once kcal are present but weight/macros aren't; extraction preview gets two new chips; recipe card is **unchanged** (kcal only, by design)
-- **Planner**: `computeDayCalories`/`computeWeekCalories` → `computeDayNutrition`/`computeWeekNutrition` (`meal-plan-calories.ts`, module path unchanged) with separate kcal/macro completeness counters; `WeeklyCalendarGrid` renders a second, smaller macro line under the kcal line on both desktop and mobile
-- **Not touched**: shopping list (documented out-of-scope — per-serving figures don't aggregate into anything a shopper acts on), recipe card, cooking mode, `extract-recipes`/`format-recipe`/`chat-recipe`/`suggest-category`, per-person scaling (Spec F)
+### 2026-09-15 — Pantry ↔ shopping list ↔ cooking integration (Spec D)
+- **Matching engine** `lib/utils/ingredient-matching.ts` (roadmap contract §2, consumed by Spec E — don't rename its exports): exact canonical key → confirmed alias → fuzzy suggestions, stock comparison within one dimension, list availability, `amountToBuyBase`. The normalisation/quantity helpers of `ingredient-aggregator.ts` are now exported. Rules and gotchas: [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md)
+- **Shopping list**: water/ice never listed; collapsed "Hai già in casa" section ("Mi serve comunque" / "Ce l'ho già"); "In dispensa: … · mancano N" badges; "Forse ce l'hai già" suggestions that save an alias; progress counts only visible rows; "Aggiungi articolo" also without a plan
+- **"Aggiungi alla dispensa (N)"**: checked items → one atomic `applyPantryBatch` (`AddCheckedToPantrySheet`), shortfall prefill, one increment per existing entry
+- **Cooking**: "Scala la dispensa" dialog at "Termina cottura" (`PantryDeductionDialog`) with a retry-safe `finalizeCooking`; `createCookingHistoryEntry({ entryId })` now writes with `setDoc` on the session id, fixing the duplicate history entry on retry
+- **Pantry page**: `PantryItemQuickSheet` is a centered modal on desktop (its content was `lg:hidden`, leaving a dead overlay on ≥1440px), delete through `ConfirmDialog`, per-unit "Consumato"; dead stubs removed ("A voce" / "Da lista spesa" tabs, "Aggiungi a lista", desktop `onConsume`)
+- **New persisted fields**: `PantryItem.aliases`, `MealPlan.shoppingPantryIncludedIds`, `AdHocShoppingItem.pantryIncluded`, `CookingSession.pantryDeducted`. No rules, index or collection change
+- **Verified** (2026-09-15): `npx tsc --noEmit` exit 0 · `npm test` 229/229 · `npx next build --webpack` exit 0 · guided test 21/21 (record under "Guided testing tooling")
+- **Not touched**: department grouping (Spec E), count ↔ mass density, `CookableSuggestions`, AI routes and prompts
 
 Older entries live in `git log` (each spec ships as one squashed PR, e.g. "feat: add recipe sections with AI reorganization" for Spec B), not here.
 
@@ -209,12 +219,17 @@ Installed so manual guided tests can be automated end-to-end instead of asking t
 
 Typical guided-testing session: `npm run emulators` in one terminal, `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev` in another, then a scratch Playwright script under `e2e/scratch/` driving a real browser against the emulated backend, asserting on Firestore/HTTP state rather than page appearance.
 
-Two command-level details that cost a debugging round each (2026-09-11):
+Command-level details that cost a debugging round each:
 - A scratch script that imports anything from `lib/utils` transitively pulls in `lib/firebase/config.ts`, and Playwright does not load `.env.local` the way Next does → `auth/invalid-api-key` before the test even runs. Prefix the command: `set -a; . ./.env.local; set +a; FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx playwright test ...`
 - For the guided tour itself (WORKFLOW.md obligation 4 — never dictate clicks), run the tour spec with `--headed` and end each test with a long `page.waitForTimeout(...)`: the window stays open on the exact URL with the session already authenticated and the interaction already performed, and it is stopped from chat when the user has finished looking.
 - A `waitForURL(/\/ricette\/[^/]+$/)` meant to catch the post-create redirect also matches the `/ricette/new` page the script is already on (`new` satisfies `[^/]+`), so the wait resolves immediately and the following assertion reads Firestore before the create has actually happened. Same risk for any dynamic-segment route with a static sibling (`/new`, `/edit`): exclude the sibling explicitly, e.g. `/\/ricette\/(?!new$)[^/]+$/` (2026-09-15).
+- A scenario that uses "Voglio preparare questo" on a recipe already in the plan lists every ingredient twice (plan row + ad-hoc row — no cross-block merge, by design): row locators need `.first()`/`.nth()`, otherwise Playwright fails in strict mode and it looks like a broken page (2026-09-15).
+- Shopping list state (`shoppingCheckedIds`, custom items, `shoppingPantryIncludedIds`, ad-hoc flags) is written with a 500 ms debounce: assert it with `expect.poll`, never with a single read right after the click — that is a false negative, not a lost write (2026-09-15).
+- `lg` is 1440px in this repo and Playwright's default viewport is 1280px: a spec that never sets a ≥1440 viewport exercises only the mobile layouts. Run sheet/dialog flows at a phone width **and** at a desktop width — the Spec D tour found a desktop-only dead overlay the 390px phases couldn't see (2026-09-15).
+- Emulators and `next dev` started as Claude Code background tasks are killed when the machine runs low on memory, and the emulator data (in memory) goes with them — it happened twice during the Spec D tour. For a long guided tour, have the user start both in their own terminals, then rerun the seed (2026-09-15).
 
 Guided tests run with this tooling (add one line for each closed guided test):
+- **2026-09-15 — Spec D (pantry ↔ shopping list ↔ cooking)**: synthetic spy-word fixtures in the emulators — the mirror of the personal account was NOT done, the production read was denied by the auto-mode permission classifier. Automated, 21/21 green with assertions on the emulated Firestore and on rule errors: A-invariance 3 (checks survive reload and SPA remount, "Aggiungi articolo" without a plan → localStorage, pantry page) → C 10 (trivial items absent from plan and ad-hoc but kept as custom item; "Hai già in casa" parking and re-include persisted on the plan and on the ad-hoc item, SPA remount included; badges, alias confirmation with immediate recategorization, session-only dismissal; batch add with one increment per entry and checks kept; cooking deduction confirm / "Salta" / session already `pantryDeducted` / abandon, with exactly one history doc whose id is the session id; pantry micro-fixes; desktop quick sheet) → D 4 (history retry idempotent, alias idempotent, pantry batch atomic, fourth plan field) → E 4 own/foreign pairs, foreign → `permission-denied` with data unchanged. Guided tour (F) stopped by the user after two findings, both fixed in session and turned into assertions: on ≥1440px tapping a pantry item left only the blurred overlay (pre-existing `lg:hidden` on `PantryItemQuickSheet`) → centered modal on lg; a partially stocked item didn't say how much to buy → badge "· mancano N" + shortfall prefill (user decision). Not seen by eye: deduction dialog on a phone, dark mode, "Consumato" chips (emulators and dev server killed twice by low memory). Two script bugs fixed on the way: duplicate accessible names plan + ad-hoc, a debounced write read too early.
 - **2026-09-15 — Spec C (complete nutrition)**: 5 automated phases (manual form persists weight/macros and the detail page renders the derived kcal/100g → a partial macro trio blocks submit with the exact toast → clearing weight/macros in edit deletes them via `deleteField()`, kcal untouched → a legitimate `fatGrams: 0` stays visible, not hidden by a truthy gate → planner day header shows kcal + partial macro totals, a day with only an unestimated recipe shows neither line), all green, assertions on the emulated Firestore and on rendered text, never page appearance alone. Phase F (real AI estimate, needs `ANTHROPIC_API_KEY`) was skipped by user choice — not run, not counted as verified. 5-point guided tour on the dev server (nutrition row on detail, new form block, planner desktop/mobile layouts, dark mode): no issues found. Script bug found and fixed during Phase A: a `waitForURL` regex (`/\/ricette\/[^/]+$/`) also matched the `/ricette/new` page itself, so the assertion read Firestore before the create had actually redirected — fixed by excluding `new` from the match.
 - **2026-09-11 — Spec B (ingredient/method sections)**: 6 automated phases (parser → ordering → end-to-end reorganization with real AI → negative outcome → route called by hand with 401/401/400/200 → ownership pair on the Firestore rules), all green, assertions on Firestore and on the HTTP responses; then a 5-point guided tour on a headed Chromium window opened by the script (obligation 4: never dictate clicks to the user). **Bug found by the guided tour and fixed in session**: on a reorganized recipe the two columns contradicted each other — Ingredients opened with "Per l'assemblaggio" (the ingredient array is still the original flat one, and the first ingredient belonged to the last component) while Preparation correctly started from the ragù via `sectionOrder`. Fixed with `orderedSectionNamesFromSteps()`, which makes both columns follow the step order, plus 5 new tests. Two harness defects fixed: Jest was picking up the Playwright specs in `e2e/` (added `testPathIgnorePatterns` in `jest.config.js`), and a guided-test script that imports `lib/utils` needs `.env.local` exported by hand.
 - **2026-08-24 — Spec A (meal ordering + spuntino/merenda)**: 6 phases (seed → read-time self-correction → canonical write via `addMealType` → setup with the pranzo toggle → removing merenda without orphan slots → desktop/mobile screenshots with 5 meals), all green, assertions on real Firestore (not just page appearance). Harness bug discovered and fixed during the guided test: a Playwright assertion based on text already present in the setup form gave a false positive before the Firestore write had completed — fixed by waiting for a marker visible only in the calendar step. No application bugs found.
@@ -224,13 +239,13 @@ Guided tests run with this tooling (add one line for each closed guided test):
 ## Database Collections
 
 ```text
-users/{uid}             # User profiles + familyProfile + adHocShoppingRecipes
+users/{uid}             # User profiles + familyProfile + adHocShoppingRecipes (items may carry pantryIncluded)
 recipes/{id}            # Recipes
 categories/{id}         # Recipe categories
-cooking_sessions/{id}   # Active cooking progress
-cooking_history/{id}    # Completed cooking events
-meal_plans/{id}         # Weekly planner documents
-pantry_items/{id}       # Pantry items with qty, expiry, stock level
+cooking_sessions/{id}   # Active cooking progress (+ pantryDeducted once the stock was scaled)
+cooking_history/{id}    # Completed cooking events (id = session id since Spec D; older docs random ids)
+meal_plans/{id}         # Weekly planner documents (+ shopping state: checked, custom, shoppingPantryIncludedIds)
+pantry_items/{id}       # Pantry items with qty, expiry, stock level, aliases (confirmed canonical keys)
 ```
 
 Composite indexes maintained in repo:

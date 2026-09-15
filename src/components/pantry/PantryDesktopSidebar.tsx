@@ -60,7 +60,7 @@ export function PantryDesktopSidebar({ items }: PantryDesktopSidebarProps) {
           </h3>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Segna gli acquisti come completati nella lista della spesa per aggiungerli direttamente qui.
+          Spunta gli articoli in lista e usa “Aggiungi alla dispensa” per salvarli qui in un passaggio.
         </p>
         <Link
           href="/lista-spesa"

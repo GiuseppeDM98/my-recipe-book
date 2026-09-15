@@ -71,6 +71,10 @@ export function buildContributions(
  *    joins with " + " so the result is always human-readable.
  *
  * SECTION: first encountered section value for the group.
+ *
+ * TRIVIAL INGREDIENTS (tap water, ice — see TRIVIAL_INGREDIENT_NAMES) are
+ * dropped here rather than in buildContributions: buildContributions describes
+ * what the plan contains, this function decides what is worth shopping for.
  */
 export function aggregateIngredients(
   contributions: IngredientContribution[]
@@ -87,6 +91,10 @@ export function aggregateIngredients(
 
   for (const c of contributions) {
     const key = canonicalIngredientKey(c.name);
+    // A filtered item's id may still sit in the plan's shoppingCheckedIds (it
+    // was checked before the filter existed): that entry is inert, exactly like
+    // the ids left behind when a recipe leaves the plan. No cleanup needed.
+    if (isTrivialIngredientKey(key)) continue;
     const existing = groups.get(key);
 
     if (existing) {
@@ -138,7 +146,14 @@ export function aggregateIngredients(
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Name normalisation and quantity helpers
+//
+// Exported because ingredient-matching.ts (pantry matching, Spec D) and the
+// shopping-list department grouping (Spec E) reuse exactly the same rules:
+// one definition of "same ingredient" and "same quantity" for the whole app.
+// Dependency direction is matching → aggregator only (never the reverse), so
+// anything the aggregator itself needs — including the trivial-ingredient
+// list — has to live here, not in ingredient-matching.ts.
 // ---------------------------------------------------------------------------
 
 /**
@@ -160,11 +175,14 @@ function toSlug(name: string): string {
  * Each whitespace-separated word is stemmed independently, so multi-word names
  * keep their distinguishing tokens (e.g. "pomodori pelati" never collapses onto
  * "pomodori"). The original display name is preserved separately by the caller.
+ *
+ * WARNING: PantryItem.aliases stores keys produced by this function. Changing
+ * the normalisation silently orphans every alias the user has confirmed.
  */
-function canonicalIngredientKey(name: string): string {
+export function canonicalIngredientKey(name: string): string {
   return name
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // strip diacritics (à → a, é → e …)
+    .replace(/[̀-ͯ]/g, '') // strip diacritics (à → a, é → e …)
     .toLowerCase()
     .trim()
     .replace(/\s+/g, ' ')
@@ -181,7 +199,7 @@ function canonicalIngredientKey(name: string): string {
  * ingredients, and leaves anything it cannot confidently normalise untouched so
  * unrelated words are not merged.
  */
-function singularizeWord(word: string): string {
+export function singularizeWord(word: string): string {
   if (word.length < 4) return word;
   let stem = word;
 
@@ -205,9 +223,50 @@ function singularizeWord(word: string): string {
   return stem;
 }
 
-type QuantityDimension = 'mass' | 'volume' | 'count';
+/**
+ * ONLY things nobody buys at the supermarket. Fixed, curated, closed list.
+ * DO NOT add salt/oil/pepper/sugar: they get bought, the pantry match handles
+ * them. Comparison is by exact equality of the canonical key:
+ * "acqua di rose" or "acqua di mare" do NOT match and stay in the list (correct).
+ *
+ * "acqua frizzante" is here on purpose: in recipes it is a batter/dough
+ * component, not a drink to buy (product decision, don't reopen it).
+ */
+const TRIVIAL_INGREDIENT_NAMES = [
+  'acqua',
+  'acqua fredda',
+  'acqua calda',
+  'acqua tiepida',
+  'acqua bollente',
+  'acqua frizzante',
+  'acqua gassata',
+  'acqua naturale',
+  'acqua a temperatura ambiente',
+  'acqua di cottura',
+  'acqua di cottura della pasta',
+  'acqua della pasta',
+  'ghiaccio',
+  'cubetti di ghiaccio',
+  'ghiaccio tritato',
+];
 
-interface ParsedQuantity {
+// Keys derived once through the same normalisation as everything else, so the
+// readable list above never has to be written in stemmed form.
+const TRIVIAL_KEYS = new Set(TRIVIAL_INGREDIENT_NAMES.map(name => canonicalIngredientKey(name)));
+
+/** True when the ingredient is something nobody shops for (tap water, ice). */
+export function isTrivialIngredient(name: string): boolean {
+  return TRIVIAL_KEYS.has(canonicalIngredientKey(name));
+}
+
+/** Variant for callers that already hold the canonical key (aggregator). */
+export function isTrivialIngredientKey(key: string): boolean {
+  return TRIVIAL_KEYS.has(key);
+}
+
+export type QuantityDimension = 'mass' | 'volume' | 'count';
+
+export interface ParsedQuantity {
   /** Value expressed in the dimension's base unit (g for mass, ml for volume). */
   baseValue: number;
   dimension: QuantityDimension;
@@ -215,13 +274,13 @@ interface ParsedQuantity {
   unit: string;
 }
 
-const NON_SCALABLE_RE = /q\.b\.|quanto\s+basta|un\s+pizzico|una\s+presa|a\s+piacere/i;
+export const NON_SCALABLE_RE = /q\.b\.|quanto\s+basta|un\s+pizzico|una\s+presa|a\s+piacere/i;
 
 /**
  * Maps Italian unit spellings to a base unit and conversion factor.
  * Mass base = grams, volume base = millilitres.
  */
-const UNIT_ALIASES: Record<string, { dimension: 'mass' | 'volume'; factor: number }> = {
+export const UNIT_ALIASES: Record<string, { dimension: 'mass' | 'volume'; factor: number }> = {
   mg: { dimension: 'mass', factor: 0.001 },
   g: { dimension: 'mass', factor: 1 },
   gr: { dimension: 'mass', factor: 1 },
@@ -295,7 +354,7 @@ function mergeQuantities(quantities: string[]): string {
  * missing units are treated as a non-convertible "count" so they only sum with
  * an identical token. Returns null for non-numeric / non-scalable forms.
  */
-function parseQuantity(quantity: string): ParsedQuantity | null {
+export function parseQuantity(quantity: string): ParsedQuantity | null {
   const q = quantity.trim();
   if (!q || NON_SCALABLE_RE.test(q)) return null;
 
@@ -319,7 +378,7 @@ function parseQuantity(quantity: string): ParsedQuantity | null {
 }
 
 /** Formats a summed mass/volume base value in the clearest unit (g↔kg, ml↔l). */
-function formatQuantity(baseValue: number, dimension: 'mass' | 'volume'): string {
+export function formatQuantity(baseValue: number, dimension: 'mass' | 'volume'): string {
   if (baseValue >= 1000) {
     const major = dimension === 'mass' ? 'kg' : 'l';
     return `${formatItalianNumber(baseValue / 1000)} ${major}`;
@@ -329,7 +388,7 @@ function formatQuantity(baseValue: number, dimension: 'mass' | 'volume'): string
 }
 
 /** Formats a number using Italian decimal comma notation. */
-function formatItalianNumber(value: number): string {
+export function formatItalianNumber(value: number): string {
   if (value % 1 === 0) return String(value);
   const rounded = Math.round(value * 100) / 100;
   return rounded.toString().replace('.', ',');

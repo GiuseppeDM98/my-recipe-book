@@ -168,12 +168,17 @@ export async function updateMealPlan(
 }
 
 /**
- * Persist shopping list checked state and custom items onto the plan document.
+ * Persist the shopping list state onto the plan document: checked ids, custom
+ * items and the items re-included despite a pantry match.
  *
  * WHY ON MEAL_PLAN (not a separate collection):
  * Shopping state is always 1:1 with a week's plan. Embedding it here avoids a
  * new collection, new Firestore rules, and a new composite index while still
  * syncing the state across devices.
+ *
+ * WHY ONE WRITE FOR ALL THREE FIELDS: useShoppingList debounces and flushes a
+ * single target per document. A field written here rides that circuit for free;
+ * a separate write would need its own timer and flush registration.
  *
  * NOTE: does not bump updatedAt — shopping state is ephemeral display state,
  * not a structural plan change.
@@ -181,12 +186,14 @@ export async function updateMealPlan(
 export async function updateMealPlanShoppingState(
   planId: string,
   checkedIds: string[],
-  customItems: ShoppingItem[]
+  customItems: ShoppingItem[],
+  pantryIncludedIds: string[]
 ): Promise<void> {
   const planRef = doc(db, COLLECTION, planId);
   await updateDoc(planRef, {
     shoppingCheckedIds: checkedIds,
     shoppingCustomItems: customItems,
+    shoppingPantryIncludedIds: pantryIncludedIds,
   });
 }
 

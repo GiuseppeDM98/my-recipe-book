@@ -6,12 +6,16 @@ import { cn } from '@/lib/utils/cn';
 import { AdHocShoppingRecipe } from '@/types';
 import { ShoppingItemRow } from './ShoppingItemRow';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { buildPantryRowProps, ShoppingPantryContext } from './pantry-row-props';
 
 interface AdHocRecipeGroupProps {
   group: AdHocShoppingRecipe;
   onToggleItem: (itemId: string) => void;
   onRemoveItem: (itemId: string) => void;
   onRemoveGroup: () => void;
+  /** Ids shown in "Hai già in casa": hidden here and left out of the counter. */
+  pantryOwnedIds?: Set<string>;
+  pantryContext?: ShoppingPantryContext;
 }
 
 /**
@@ -22,11 +26,22 @@ interface AdHocRecipeGroupProps {
  * (destructive); per-item removal doesn't need confirmation, same as custom
  * plan items in ShoppingItemRow.
  */
-export function AdHocRecipeGroup({ group, onToggleItem, onRemoveItem, onRemoveGroup }: AdHocRecipeGroupProps) {
+export function AdHocRecipeGroup({
+  group,
+  onToggleItem,
+  onRemoveItem,
+  onRemoveGroup,
+  pantryOwnedIds,
+  pantryContext,
+}: AdHocRecipeGroupProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const checkedCount = group.items.filter(item => item.checked).length;
-  const allChecked = checkedCount === group.items.length && group.items.length > 0;
+  const visibleItems = group.items.filter(item => !pantryOwnedIds?.has(item.id));
+  const checkedCount = visibleItems.filter(item => item.checked).length;
+  const allChecked = checkedCount === visibleItems.length && visibleItems.length > 0;
+  // The header stays even when the pantry covers every ingredient, so the
+  // group can still be removed.
+  const isFullyCoveredByPantry = group.items.length > 0 && visibleItems.length === 0;
 
   return (
     <div className="space-y-1">
@@ -41,25 +56,31 @@ export function AdHocRecipeGroup({ group, onToggleItem, onRemoveItem, onRemoveGr
           {group.recipeTitle}
         </span>
         <span className={cn('text-xs font-normal', allChecked ? 'text-accent' : 'text-muted-foreground')}>
-          {checkedCount}/{group.items.length}
+          {checkedCount}/{visibleItems.length}
         </span>
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
           aria-label={`Rimuovi ricetta ${group.recipeTitle} dalla lista della spesa`}
-          className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+          className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
         >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
 
       <div className="space-y-1 pl-2 pt-1">
-        {group.items.map(item => (
+        {isFullyCoveredByPantry && (
+          <p className="px-2 py-1 text-xs text-muted-foreground">
+            Hai già tutto in casa: trovi gli ingredienti in “Hai già in casa”.
+          </p>
+        )}
+        {visibleItems.map(item => (
           <ShoppingItemRow
             key={item.id}
             name={item.name}
             quantity={item.quantity}
             checked={item.checked}
+            {...buildPantryRowProps(item.id, item.name, pantryContext, group.id)}
             onToggle={() => onToggleItem(item.id)}
             onRemove={() => onRemoveItem(item.id)}
           />

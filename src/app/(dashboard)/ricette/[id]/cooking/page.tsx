@@ -12,14 +12,24 @@ import {
   deleteCookingSession,
 } from '@/lib/firebase/cooking-sessions';
 import { createCookingHistoryEntry } from '@/lib/firebase/cooking-history';
+import { addPantryItemAlias, applyPantryDeductions } from '@/lib/firebase/pantry';
+import { usePantry, pantryQueryKey } from '@/lib/hooks/usePantry';
 import { Recipe, CookingSession, Ingredient } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { StepsListCollapsible } from '@/components/recipe/steps-list-collapsible';
 import { IngredientListCollapsible } from '@/components/recipe/ingredient-list-collapsible';
+import { PantryDeductionDialog } from '@/components/pantry/PantryDeductionDialog';
 import { ArrowLeft, X, ChefHat, Scale, AlertTriangle } from 'lucide-react';
 import NoSleep from 'nosleep.js';
 import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
+import { canonicalIngredientKey } from '@/lib/utils/ingredient-matching';
+import {
+  buildPantryDeductionUpdates,
+  computePantryDeductions,
+  ConfirmedDeduction,
+  PantryDeductionRow,
+} from '@/lib/utils/pantry-deduction';
 import { orderedSectionNamesFromSteps } from '@/lib/utils/section-assignments';
 import { useCountdownTimer } from '@/lib/hooks/useCountdownTimer';
 import { ServingsStepper } from '@/components/recipe/servings-stepper';
@@ -40,8 +50,9 @@ import toast from 'react-hot-toast';
  * - NoSleep integration: Keeps screen awake during cooking
  * - Ingredient scaling: Real-time quantity adjustment with Italian decimal format (1,5 kg)
  * - Manual completion: Session stays active at 100% until user explicitly ends it
+ * - Pantry deduction: "Termina cottura" proposes scaling down the stock used
  *
- * Side effects: Firebase session CRUD, history writes, navigation on completion
+ * Side effects: Firebase session CRUD, history writes, pantry writes, navigation on completion
  */
 export default function CookingModePage() {
   const { id } = useParams();
@@ -56,6 +67,9 @@ export default function CookingModePage() {
   const [servings, setServings] = useState<number>(4); // Default to 4 servings
   const [scaledIngredients, setScaledIngredients] = useState<Ingredient[]>([]);
   const [isSetupMode, setIsSetupMode] = useState(true); // Start in setup mode
+  const [deductionRows, setDeductionRows] = useState<PantryDeductionRow[]>([]);
+  const [isDeductionDialogOpen, setIsDeductionDialogOpen] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   const recipeId = id as string;
 
@@ -70,6 +84,10 @@ export default function CookingModePage() {
     queryKey: ['recipe', recipeId, user?.uid ?? ''],
     queryFn: () => getRecipe(recipeId, user!.uid),
   });
+
+  // Cached pantry (≤ 2 min old) is fine for the proposal: every row is editable
+  // and shows the current stock before anything is written.
+  const { items: pantryItems } = usePantry();
 
   const queryClient = useQueryClient();
   const timer = useCountdownTimer();
@@ -126,6 +144,10 @@ export default function CookingModePage() {
   // Guard to prevent session initialization from running more than once
   // even if the recipe cache re-validates (e.g., after a background refetch).
   const sessionInitialized = useRef(false);
+
+  // In-memory guard against deducting twice when "Termina cottura" is retried
+  // after a later step failed. Reloads are covered by session.pantryDeducted.
+  const pantryDeductedRef = useRef(false);
 
   useEffect(() => {
     if (!user || !recipe || sessionInitialized.current) return;
@@ -276,25 +298,95 @@ export default function CookingModePage() {
     }
   };
 
-  const handleFinishCooking = async () => {
+  /**
+   * "Termina cottura": proposes the pantry deduction when something matches,
+   * otherwise finishes right away (same behavior as before the pantry existed).
+   * Only the explicit completion CTA gets here — abandoning a session from
+   * /cotture-in-corso never deducts.
+   */
+  const handleFinishCooking = () => {
     if (!user || !cookingSession || !recipe) return;
 
+    const isAlreadyDeducted = pantryDeductedRef.current || cookingSession.pantryDeducted === true;
+    const rows = isAlreadyDeducted
+      ? []
+      : computePantryDeductions(recipe.ingredients, recipe.servings || 4, servings, pantryItems);
+
+    // Only excluded rows = nothing the user could act on: don't interrupt.
+    if (rows.some(row => row.kind !== 'excluded')) {
+      setDeductionRows(rows);
+      setIsDeductionDialogOpen(true); // completion continues from onConfirm / onSkip
+    } else {
+      void finalizeCooking(null);
+    }
+  };
+
+  /**
+   * Applies the confirmed deduction (if any), records history, ends the session.
+   *
+   * WRITE ORDER — chosen so every partial failure is safe to retry:
+   * 1. Pantry first (aliases, then one atomic batch): if it fails nothing was
+   *    deducted and the session survives — a clean retry. Aliases use
+   *    arrayUnion, so re-saving them is harmless.
+   * 2. Mark the deduction done: in memory (pantryDeductedRef) immediately, and
+   *    on the session (pantryDeducted) so a reload before step 4 can't propose
+   *    it again.
+   * 3. History with the session id as document id: a retry overwrites the same
+   *    entry instead of duplicating it.
+   * 4. Session delete last: if it fails, the retry rewrites the same history and
+   *    skips the deduction thanks to step 2.
+   */
+  const finalizeCooking = async (deductions: ConfirmedDeduction[] | null) => {
+    if (!user || !cookingSession || !recipe) return;
+
+    setIsFinishing(true);
     try {
+      const shouldDeduct =
+        deductions !== null &&
+        deductions.length > 0 &&
+        !pantryDeductedRef.current &&
+        cookingSession.pantryDeducted !== true;
+
+      if (shouldDeduct) {
+        for (const deduction of deductions) {
+          if (deduction.aliasIngredientName) {
+            await addPantryItemAlias(
+              deduction.pantryItem.id,
+              canonicalIngredientKey(deduction.aliasIngredientName)
+            );
+          }
+        }
+
+        const updates = buildPantryDeductionUpdates(deductions);
+        if (updates.length > 0) {
+          await applyPantryDeductions(user.uid, updates);
+        }
+
+        pantryDeductedRef.current = true;
+        queryClient.invalidateQueries({ queryKey: pantryQueryKey(user.uid) });
+        await updateCookingSession(cookingSession.id, { pantryDeducted: true });
+      }
+
       await createCookingHistoryEntry({
         userId: user.uid,
         recipeId: recipe.id,
         recipeTitle: recipe.title,
         servings: servings || null,
+        entryId: cookingSession.id,
       });
       await deleteCookingSession(cookingSession.id);
       queryClient.invalidateQueries({ queryKey: ['cookingSessions', user.uid] });
+      setIsDeductionDialogOpen(false);
       // Celebrate completion (peak-end): the finished dish deserves a warm beat
       // before we navigate away to the in-progress overview.
       toast.success('Piatto completato. Bel lavoro in cucina!');
       router.push('/cotture-in-corso');
     } catch (err) {
       console.error('Error finishing cooking session:', err);
+      setIsDeductionDialogOpen(false);
       setSessionError('Errore durante la chiusura della cottura.');
+    } finally {
+      setIsFinishing(false);
     }
   };
 
@@ -520,13 +612,22 @@ export default function CookingModePage() {
           <Button
             onClick={handleFinishCooking}
             size="lg"
-            disabled={!isComplete}
+            disabled={!isComplete || isFinishing}
             className="min-w-[180px] transition-all duration-200 motion-reduce:transition-none"
           >
             Termina cottura
           </Button>
         </div>
       </div>
+
+      <PantryDeductionDialog
+        open={isDeductionDialogOpen}
+        onOpenChange={setIsDeductionDialogOpen}
+        rows={deductionRows}
+        isSubmitting={isFinishing}
+        onConfirm={deductions => void finalizeCooking(deductions)}
+        onSkip={() => void finalizeCooking(null)}
+      />
     </div>
   );
 }

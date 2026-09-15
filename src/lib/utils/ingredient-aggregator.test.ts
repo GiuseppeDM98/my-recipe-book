@@ -1,4 +1,9 @@
-import { aggregateIngredients, IngredientContribution } from '@/lib/utils/ingredient-aggregator';
+import {
+  aggregateIngredients,
+  formatQuantity,
+  IngredientContribution,
+  parseQuantity,
+} from '@/lib/utils/ingredient-aggregator';
 
 /**
  * Builds a contribution with sensible defaults so each test only states the
@@ -130,5 +135,64 @@ describe('aggregateIngredients', () => {
 
       expect(items[0].name).toBe('Pomodori');
     });
+  });
+});
+
+describe('aggregateIngredients trivial-ingredient filter', () => {
+  it('produces no item for water and ice in their listed forms', () => {
+    const items = aggregateIngredients([
+      contribution('Acqua', '500 ml'),
+      contribution('acqua di cottura della pasta', 'q.b.'),
+      contribution('Ghiaccio', '200 g'),
+    ]);
+
+    expect(items).toHaveLength(0);
+  });
+
+  it('keeps water phrases outside the curated list (acqua di rose)', () => {
+    const items = aggregateIngredients([contribution('Acqua di rose', '1 cucchiaio')]);
+
+    expect(items.map(item => item.name)).toEqual(['Acqua di rose']);
+  });
+
+  it('does not affect the grouping of the other ingredients', () => {
+    const items = aggregateIngredients([
+      contribution('Farina', '200 g'),
+      contribution('Acqua', '100 ml'),
+      contribution('Farina', '300 g'),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].displayQuantity).toBe('500 g');
+  });
+});
+
+describe('parseQuantity (exported)', () => {
+  it('reads the Italian decimal comma', () => {
+    expect(parseQuantity('1,5 kg')).toEqual({ baseValue: 1500, dimension: 'mass', unit: 'kg' });
+  });
+
+  it('converts etti to grams', () => {
+    expect(parseQuantity('2 etti')).toEqual({ baseValue: 200, dimension: 'mass', unit: 'etti' });
+  });
+
+  it('converts centilitres to millilitres', () => {
+    expect(parseQuantity('5 cl')).toEqual({ baseValue: 50, dimension: 'volume', unit: 'cl' });
+  });
+
+  it('treats unknown units as a count and q.b. as unparsable', () => {
+    expect(parseQuantity('3 cucchiai')).toEqual({ baseValue: 3, dimension: 'count', unit: 'cucchiai' });
+    expect(parseQuantity('q.b.')).toBeNull();
+  });
+});
+
+describe('formatQuantity (exported)', () => {
+  it('switches to the major unit from 1000 up, with a decimal comma', () => {
+    expect(formatQuantity(1500, 'mass')).toBe('1,5 kg');
+    expect(formatQuantity(2250, 'volume')).toBe('2,25 l');
+  });
+
+  it('keeps the minor unit below 1000', () => {
+    expect(formatQuantity(250, 'volume')).toBe('250 ml');
   });
 });

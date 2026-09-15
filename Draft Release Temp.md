@@ -10,15 +10,19 @@
 - Added an expiring-items strip at the top of the Pantry page so items that are expired, due today, or running low are always visible at a glance
 - Added a "Con quello che hai" section on the Pantry page that suggests recipes from your cookbook whose ingredients you already have in the pantry
 - Added position filters, a search field, and a "show expiring only" toggle to the Pantry page so you can quickly find what you are looking for
-- Added three ways to add items to the pantry: a full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
-- Added a mobile quick-action sheet on pantry items for marking an item as consumed, adjusting quantity, editing, or deleting
+- Added two ways to fill the pantry: a full manual form, or in one step from the items you checked off on the shopping list
+- Added a quick-action sheet on pantry items — a bottom sheet on phones, a centred window on desktop — to mark an item as consumed, move it between fridge, pantry and freezer, edit it, or delete it after a confirmation. "Consumato" takes one piece off counted items and offers "Un po' (−25%)", "Metà (−50%)" and "Tutto" for items measured in grams or litres
 - Added a Pantry summary sidebar on desktop with counts for expiring items, low-stock items, and total items across the three storage locations
 - Added the Pantry page to the main navigation — it is now the second tab on the mobile bottom bar and appears in the sidebar on desktop
 
 - Added a Weekly Shopping List page that automatically generates your shopping list from the current week's meal plan — ingredients from all recipes are aggregated and organised by section
 - Added the ability to check off items as you shop, with a progress bar showing how many items you have left
-- Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan
+- Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan — also on weeks without a meal plan
 - Added week navigation on the shopping list page so you can view the list for past and future weeks
+- Added a collapsed "Hai già in casa" section to the shopping list for ingredients your pantry already covers, so they no longer count as items to buy. Tap "Mi serve comunque" to put one back in the list, or "Ce l'ho già" to set it aside again
+- Added pantry stock hints on shopping list items you only partly have, such as "In dispensa: 50 g · mancano 50 g", so you know exactly how much to buy
+- Added "Forse ce l'hai già" suggestions when a shopping list item looks like something in your pantry under a different name (e.g. "spaghetti" and "Spaghetti fini"). Confirm once with "Sì, è lo stesso" and the app remembers the link for the shopping list and for cooking
+- Added an "Aggiungi alla dispensa" button that saves every item you checked off on the shopping list to the pantry in one go, with quantity, category, location and expiry pre-filled and editable. Items you already had are topped up instead of duplicated, and only the missing amount is pre-filled
 - Added a new Statistics page to track your most cooked recipes, total completed cooking sessions, and recent completions
 - Added cooking history tracking so completed sessions can power long-term stats and activity insights
 - Added manual step reordering when creating or editing recipes
@@ -38,6 +42,7 @@
 - Added support for multiple timers running at the same time, so you can track an oven and a resting time simultaneously
 - Added a "Duration (min)" field to the step editor in recipe create and edit, so you can set timers for any step manually
 - Added an "Auto-detect durations" button in recipe edit that scans step text and pre-fills durations automatically, without overwriting values you already set
+- Added a "Scala la dispensa" step when you finish cooking: the app proposes the pantry quantities you used, already scaled to the servings you cooked, and you can adjust, untick or skip them. Stock never drops below zero, and deleting an unfinished cooking session never touches the pantry
 - Added a reshuffle button on each occupied meal slot — click ↺ to swap in a different recipe of the same category without rebuilding the entire week
 - Added a day selector to the meal planner so you can plan only specific days (e.g. weekdays only) instead of the full week
 - Added a "Copy plan" action in the planner to duplicate a week you liked into another week (it stops you if that week already has a plan)
@@ -104,6 +109,7 @@
 ## 🔧 Improvements
 
 - Improved the shopping list so the same ingredient is merged across recipes even when written in different but compatible units (e.g. 200 g + 1 kg → 1,2 kg) or as singular/plural or accented spellings (e.g. pomodoro/pomodori)
+- Improved the shopping list so it never asks you to buy tap water or ice: "Acqua", "Acqua di cottura della pasta" or "Ghiaccio" in a recipe stay out of the list, while anything you add by hand is always kept
 - Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
 - Improved planner loading behavior by removing distracting global loading flashes on protected pages
 - Improved the planner generation state with a more polished editorial animation while the week is being composed

@@ -92,6 +92,7 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 - **Persistent Finish CTA**: A "Finish cooking" button in a sticky footer is always visible; it activates automatically when all ingredients and steps are checked
 - **Per-Step Countdown Timers**: Steps with a duration show a "Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
 - **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
+- **Pantry Deduction**: When you finish, the app proposes scaling down the pantry stock you used — already adjusted to the servings cooked, each row editable or skippable; abandoning a session never touches the pantry
 
 ### Active Cooking Sessions Dashboard
 
@@ -185,7 +186,12 @@ Turn your meal plan into a ready-to-use shopping list in one tap.
 - **Auto-generated from your plan**: All ingredients from the week's recipes are aggregated automatically
 - **Smart aggregation**: The same ingredient is merged across recipes, summing quantities even across compatible units (e.g. 200 g + 1 kg → "1,2 kg", 500 ml + 0,5 l → "1 l") and matching singular/plural or accented spellings (e.g. pomodoro/pomodori)
 - **Checkboxes**: Check off items as you shop; a progress bar shows how many items remain
-- **Custom items**: Add anything not in your plan with a name and optional quantity
+- **Custom items**: Add anything not in your plan with a name and optional quantity — also on weeks without a meal plan
+- **Nothing you don't buy**: Tap water and ice in a recipe ("acqua", "acqua di cottura", "ghiaccio") never show up in the list; anything you add by hand is always kept
+- **"Hai già in casa"**: Ingredients your pantry already covers move into a collapsed section and stop counting as items to buy; "Mi serve comunque" puts one back in the list
+- **Stock hints**: Items you only partly have say how much is missing (e.g. "In dispensa: 50 g · mancano 50 g")
+- **Pantry suggestions**: When a list item looks like a pantry entry under another name ("spaghetti" vs "Spaghetti fini"), confirm once and the link is remembered for the shopping list and cooking
+- **Add to pantry**: Save every checked item to the pantry in one step — quantity, category, location and expiry are pre-filled and editable, and entries you already had are topped up instead of duplicated
 - **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
 - **Week navigation**: Browse the shopping list for any week, not just the current one
 - **Synced check state**: Checked items and custom additions are saved to the cloud and stay in sync across all your devices
@@ -201,9 +207,10 @@ Track what you have at home, manage expiry dates, and see which recipes you can 
 - **Storage locations**: Track whether an item is in the fridge, pantry, or freezer, and filter by location
 - **Stock levels**: Each item has a minimum quantity threshold; a stock bar shows whether you are well-stocked, running low, or out
 - **Expiry tinting**: Overdue items get a whole-card warm tint so nothing slips past unnoticed
-- **Quick actions (mobile)**: Tap an item to open a bottom sheet with consume, edit, and delete actions
+- **Quick actions**: Tap an item to mark it consumed (one piece for counted items, a quarter, half or all of it for weighed ones), move, edit, or delete it after a confirmation — a bottom sheet on phones, a centred window on desktop
 - **Desktop sidebar**: A sticky summary panel shows expiring, low-stock, and per-location counts at a glance
-- **Add in three ways**: Full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
+- **Two ways to add**: A full manual form, or in one step from the items checked off on the shopping list
+- **Linked to cooking**: When you finish cooking, the app proposes scaling down the stock you used
 
 ### Mobile-First Responsive Design
 
@@ -913,7 +920,9 @@ Checkbox changes → Auto-save to Firestore
     ↓
 100% complete → Show "Finish cooking" CTA
     ↓
-User confirms → Write cooking history + close session
+Pantry matches? → "Scala la dispensa" dialog (confirm or skip)
+    ↓
+Write cooking history (id = session id) + close session
 ```
 
 ---
@@ -1439,10 +1448,8 @@ interface Category {
 }
 ```
 
-**Default Categories**: New users get 10 default Italian categories:
-- Antipasti (🥗), Primi Piatti (🍝), Secondi (🍖), Contorni (🥕)
-- Dolci (🍰), Pane e Pizza (🍞), Salse e Condimenti (🧈)
-- Conserve (🫙), Bevande (🍹), Altro (📋)
+**Default Categories**: New users get 5 default Italian categories (`DEFAULT_CATEGORIES` in `src/lib/firebase/categories.ts`):
+- Primi piatti (🍝), Secondi piatti (🥩), Contorni (🥗), Dolci (🍰), Antipasti (🧀)
 
 **Security**: Owner-only access
 
