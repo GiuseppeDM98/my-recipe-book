@@ -169,7 +169,7 @@ per session, no commit without explicit OK).
 
 - [x] Spec A — implemented (2026-08-24)
 - [x] Spec B — implemented (2026-09-10)
-- [ ] Spec C — to be implemented
+- [x] Spec C — implemented (2026-09-15)
 - [ ] Spec D — to be implemented
 - [ ] Spec E — to be implemented
 - [ ] Spec F — to be implemented

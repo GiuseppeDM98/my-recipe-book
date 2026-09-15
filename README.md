@@ -61,6 +61,7 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 - **Manual Step Reordering**: Move preparation steps up or down while editing a recipe
 - **Mobile-Friendly Step Editor**: Step numbers and controls stay compact while editing, so descriptions keep their full readable width on phones
 - **Rich Metadata**: Track servings, prep time, cook time, difficulty level, and seasonal availability
+- **Nutrition Info**: Estimate (via AI) or manually enter calories, serving weight, and macronutrients (protein/carbs/fat) per serving, with kcal per 100g calculated automatically
 - **Smart Categorization**: Organize recipes with multiple customizable categories per recipe (e.g., "Primi" + "Vegetariano"), each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)
 - **Multiple Seasons**: Assign multiple seasons to recipes (e.g., Pasta e Fagioli for both autumn and winter)
@@ -148,7 +149,7 @@ Three ways to get recipes in — all powered by Claude AI:
 **Technical Details**:
 - Powered by Claude Sonnet 5 (1M token context window)
 - Native PDF support with base64 encoding
-- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (kcal), `/api/reorganize-recipe` (sections)
+- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (nutrition), `/api/reorganize-recipe` (sections)
 - The chat can optionally search the web and read attached photos (both opt-in per message); PDF and free-text extraction stay strictly faithful to the source you provide
 - AI-generated recipes include `[DUR:N]` tokens on timed steps; the parser converts them to `step.duration` automatically
 
@@ -172,6 +173,7 @@ Plan your meals for the week — generated locally from your own recipes, or ful
 - **Day-by-day correction**: Remove individual days from a generated week without rebuilding the whole plan
 - **Day selector**: Plan only specific days (e.g. weekdays only) instead of the full week
 - **Quick navigation**: Recipe cells link directly to the full recipe page
+- **Daily nutrition totals**: Each day's header shows combined calories and protein/carbs/fat for its planned meals, with a "≥" marker when a recipe is missing an estimate
 - **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
 - **Persistent**: Plans are saved to Firebase and the current week is restored automatically on your next visit
@@ -1374,7 +1376,13 @@ interface Recipe {
   cookTime: number | null;     // Minutes
   difficulty: string | null;   // "Facile", "Media", "Difficile"
 
-  caloriesPerServing?: number; // Estimated kcal for ONE serving (AI or manual, never measured)
+  caloriesPerServing?: number;   // Estimated kcal for ONE serving (AI or manual, never measured)
+  servingWeightGrams?: number;   // Estimated weight of ONE serving, in grams (kcal/100g is derived, never stored)
+  macrosPerServing?: {           // Estimated macronutrients for ONE serving, in grams (all-or-nothing)
+    proteinGrams: number;
+    carbsGrams: number;
+    fatGrams: number;
+  };
 
   categoryIds: string[];       // A recipe can belong to multiple categories
   season: Season | null;       // Seasonal classification
@@ -1570,7 +1578,7 @@ Body:
 
 ### POST /api/estimate-calories
 
-Estimates kcal per serving from a recipe's ingredient list.
+Estimates kcal, serving weight, and macronutrients (protein/carbs/fat) per serving from a recipe's ingredient list, in a single AI call.
 
 **Endpoint**: `POST /api/estimate-calories`
 
@@ -1594,13 +1602,16 @@ Estimates kcal per serving from a recipe's ingredient list.
 {
   "success": true,
   "caloriesPerServing": 520,
+  "servingWeightGrams": 280,
+  "macrosPerServing": { "proteinGrams": 12, "carbsGrams": 65, "fatGrams": 16 },
   "confidence": "alta"
 }
 ```
 
 **Notes**:
-- The estimate is always **per serving**, never a recipe total: servings are editable and cooking mode scales them at runtime.
-- `caloriesPerServing` is `null` when the ingredients are too vague to estimate, or when the returned figure falls outside a plausible 20–3000 kcal range. A `null` result is a successful response and is never saved — nothing is worse than a stored number nobody can tell is wrong.
+- Every figure is always **per serving**, never a recipe total: servings are editable and cooking mode scales them at runtime. kcal/100g is derived on screen from `caloriesPerServing` and `servingWeightGrams`, never stored.
+- The model estimates weight and macros as recipe **totals**; the server divides by `servings` and applies plausibility clamps plus a consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of `caloriesPerServing`) before returning them.
+- Each field is independently nullable: `caloriesPerServing` is `null` outside a plausible 20–3000 kcal range, `servingWeightGrams` outside 30–1500 g/serving, `macrosPerServing` when the consistency check fails or `caloriesPerServing` itself is `null`. A `null` field is a successful response and is never saved — nothing is worse than a stored number nobody can tell is wrong.
 - `confidence` is `alta` / `media` / `bassa`, based on how many quantities were precise.
 - Ingredients with no numeric quantity are ignored, except cooking fats (oil, butter), which are estimated because they materially affect the total.
 

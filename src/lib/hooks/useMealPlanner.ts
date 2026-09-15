@@ -547,6 +547,8 @@ export function useMealPlanner(): UseMealPlannerReturn {
       ...(seasons.length > 0 ? { seasons } : {}),
       // Omit the key entirely when the estimate is missing — Firestore rejects undefined.
       ...(recipe.caloriesPerServing ? { caloriesPerServing: recipe.caloriesPerServing } : {}),
+      ...(recipe.servingWeightGrams != null ? { servingWeightGrams: recipe.servingWeightGrams } : {}),
+      ...(recipe.macrosPerServing != null ? { macrosPerServing: recipe.macrosPerServing } : {}),
     };
 
     const newRecipeId = await createRecipe(user.uid, newRecipeData);

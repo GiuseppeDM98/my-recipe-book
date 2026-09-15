@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-09-11
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-09-15
 
 > Read [WORKFLOW.md](WORKFLOW.md) before starting: session rules (branch,
 > commit, language) and the guided testing protocol.
@@ -26,7 +26,7 @@ Digital recipe book for home cooks with:
 - weekly meal planning (colazione/spuntino/pranzo/merenda/cena, always in canonical day order) with local "shuffle" generation (no AI) and manual editing
 - weekly shopping list aggregated from the meal plan (compatible-unit + singular/plural merging), plus ad-hoc "Voglio preparare questo" additions from any recipe, independent of the weekly plan
 - family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
-- estimated kcal per serving, AI-estimated or entered by hand, with daily totals in the planner
+- estimated nutrition per serving (kcal, serving weight, macronutrients), AI-estimated or entered by hand, with kcal/100g derived on screen and daily kcal + macro totals in the planner
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels
 - light / dark / system theme (token-driven, system-aware)
@@ -103,10 +103,14 @@ src/
 - Always read a recipe's categories through `getRecipeCategoryIds()` (`lib/utils/recipe-categories.ts`), never `recipe.categoryId` directly
 - Subcategories have been removed entirely (type, Firebase helpers, UI, Firestore rule and index). Existing `subcategories` documents are inert leftovers
 
-### Calories
-- `caloriesPerServing?: number` is **per serving**, never a recipe total: `servings` is editable and cooking mode scales it at runtime
-- Always an estimate (AI or manual), never a measured value. A `null` estimate must not be persisted
-- Daily planner totals come from `computeWeekCalories()` (`lib/utils/meal-plan-calories.ts`); partial days render with `≥`
+### Nutrition (calories, serving weight, macros)
+- `caloriesPerServing?: number`, `servingWeightGrams?: number`, `macrosPerServing?: MacrosPerServing` (`{ proteinGrams, carbsGrams, fatGrams }`) are all **per serving**, never a recipe total: `servings` is editable and cooking mode scales it at runtime. Same shape on `Recipe` and on **both** `ParsedRecipe`s (`types/index.ts`, `recipe-parser.ts`)
+- Always an estimate (AI or manual), never a measured value. A `null`/incomplete estimate must not be persisted — `MacrosPerServing` is all-or-nothing (a partial trio can't be expressed), the form blocks submit with a toast if only 1-2 of the 3 macro fields are filled
+- kcal/100g is **never persisted**: derived at render time (`caloriesPerServing / servingWeightGrams * 100`), only when both are present and weight `> 0`
+- `0` is a legitimate value for weight-independent macros (e.g. `fatGrams: 0`) — every display/aggregation gate on the new fields uses `!= null`, never truthiness. `caloriesPerServing`'s existing truthy gates stay valid only because 0 kcal is unreachable by construction (server min 20, form `> 0`)
+- `/api/estimate-calories` fills all three in **one** AI call: the model returns kcal-per-serving directly (as before) but weight/macros as recipe **totals**; the server (`deriveNutritionPerServing()`, `lib/utils/nutrition-estimate.ts`) divides by servings and clamps (weight 30-1500 g/serving, each macro 0-300 g/serving) plus an Atwater consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of kcal) — a failed check drops macros only, kcal and weight survive independently
+- `useEstimateNutrition()` (`lib/hooks/useEstimateNutrition.ts`) is **fill-the-gaps**: re-estimating a recipe only writes fields it doesn't already have, so a manual value is never overwritten
+- Daily planner totals come from `computeWeekNutrition()`/`computeDayNutrition()` (`lib/utils/meal-plan-calories.ts`, module name unchanged): kcal and macros have **separate** completeness counters (a pre-macros recipe has kcal but no macros), partial totals render with `≥`
 - Not shown in the shopping list — per-serving figures don't aggregate into anything a shopper acts on
 
 ### Recipe sections
@@ -146,14 +150,16 @@ src/
 
 ## Recent Changes (Latest)
 
-### 2026-09-11 — Ingredient/method sections (Spec B)
-- **Parser bug fixed**: the section regex only captured names starting with `per ` (`/##\s+Ingredienti(?:\s+(per\s+.+))?$/i`); a `## Ingredienti La pasta` — exactly the form `EXTRACTION_PROMPT` §3 requires preserving — made the whole regex fail because of the `$` anchor, and the line was consumed anyway by the `startsWith` guard → section lost **silently**. `SECTION_HEADER_PATTERNS` (`recipe-parser.ts`) now captures any name and absorbs trailing spaces/`:`; a bare `## Ingredienti` stays section `null`. The `startsWith('## Ingredienti')` guard stays case-sensitive (all-caps variant not recognized, unchanged)
-- **Prescriptive sections rule**: `chat-recipe` (`REGOLE PER LE RICETTE`) and `format-recipe` (§4) now **require** splitting dishes with logically distinct components into sections, with names consistent between ingredients and method. `extract-recipes` **deliberately does NOT** get it (it promises fidelity to the source) — intentional asymmetry, also documented with a scope note in the route file
-- **First-appearance ordering**: `ingredient-list-collapsible.tsx` no longer sorts sections alphabetically (it put "Per la crema" before "Per la base"); `steps-list-collapsible.tsx` replaces the `?? 999` fallback with the first-appearance index, so sections created from the form (which have no `sectionOrder`) no longer all end up at the bottom in random order
-- **New `POST /api/reorganize-recipe`** + "Organizza in sezioni" button on the detail page (visible only on flat recipes with ≥6 ingredients and ≥4 steps): the model receives the ids and returns **only** the `id → section` assignment, never text. The server recomputes `sectionOrder` from the actual step order, discards invented ids, and turns a proposal that collapses into a single section into `reorganized: false` (`sanitizeSectionProposal`). Preview in a Dialog, written only on confirmation
-- **Shared module** `lib/utils/section-assignments.ts` (pure, tested): `sanitizeSectionProposal`, `applySectionAssignments`, `hasNamedSections`, `summarizeSectionProposal`. `applySectionAssignments` writes an explicit `null` on unassigned items and never touches ids/text/`order` → active cooking sessions and `{{qty:ingredientId}}` tokens stay valid by construction
-- **Consistent order across the two columns** (surfaced by the guided test, not in the spec): ingredients have no order field, so their section order is implicit in the array — which on a reorganized recipe is still the old flat list and no longer means anything. `orderedSectionNamesFromSteps()` extracts the cooking order from the steps (`sectionOrder`) and passes it as `orderedSections` to `IngredientListCollapsible` (recipe detail + cooking mode) and to the preview in the Dialog. Render order only: no data rewritten, no new field on `Ingredient`
-- **Not touched**: global step counter, `prevCheckedRef` init in the collapsibles, the form round-trip that generates the phantom `"Ingredienti"` section (neutralized by the `hasNamedSections` gating, no data migration)
+### 2026-09-15 — Complete nutrition: serving weight, kcal/100g, macros (Spec C)
+- **New `MacrosPerServing` type** (`types/index.ts`): `{ proteinGrams, carbsGrams, fatGrams }`, all-or-nothing (see "Nutrition" above). `servingWeightGrams?` and `macrosPerServing?` added to `Recipe` and to both `ParsedRecipe` declarations (`types/index.ts` and `recipe-parser.ts`)
+- **`/api/estimate-calories` extended, still one AI call**: prompt renamed `createNutritionEstimationPrompt`, schema `NUTRITION_ESTIMATION_SCHEMA` (shape/types only — no `minimum`/`maximum`, which would 400 the whole request), `max_tokens` 900 → 1400 (thinking-adaptive reasoning tokens plus a bigger JSON output need the headroom). The model returns weight and macros as recipe **totals**; the new `lib/utils/nutrition-estimate.ts` (`deriveNutritionPerServing`, pure and unit-tested) divides by servings and applies plausibility clamps + the Atwater sanity check server-side — the route no longer does this inline
+- **Client**: `getAICalorieEstimateForRecipe` → `getAINutritionEstimateForRecipe` (`recipe-parser.ts`, returns the three fields); `useEstimateCalories` → `useEstimateNutrition` (`lib/hooks/useEstimateNutrition.ts`, **fill-the-gaps**: writes only fields the recipe doesn't already have, so re-estimating never overwrites a manual value)
+- **Form** (`recipe-form.tsx`): 4 new string-state fields (weight + 3 macros, same empty-string-means-no-estimate pattern as kcal); submit is blocked with a toast if only 1-2 of the 3 macro fields are filled (`MacrosPerServing` can't express a partial trio); clearing a field on edit uses `deleteField()` (updateDoc merges, so omitting the key would leave the old value)
+- **Display**: recipe detail gets a secondary nutrition row (`≈ N g`, `N kcal/100 g`, `P/C/G` — all `!= null` gated) below the existing meta row; the "Stima calorie" button becomes "Stima valori nutrizionali" and now also shows once kcal are present but weight/macros aren't; extraction preview gets two new chips; recipe card is **unchanged** (kcal only, by design)
+- **Planner**: `computeDayCalories`/`computeWeekCalories` → `computeDayNutrition`/`computeWeekNutrition` (`meal-plan-calories.ts`, module path unchanged) with separate kcal/macro completeness counters; `WeeklyCalendarGrid` renders a second, smaller macro line under the kcal line on both desktop and mobile
+- **Not touched**: shopping list (documented out-of-scope — per-serving figures don't aggregate into anything a shopper acts on), recipe card, cooking mode, `extract-recipes`/`format-recipe`/`chat-recipe`/`suggest-category`, per-person scaling (Spec F)
+
+Older entries live in `git log` (each spec ships as one squashed PR, e.g. "feat: add recipe sections with AI reorganization" for Spec B), not here.
 
 ---
 
@@ -206,8 +212,10 @@ Typical guided-testing session: `npm run emulators` in one terminal, `NEXT_PUBLI
 Two command-level details that cost a debugging round each (2026-09-11):
 - A scratch script that imports anything from `lib/utils` transitively pulls in `lib/firebase/config.ts`, and Playwright does not load `.env.local` the way Next does → `auth/invalid-api-key` before the test even runs. Prefix the command: `set -a; . ./.env.local; set +a; FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 npx playwright test ...`
 - For the guided tour itself (WORKFLOW.md obligation 4 — never dictate clicks), run the tour spec with `--headed` and end each test with a long `page.waitForTimeout(...)`: the window stays open on the exact URL with the session already authenticated and the interaction already performed, and it is stopped from chat when the user has finished looking.
+- A `waitForURL(/\/ricette\/[^/]+$/)` meant to catch the post-create redirect also matches the `/ricette/new` page the script is already on (`new` satisfies `[^/]+`), so the wait resolves immediately and the following assertion reads Firestore before the create has actually happened. Same risk for any dynamic-segment route with a static sibling (`/new`, `/edit`): exclude the sibling explicitly, e.g. `/\/ricette\/(?!new$)[^/]+$/` (2026-09-15).
 
 Guided tests run with this tooling (add one line for each closed guided test):
+- **2026-09-15 — Spec C (complete nutrition)**: 5 automated phases (manual form persists weight/macros and the detail page renders the derived kcal/100g → a partial macro trio blocks submit with the exact toast → clearing weight/macros in edit deletes them via `deleteField()`, kcal untouched → a legitimate `fatGrams: 0` stays visible, not hidden by a truthy gate → planner day header shows kcal + partial macro totals, a day with only an unestimated recipe shows neither line), all green, assertions on the emulated Firestore and on rendered text, never page appearance alone. Phase F (real AI estimate, needs `ANTHROPIC_API_KEY`) was skipped by user choice — not run, not counted as verified. 5-point guided tour on the dev server (nutrition row on detail, new form block, planner desktop/mobile layouts, dark mode): no issues found. Script bug found and fixed during Phase A: a `waitForURL` regex (`/\/ricette\/[^/]+$/`) also matched the `/ricette/new` page itself, so the assertion read Firestore before the create had actually redirected — fixed by excluding `new` from the match.
 - **2026-09-11 — Spec B (ingredient/method sections)**: 6 automated phases (parser → ordering → end-to-end reorganization with real AI → negative outcome → route called by hand with 401/401/400/200 → ownership pair on the Firestore rules), all green, assertions on Firestore and on the HTTP responses; then a 5-point guided tour on a headed Chromium window opened by the script (obligation 4: never dictate clicks to the user). **Bug found by the guided tour and fixed in session**: on a reorganized recipe the two columns contradicted each other — Ingredients opened with "Per l'assemblaggio" (the ingredient array is still the original flat one, and the first ingredient belonged to the last component) while Preparation correctly started from the ragù via `sectionOrder`. Fixed with `orderedSectionNamesFromSteps()`, which makes both columns follow the step order, plus 5 new tests. Two harness defects fixed: Jest was picking up the Playwright specs in `e2e/` (added `testPathIgnorePatterns` in `jest.config.js`), and a guided-test script that imports `lib/utils` needs `.env.local` exported by hand.
 - **2026-08-24 — Spec A (meal ordering + spuntino/merenda)**: 6 phases (seed → read-time self-correction → canonical write via `addMealType` → setup with the pranzo toggle → removing merenda without orphan slots → desktop/mobile screenshots with 5 meals), all green, assertions on real Firestore (not just page appearance). Harness bug discovered and fixed during the guided test: a Playwright assertion based on text already present in the setup form gave a false positive before the Firestore write had completed — fixed by waiting for a marker visible only in the calendar step. No application bugs found.
 
@@ -243,7 +251,7 @@ Composite indexes maintained in repo:
 | `POST /api/format-recipe` | Free text → structured recipe formatting |
 | `POST /api/suggest-category` | Category (1-3 names) + season suggestion |
 | `POST /api/chat-recipe` | Multi-turn AI recipe generation (opt-in web search + vision) |
-| `POST /api/estimate-calories` | Ingredients → estimated kcal per serving |
+| `POST /api/estimate-calories` | Ingredients → estimated kcal, serving weight and macronutrients per serving |
 | `POST /api/reorganize-recipe` | Existing flat recipe → section assignments keyed on existing ids |
 
 All endpoints above require an authenticated Firebase session. The weekly meal planner runs entirely client-side (local shuffle) and has no AI endpoint.

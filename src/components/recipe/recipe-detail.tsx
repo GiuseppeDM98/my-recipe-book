@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useAddToAdHocShoppingList } from '@/lib/hooks/useAddToAdHocShoppingList';
-import { useEstimateCalories } from '@/lib/hooks/useEstimateCalories';
+import { useEstimateNutrition } from '@/lib/hooks/useEstimateNutrition';
 import { useReorganizeRecipe } from '@/lib/hooks/useReorganizeRecipe';
 import { hasNamedSections, orderedSectionNamesFromSteps } from '@/lib/utils/section-assignments';
 
@@ -29,9 +29,29 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
   const originalServings = recipe.servings || 4;
   const { user } = useAuth();
   const addToAdHocShoppingList = useAddToAdHocShoppingList();
-  const estimateCalories = useEstimateCalories();
+  const estimateNutrition = useEstimateNutrition();
   const reorganize = useReorganizeRecipe();
   const hasIngredients = recipe.ingredients.length > 0;
+
+  // Drives both the button's visibility and its position: while kcal are missing it
+  // takes the kcal slot of the meta row (as today); once kcal are present but weight or
+  // macros are still missing, it moves to the secondary nutrition row below.
+  const nutritionIncomplete =
+    recipe.caloriesPerServing == null ||
+    recipe.servingWeightGrams == null ||
+    recipe.macrosPerServing == null;
+  const canEstimate = hasIngredients && !!user && nutritionIncomplete;
+
+  const kcalPer100 =
+    recipe.caloriesPerServing != null &&
+    recipe.servingWeightGrams != null &&
+    recipe.servingWeightGrams > 0
+      ? Math.round((recipe.caloriesPerServing / recipe.servingWeightGrams) * 100)
+      : null;
+  const showNutritionRow =
+    recipe.servingWeightGrams != null ||
+    recipe.macrosPerServing != null ||
+    (recipe.caloriesPerServing != null && canEstimate);
 
   // The steps know the cooking order; the ingredient array, on a reorganized recipe,
   // no longer does. Let the former drive both columns so they can't disagree.
@@ -124,35 +144,73 @@ export function RecipeDetail({ recipe }: RecipeDetailProps) {
             </div>
           )}
           {/* Calories: the estimate when we have one, otherwise the action that produces
-              it. A "—" placeholder in a row of large numbers reads as broken data. */}
+              it. A "—" placeholder in a row of large numbers reads as broken data. 0 kcal
+              is unreachable by construction (server min 20, form > 0), so this truthy gate
+              stays valid — unlike the new fields below, which allow a legitimate 0. */}
           {recipe.caloriesPerServing ? (
             <div>
               <span className="text-2xl font-bold tabular-nums">{recipe.caloriesPerServing}</span>
               <span className="ml-1.5 text-sm text-muted-foreground">kcal / porz.</span>
             </div>
           ) : (
-            hasIngredients && user && (
+            canEstimate && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={estimateCalories.isPending}
-                onClick={() => estimateCalories.mutate(recipe)}
+                disabled={estimateNutrition.isPending}
+                onClick={() => estimateNutrition.mutate(recipe)}
                 className="h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
               >
-                {estimateCalories.isPending ? (
+                {estimateNutrition.isPending ? (
                   <>
                     <Spinner size="sm" />
-                    Stimo le calorie…
+                    Stimo i valori…
                   </>
                 ) : (
                   <>
                     <Flame className="h-4 w-4" />
-                    Stima calorie
+                    Stima valori nutrizionali
                   </>
                 )}
               </Button>
             )
+          )}
+
+          {/* Secondary nutrition row: weight, kcal density and macros, plus the estimate
+              action when kcal are already present but something else is still missing. */}
+          {showNutritionRow && (
+            <div className="basis-full flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums">
+              {recipe.servingWeightGrams != null && <span>1 porzione ≈ {recipe.servingWeightGrams} g</span>}
+              {kcalPer100 != null && <span>{kcalPer100} kcal/100 g</span>}
+              {recipe.macrosPerServing != null && (
+                <span>
+                  P {recipe.macrosPerServing.proteinGrams} g · C {recipe.macrosPerServing.carbsGrams} g · G {recipe.macrosPerServing.fatGrams} g
+                </span>
+              )}
+              {recipe.caloriesPerServing != null && canEstimate && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={estimateNutrition.isPending}
+                  onClick={() => estimateNutrition.mutate(recipe)}
+                  className="h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  {estimateNutrition.isPending ? (
+                    <>
+                      <Spinner size="sm" />
+                      Stimo i valori…
+                    </>
+                  ) : (
+                    <>
+                      <Flame className="h-4 w-4" />
+                      Stima valori nutrizionali
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
