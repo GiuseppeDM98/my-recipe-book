@@ -1,6 +1,6 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { FolderInput, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 export interface ShoppingItemRowProps {
@@ -20,6 +20,8 @@ export interface ShoppingItemRowProps {
     onConfirm: () => void;
     onDismiss: () => void;
   };
+  /** "Sposta in reparto…" — department view only, always visible (touch context). */
+  onMove?: () => void;
   onToggle: () => void;
   onRemove?: () => void;
 }
@@ -41,6 +43,7 @@ export function ShoppingItemRow({
   pantryBadge,
   secondaryAction,
   suggestion,
+  onMove,
   onToggle,
   onRemove,
 }: ShoppingItemRowProps) {
@@ -100,6 +103,17 @@ export function ShoppingItemRow({
             className="-my-3 flex min-h-11 flex-shrink-0 items-center px-2 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
           >
             {secondaryAction.label}
+          </button>
+        )}
+
+        {onMove && (
+          <button
+            type="button"
+            onClick={onMove}
+            aria-label={`Sposta ${name} in un altro reparto`}
+            className="flex-shrink-0 p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+          >
+            <FolderInput className="w-4 h-4" />
           </button>
         )}
 
