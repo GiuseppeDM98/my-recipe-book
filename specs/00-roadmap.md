@@ -171,7 +171,7 @@ per session, no commit without explicit OK).
 - [x] Spec B — implemented (2026-09-10)
 - [x] Spec C — implemented (2026-09-15)
 - [x] Spec D — implemented (2026-09-15)
-- [ ] Spec E — to be implemented
+- [x] Spec E — implemented (2026-09-15)
 - [ ] Spec F — to be implemented
 
 Update this checklist (and "Recent Changes" in CLAUDE.md) every time a spec is completed.

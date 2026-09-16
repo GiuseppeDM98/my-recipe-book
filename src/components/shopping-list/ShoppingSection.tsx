@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils/cn';
 import { ShoppingItem } from '@/types';
 import { ShoppingItemRow } from './ShoppingItemRow';
 import { buildPantryRowProps, ShoppingPantryContext } from './pantry-row-props';
+import { DAY_LABELS } from '@/lib/utils/shopping-departments';
 
 interface ShoppingSectionProps {
   title: string;
@@ -17,8 +18,6 @@ interface ShoppingSectionProps {
   defaultExpanded?: boolean;
   pantryContext?: ShoppingPantryContext;
 }
-
-const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
 function footnoteFor(item: ShoppingItem): string | undefined {
   if (item.isCustom) return 'Aggiunto manualmente';

@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCurrentWeekMonday, addWeeksToDateString } from '@/lib/constants/seasons';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { usePantry } from '@/lib/hooks/usePantry';
+import { useDepartmentOverrides } from '@/lib/hooks/useDepartmentOverrides';
 import { useShoppingList } from '@/lib/hooks/useShoppingList';
+import { canonicalIngredientKey } from '@/lib/utils/ingredient-matching';
 import { ShoppingListContent } from '@/components/shopping-list/ShoppingListContent';
+import { ShoppingViewMode } from '@/components/shopping-list/ShoppingViewToggle';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const DEFAULT_VIEW_MODE: ShoppingViewMode = 'reparto';
+
+function viewModeStorageKey(uid: string): string {
+  return `shopping_list_view:${uid}`;
+}
 
 function formatWeekLabel(weekStartDate: string): string {
   const start = new Date(weekStartDate + 'T00:00:00');
@@ -17,6 +28,9 @@ function formatWeekLabel(weekStartDate: string): string {
 
 export default function ListaSpesaPage() {
   const [weekStartDate, setWeekStartDate] = useState(getCurrentWeekMonday);
+  const { user } = useAuth();
+  const { items: pantryItems } = usePantry();
+  const { overrides: departmentOverrides, setOverride } = useDepartmentOverrides();
 
   const {
     items,
@@ -39,6 +53,44 @@ export default function ListaSpesaPage() {
     confirmPantryAlias,
     dismissPantrySuggestion,
   } = useShoppingList(weekStartDate);
+
+  // Pure presentation preference: per-device localStorage, not Firestore (see
+  // ShoppingViewToggle doc). SSR always renders the default; the saved value
+  // is applied post-mount so there is no hydration mismatch (ThemePicker's
+  // `mounted` pattern, AGENTS.md).
+  const [viewMode, setViewMode] = useState<ShoppingViewMode>(DEFAULT_VIEW_MODE);
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const saved = localStorage.getItem(viewModeStorageKey(user.uid));
+      if (saved === 'reparto' || saved === 'ricetta') setViewMode(saved);
+    } catch {
+      // Storage unavailable — keep the default.
+    }
+  }, [user]);
+
+  function handleViewModeChange(mode: ShoppingViewMode) {
+    setViewMode(mode);
+    if (!user) return;
+    try {
+      localStorage.setItem(viewModeStorageKey(user.uid), mode);
+    } catch {
+      // Storage quota exceeded or unavailable — the choice just won't persist.
+    }
+  }
+
+  // The custom-item sheet's optional department select reuses the override
+  // mechanism (chain link 2, §4.2): no new field on ShoppingItem.
+  function handleAddCustom(name: string, quantity: string, section?: string, departmentId?: string) {
+    addCustomItem(name, quantity, section);
+    if (departmentId) {
+      setOverride.mutate({ canonicalKey: canonicalIngredientKey(name), departmentId });
+    }
+  }
+
+  function handleSetDepartmentOverride(canonicalKey: string, departmentId: string) {
+    setOverride.mutate({ canonicalKey, departmentId });
+  }
 
   function goToPrevWeek() {
     setWeekStartDate(prev => addWeeksToDateString(prev, -1));
@@ -122,7 +174,7 @@ export default function ListaSpesaPage() {
           hasPlan={hasPlan}
           onToggle={toggleItem}
           onRemove={removeCustomItem}
-          onAddCustom={addCustomItem}
+          onAddCustom={handleAddCustom}
           adHocRecipes={adHocRecipes}
           onToggleAdHocItem={toggleAdHocItem}
           onRemoveAdHocRecipe={removeAdHocRecipe}
@@ -132,6 +184,11 @@ export default function ListaSpesaPage() {
           onTogglePantryIncluded={togglePantryIncluded}
           onConfirmPantryAlias={confirmPantryAlias}
           onDismissPantrySuggestion={dismissPantrySuggestion}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          pantryItems={pantryItems}
+          departmentOverrides={departmentOverrides}
+          onSetDepartmentOverride={handleSetDepartmentOverride}
         />
       )}
     </div>

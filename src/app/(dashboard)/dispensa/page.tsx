@@ -108,10 +108,14 @@ export default function DispensaPage() {
   }, [items, positionFilter, search, onlyExpiring]);
 
   const itemsByCategory = useMemo(() => {
+    // 'altro' is now a real category (Spec E): remap unknown/historical slugs
+    // into it here so the render below never needs a second fallback section.
+    const knownIds = new Set(PANTRY_CATEGORIES.map(c => c.id));
     const map = new Map<string, PantryItem[]>();
     for (const item of filteredItems) {
-      if (!map.has(item.categoryId)) map.set(item.categoryId, []);
-      map.get(item.categoryId)!.push(item);
+      const catId = knownIds.has(item.categoryId) ? item.categoryId : 'altro';
+      if (!map.has(catId)) map.set(catId, []);
+      map.get(catId)!.push(item);
     }
     return map;
   }, [filteredItems]);
@@ -238,21 +242,6 @@ export default function DispensaPage() {
                         onEdit={handleEditItem}
                       />
                     ))}
-                    {/* Items with unknown category */}
-                    {(() => {
-                      const knownIds = new Set(PANTRY_CATEGORIES.map(c => c.id));
-                      const unknownItems = filteredItems.filter(item => !knownIds.has(item.categoryId));
-                      if (unknownItems.length === 0) return null;
-                      return (
-                        <CategorySection
-                          categoryId="altro"
-                          categoryName="Altro"
-                          items={unknownItems}
-                          onItemClick={setOpenItem}
-                          onEdit={handleEditItem}
-                        />
-                      );
-                    })()}
                   </div>
                 )}
               </>

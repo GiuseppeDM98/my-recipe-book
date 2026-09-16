@@ -193,6 +193,7 @@ Turn your meal plan into a ready-to-use shopping list in one tap.
 - **Pantry suggestions**: When a list item looks like a pantry entry under another name ("spaghetti" vs "Spaghetti fini"), confirm once and the link is remembered for the shopping list and cooking
 - **Add to pantry**: Save every checked item to the pantry in one step — quantity, category, location and expiry are pre-filled and editable, and entries you already had are topped up instead of duplicated
 - **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
+- **"Per reparto" view**: Switch the whole list to group by supermarket department (produce, dairy, meat, frozen, bakery, and more) instead of by recipe, matching how you actually walk the store. Toggle back to the recipe-based view anytime; a misclassified item can be moved to the right department for good with "Sposta in reparto…"
 - **Week navigation**: Browse the shopping list for any week, not just the current one
 - **Synced check state**: Checked items and custom additions are saved to the cloud and stay in sync across all your devices
 - **"Voglio preparare questo"**: Add a single recipe's ingredients straight from its detail page, independent of your weekly plan — shows up as its own section, even on weeks without a saved plan, and tapping it again on the same recipe refreshes that section instead of duplicating it
@@ -1358,6 +1359,7 @@ interface User {
   photoURL: string | null;
   familyProfile?: FamilyProfile | null;        // Household members, used for AI quantity guidance
   adHocShoppingRecipes?: AdHocShoppingRecipe[] | null; // "Voglio preparare questo" groups, global across weeks
+  ingredientDepartmentOverrides?: Record<string, string> | null; // "Sposta in reparto…" — canonical ingredient key → department slug
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -9,6 +9,7 @@ import { AdHocShoppingRecipe, ShoppingItem } from '@/types';
 import { PantryItem } from '@/types/pantry';
 import { PantryMatchInfo } from '@/lib/utils/ingredient-matching';
 import { CheckedShoppingEntry } from '@/lib/utils/pantry-batch';
+import { buildDepartmentSections, DepartmentRow } from '@/lib/utils/shopping-departments';
 import { ShoppingProgressBar } from './ShoppingProgressBar';
 import { ShoppingSection } from './ShoppingSection';
 import { AdHocRecipeGroup } from './AdHocRecipeGroup';
@@ -16,6 +17,9 @@ import { AddCustomItemSheet } from './AddCustomItemSheet';
 import { AddCheckedToPantrySheet } from './AddCheckedToPantrySheet';
 import { PantryOwnedRow, PantryOwnedSection } from './PantryOwnedSection';
 import { ShoppingPantryContext } from './pantry-row-props';
+import { ShoppingViewMode, ShoppingViewToggle } from './ShoppingViewToggle';
+import { DepartmentSection } from './DepartmentSection';
+import { MoveToDepartmentSheet } from './MoveToDepartmentSheet';
 import { EditorialEmptyState } from '@/components/ui/editorial-empty-state';
 
 interface ShoppingListContentProps {
@@ -26,7 +30,7 @@ interface ShoppingListContentProps {
   hasPlan: boolean;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
-  onAddCustom: (name: string, quantity: string, section?: string) => void;
+  onAddCustom: (name: string, quantity: string, section?: string, departmentId?: string) => void;
   adHocRecipes: AdHocShoppingRecipe[];
   onToggleAdHocItem: (groupId: string, itemId: string) => void;
   onRemoveAdHocRecipe: (groupId: string) => void;
@@ -36,6 +40,12 @@ interface ShoppingListContentProps {
   onTogglePantryIncluded: (id: string, adHocGroupId?: string) => void;
   onConfirmPantryAlias: (pantryItem: PantryItem, ingredientName: string) => Promise<void>;
   onDismissPantrySuggestion: (id: string) => void;
+  /** "Per reparto" view — department classification data and the view toggle's own state. */
+  viewMode: ShoppingViewMode;
+  onViewModeChange: (mode: ShoppingViewMode) => void;
+  pantryItems: PantryItem[];
+  departmentOverrides: Record<string, string>;
+  onSetDepartmentOverride: (canonicalKey: string, departmentId: string) => void;
 }
 
 /** Sentinel value used in sectionNames for the null section. */
@@ -60,10 +70,18 @@ export function ShoppingListContent({
   onTogglePantryIncluded,
   onConfirmPantryAlias,
   onDismissPantrySuggestion,
+  viewMode,
+  onViewModeChange,
+  pantryItems,
+  departmentOverrides,
+  onSetDepartmentOverride,
 }: ShoppingListContentProps) {
   const [addSheetOpen, setAddSheetOpen] = useState(false);
   const [pantrySheetOpen, setPantrySheetOpen] = useState(false);
   const [confirmingSuggestionId, setConfirmingSuggestionId] = useState<string | null>(null);
+  const [moveTarget, setMoveTarget] = useState<(DepartmentRow & { currentDepartmentId: string }) | null>(
+    null
+  );
   const hasAdHoc = adHocRecipes.length > 0;
   const isEmpty = items.length === 0 && !hasAdHoc;
 
@@ -173,6 +191,24 @@ export function ShoppingListContent({
     }
   }
 
+  // Same partition applied to ad-hoc items (AdHocRecipeGroup does this itself
+  // per group below); the department view needs it up front since it folds
+  // ad-hoc rows into department sections instead of rendering groups.
+  const visibleAdHocRecipes = adHocRecipes.map(group => ({
+    ...group,
+    items: group.items.filter(item => !pantryOwnedIds.has(item.id)),
+  }));
+
+  // "Per reparto" view model — built from the SAME visible items as the
+  // per-recipe view above, so the two can never disagree on which rows exist.
+  const departmentSections = buildDepartmentSections(
+    visibleItems,
+    checkedIds,
+    visibleAdHocRecipes,
+    pantryItems,
+    departmentOverrides
+  );
+
   // What "Aggiungi alla dispensa" works on: checked rows the user can see.
   // Parked rows are excluded even if checked earlier — they are already at home.
   const checkedForPantry: CheckedShoppingEntry[] = [
@@ -188,37 +224,62 @@ export function ShoppingListContent({
 
   return (
     <div className="space-y-4">
+      <ShoppingViewToggle value={viewMode} onChange={onViewModeChange} />
+
       <ShoppingProgressBar checked={progress.checked} total={progress.total} />
 
-      {visibleItems.length > 0 && (
-        <div className="space-y-3">
-          {sectionNames.map(sectionKey => {
-            const isNull = sectionKey === NULL_SECTION_SENTINEL;
-            const sectionLabel = isNull ? NULL_SECTION_LABEL : sectionKey;
-            const sectionItems = visibleItems.filter(item =>
-              isNull ? item.section === null : item.section === sectionKey
-            );
-
-            if (sectionItems.length === 0) return null;
-
-            return (
-              <ShoppingSection
-                key={sectionKey}
-                title={sectionLabel}
-                items={sectionItems}
-                checkedIds={checkedIds}
-                onToggle={onToggle}
-                onRemove={onRemove}
-                pantryContext={pantryContext}
+      {viewMode === 'reparto' ? (
+        departmentSections.length > 0 && (
+          <div className="space-y-3">
+            {departmentSections.map(section => (
+              <DepartmentSection
+                key={section.id}
+                section={section}
+                onToggle={(id, adHocGroupId) =>
+                  adHocGroupId ? onToggleAdHocItem(adHocGroupId, id) : onToggle(id)
+                }
+                onRemove={(id, adHocGroupId) =>
+                  adHocGroupId ? onRemoveAdHocItem(adHocGroupId, id) : onRemove(id)
+                }
+                onMove={(row, currentDepartmentId) => setMoveTarget({ ...row, currentDepartmentId })}
               />
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )
+      ) : (
+        visibleItems.length > 0 && (
+          <div className="space-y-3">
+            {sectionNames.map(sectionKey => {
+              const isNull = sectionKey === NULL_SECTION_SENTINEL;
+              const sectionLabel = isNull ? NULL_SECTION_LABEL : sectionKey;
+              const sectionItems = visibleItems.filter(item =>
+                isNull ? item.section === null : item.section === sectionKey
+              );
+
+              if (sectionItems.length === 0) return null;
+
+              return (
+                <ShoppingSection
+                  key={sectionKey}
+                  title={sectionLabel}
+                  items={sectionItems}
+                  checkedIds={checkedIds}
+                  onToggle={onToggle}
+                  onRemove={onRemove}
+                  pantryContext={pantryContext}
+                />
+              );
+            })}
+          </div>
+        )
       )}
 
       <PantryOwnedSection rows={pantryOwnedRows} onNeedAnyway={onTogglePantryIncluded} />
 
-      {hasAdHoc && (
+      {/* Ad-hoc groups render as their own recipe-titled sections only in the
+          per-recipe view; the department view already folds their rows into
+          the sections above (no group headers there — departments, not recipes). */}
+      {viewMode === 'ricetta' && hasAdHoc && (
         <div className="space-y-3">
           {adHocRecipes.map(group => (
             <AdHocRecipeGroup
@@ -255,6 +316,13 @@ export function ShoppingListContent({
         open={pantrySheetOpen}
         onOpenChange={setPantrySheetOpen}
         checkedItems={checkedForPantry}
+      />
+      <MoveToDepartmentSheet
+        target={moveTarget}
+        onOpenChange={open => {
+          if (!open) setMoveTarget(null);
+        }}
+        onSelect={onSetDepartmentOverride}
       />
     </div>
   );

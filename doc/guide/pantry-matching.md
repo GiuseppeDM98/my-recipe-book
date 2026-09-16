@@ -1,8 +1,9 @@
 # Pantry matching — ingredient ↔ pantry engine
 
-> Domain guide (Spec D, 2026-09-15). Repo-wide gotchas stay in [AGENTS.md](../../AGENTS.md);
-> this file holds what matters only when touching the pantry ↔ shopping list ↔ cooking
-> integration. Product decisions and the cross-spec contract: `specs/00-roadmap.md` §2.
+> Domain guide (Spec D, 2026-09-15; Spec E's department classification added 2026-09-16).
+> Repo-wide gotchas stay in [AGENTS.md](../../AGENTS.md); this file holds what matters only
+> when touching the pantry ↔ shopping list ↔ cooking integration, including the shopping
+> list's "Per reparto" view. Product decisions and the cross-spec contracts: `specs/00-roadmap.md` §2-3.
 
 ## Where it lives
 
@@ -14,9 +15,12 @@
 | End-of-cooking deduction | `src/lib/utils/pantry-deduction.ts` + `components/pantry/PantryDeductionDialog.tsx` |
 | Shopping list wiring | `src/lib/hooks/useShoppingList.ts`, `components/shopping-list/pantry-row-props.ts`, `PantryOwnedSection.tsx` |
 | Firestore writes | `src/lib/firebase/pantry.ts` — `addPantryItemAlias`, `applyPantryBatch`, `applyPantryDeductions` |
+| Department classification (Spec E) | `src/lib/utils/ingredient-departments.ts` (precedence chain + dictionary), `src/lib/utils/shopping-departments.ts` (view model) |
+| Department override persistence (Spec E) | `src/lib/firebase/department-overrides.ts` + `src/lib/hooks/useDepartmentOverrides.ts` |
 
 Tests: `ingredient-matching.test.ts`, `ingredient-aggregator.test.ts`, `pantry-batch.test.ts`,
-`pantry-deduction.test.ts` (all in `src/lib/utils/`).
+`pantry-deduction.test.ts`, `ingredient-departments.test.ts`, `shopping-departments.test.ts`
+(all in `src/lib/utils/`).
 
 ## Contract (Spec E imports it — don't rename)
 
@@ -124,8 +128,44 @@ the recipes' need.
 - Deductions on kg/L entries round to one decimal (750 ml on a litre entry proposes 0,8): the
   rows are editable, and `formatQty` shows one decimal anyway.
 
+## Department classification (`classifyIngredientDepartment`)
+
+The shopping list's "Per reparto" view groups items by supermarket department instead of by
+recipe. `PANTRY_CATEGORIES` (`pantry-utils.ts`) is the single taxonomy for both the pantry and
+this view — 13 slugs, `altro` an explicit fallback rather than an implicit unknown-slug bucket.
+
+Precedence chain, in order (roadmap contract §3 — same "non-match falls through" philosophy as
+matching above):
+1. **Pantry**: the matched pantry entry's `categoryId` (via `matchIngredientToPantry`), only if
+   it's a known slug — an unknown/historical slug on the pantry doc does **not** classify, the
+   chain continues.
+2. **Override**: `users/{uid}.ingredientDepartmentOverrides` (`canonicalKey → slug`), written by
+   "Sposta in reparto…" or the custom-item sheet's department select. Ignored if it points to a
+   slug that is no longer known.
+3. **Dictionary**: `DEPARTMENT_BY_KEY`, a ~290-entry curated Italian lookup built once from
+   `RAW_INGREDIENT_DEPARTMENTS`, keyed on `canonicalIngredientKey()` stems.
+4. **Fallback**: `'altro'`.
+
+A pantry match always wins over a manual override by design (precedence link 1 beats link 2):
+`DepartmentSection` hides the "Sposta in reparto" action on those rows (`source === 'pantry'`),
+since the override would have no visible effect.
+
+**Stem collisions**: the conservative stemmer (`singularizeWord` in `ingredient-aggregator.ts`,
+shared with matching) occasionally maps two unrelated words to the same key — `pesca`/`pesce` and
+`grana`/`grano` both collapse to `pesc`/`gran`. The dictionary resolves each collision explicitly
+in favor of one word (`pesce`, `latticini`) and **never declares the losing word**
+(`ingredient-departments.test.ts` guards against reintroducing it); the user recovers the losing
+sense with their own override, which then applies to both words sharing that stem — an accepted,
+documented limit of reusing the same stemmer.
+
+**Override writes**: unlike checked items (bursts of taps, 500ms-debounced), moving a department
+is a rare, deliberate action — `setDepartmentOverride()` writes directly, no debounce, so it does
+**not** enter `useShoppingList`'s `flushAll()` registration list. A read-modify-write of the whole
+map (canonical keys can contain spaces, which `FieldPath` dot-notation can't address cleanly).
+
 ## Out of scope, by decision
 
 Count ↔ mass density; persisted suggestion rejections; "Aggiungi a lista" from the pantry (it
 would race with the list's debounced full-array writes); `CookableSuggestions` still matches on
-exact lowercase names; department grouping is Spec E.
+exact lowercase names; custom department ordering per the user's supermarket; a management page
+for existing department overrides (fixed by moving again).

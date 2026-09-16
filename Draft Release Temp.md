@@ -23,6 +23,7 @@
 - Added pantry stock hints on shopping list items you only partly have, such as "In dispensa: 50 g · mancano 50 g", so you know exactly how much to buy
 - Added "Forse ce l'hai già" suggestions when a shopping list item looks like something in your pantry under a different name (e.g. "spaghetti" and "Spaghetti fini"). Confirm once with "Sì, è lo stesso" and the app remembers the link for the shopping list and for cooking
 - Added an "Aggiungi alla dispensa" button that saves every item you checked off on the shopping list to the pantry in one go, with quantity, category, location and expiry pre-filled and editable. Items you already had are topped up instead of duplicated, and only the missing amount is pre-filled
+- Added a "Per reparto" view to the shopping list that groups everything by supermarket department (produce, dairy, meat, frozen, bakery, and more) instead of by recipe, so shopping follows the store's layout. Switch back to the familiar recipe view anytime with the toggle at the top of the list, and permanently correct a misclassified item with "Sposta in reparto…"
 - Added a new Statistics page to track your most cooked recipes, total completed cooking sessions, and recent completions
 - Added cooking history tracking so completed sessions can power long-term stats and activity insights
 - Added manual step reordering when creating or editing recipes

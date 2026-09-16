@@ -36,6 +36,15 @@ export interface User {
    * of whether a weekly plan exists. See lib/firebase/shopping-adhoc.ts.
    */
   adHocShoppingRecipes?: AdHocShoppingRecipe[] | null;
+  /**
+   * Manual "ingredient → department" overrides for the shopping list's
+   * per-department view (Spec E). Key = canonicalIngredientKey(name) (stem),
+   * value = slug in PANTRY_CATEGORIES. Applies permanently to that canonical
+   * key. Precedence: loses only to the categoryId of the matched pantry entry.
+   * Same pattern as familyProfile/adHocShoppingRecipes: a field on
+   * users/{uid}, no new collection/rule/index.
+   */
+  ingredientDepartmentOverrides?: Record<string, string> | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
