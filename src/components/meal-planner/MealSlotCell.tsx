@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Plus, Sparkles, ArrowRight, RefreshCw, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { MealSlot } from '@/types';
+import { PlannerMember, buildVariantChips } from '@/lib/utils/planner-members';
 
 interface MealSlotCellProps {
   /** Slot data; undefined means the slot is empty */
@@ -17,6 +18,47 @@ interface MealSlotCellProps {
   onRegenerate?: () => void;
   /** True while a regeneration request is in-flight for this slot */
   isRegenerating?: boolean;
+  /** Family members with resolved labels, to name who eats each variant. */
+  members?: PlannerMember[];
+}
+
+const NO_MEMBERS: PlannerMember[] = [];
+
+/**
+ * Who deviates from the base meal, as compact chips under the recipe title.
+ *
+ * Deliberately quiet — secondary surface, no terracotta, not interactive (the whole
+ * cell opens the editor) — and always visible, never hover-only: on touch a hover never
+ * fires. The people count is NOT shown here: it lives in the editor, the differential
+ * information worth a glance is the variants.
+ */
+function VariantChips({ slot, members }: { slot: MealSlot; members: PlannerMember[] }) {
+  const { chips, overflowCount } = buildVariantChips(slot.variants ?? [], members);
+  if (chips.length === 0) return null;
+
+  return (
+    <ul className="flex flex-wrap items-center gap-1 pl-8" aria-label="Varianti">
+      {chips.map(chip => (
+        <li
+          key={chip.key}
+          title={chip.description}
+          className={cn(
+            'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-medium leading-none',
+            chip.hasRemovedMember ? 'bg-muted text-muted-foreground' : 'bg-secondary text-muted-foreground'
+          )}
+        >
+          <span aria-hidden="true">{chip.text}</span>
+          <span className="sr-only">{chip.description}</span>
+        </li>
+      ))}
+      {overflowCount > 0 && (
+        <li className="text-[10px] font-medium leading-none text-muted-foreground">
+          +{overflowCount}
+          <span className="sr-only"> altre varianti</span>
+        </li>
+      )}
+    </ul>
+  );
 }
 
 /**
@@ -36,6 +78,8 @@ export function isNewRecipeSlot(slot: MealSlot | undefined): boolean {
 /**
  * A single cell in the weekly meal calendar grid.
  *
+ * Filled cells also list the slot's per-member variants (see VariantChips).
+ *
  * THREE VISUAL STATES:
  * - Empty: dashed border with "+" affordance — invites user to assign a recipe
  * - Existing recipe (book badge): recipe from the user's cookbook
@@ -46,7 +90,15 @@ export function isNewRecipeSlot(slot: MealSlot | undefined): boolean {
  * The "Salva" action is distinct from the "change recipe" action (onClick).
  * Mixing them would require the parent to infer intent from context.
  */
-export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenerate, isRegenerating }: MealSlotCellProps) {
+export function MealSlotCell({
+  slot,
+  onClick,
+  onSaveNewRecipe,
+  isNew,
+  onRegenerate,
+  isRegenerating,
+  members = NO_MEMBERS,
+}: MealSlotCellProps) {
   // Empty slot
   if (!slot) {
     return (
@@ -117,6 +169,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
             </button>
           )}
         </div>
+        <VariantChips slot={slot} members={members} />
         {onSaveNewRecipe ? (
           <div className="flex items-center gap-1 mt-auto pl-8">
             <button
@@ -186,6 +239,7 @@ export function MealSlotCell({ slot, onClick, onSaveNewRecipe, isNew, onRegenera
           </button>
         )}
       </div>
+      <VariantChips slot={slot} members={members} />
       {slot.existingRecipeId && (
         <div className="mt-auto pl-8">
           <Link

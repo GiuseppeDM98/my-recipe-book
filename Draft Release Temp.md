@@ -52,7 +52,9 @@
 - Added automatic refresh for ad-hoc recipe additions: tapping "Voglio preparare questo" again on a recipe you already added updates its ingredient list in place instead of creating a duplicate section
 
 - Added full nutrition info for recipes: alongside calories per serving, you can now enter or AI-estimate the serving weight and protein/carbs/fat, with kcal per 100 g calculated automatically from the two. The new figures show on the recipe detail page and in the AI extraction preview; recipe cards continue to show calories only
-- Added daily protein, carb, and fat totals to the meal planner, shown alongside the existing calorie totals for each planned day. As with calories, a day where some recipes are missing an estimate shows a "≥" total instead of hiding the number
+- Added daily protein, carb, and fat totals to the meal planner, shown alongside the calorie totals for each planned day, all expressed per person. As with calories, a day where some recipes are missing an estimate shows a "≥" total instead of hiding the number
+- Added a family plan to the meal planner: every meal now knows how many people it is cooked for (your family size by default, adjustable per meal), and the shopping list scales each recipe's quantities to match. Plans created before this update keep their quantities exactly as they were until you set the people on a meal. The number of people you choose when creating a plan is remembered for the meals you add to it later
+- Added per-person variants to planned meals, for when someone eats a different dish ("pasta for everyone, minestrone for Sofia"). The variant's ingredients join the shopping list for the right number of people, small initials mark it on the calendar, and the day's calories show each person's own total
 - Added an optional "Search the web" toggle to Chat AI, so the assistant can look up real recipes online and cite its sources before generating a result
 - Added support for attaching up to 3 photos (max 3 MB total) to a Chat AI message, so you can ask about a dish from a picture or get suggestions from a photo of your ingredients
 - Added the ability to add or remove meal types (breakfast, lunch, dinner, etc.) on a meal plan that's already in progress, without having to delete and recreate the whole week
@@ -101,6 +103,8 @@
 - Fixed an error while cooking (for example a failed save) replacing the whole screen — problems now show as a dismissible message and your cooking progress stays in view
 
 - Fixed meal rows in the weekly planner sometimes displaying out of the natural order of the day (e.g. adding breakfast to an existing plan could show it after lunch and dinner instead of first) — meal rows now always follow breakfast → morning snack → lunch → afternoon snack → dinner, including in plans saved before this fix
+- Fixed today's highlight in the weekly planner, which showed a cold blue outline on desktop and no highlight at all on phones — today is now marked in terracotta on both
+- Fixed soft color tints, hover states and outlines that were silently missing across the app (selected items, badges, panels), and the harsh near-white divider lines in dark mode — both themes now show the warm, low-contrast borders and backgrounds they were designed with
 
 - Fixed recipe sections disappearing on import when their name did not start with "per" — a cookbook heading like "La pasta" or "Il ragù" was silently dropped and its ingredients ended up in one unlabelled list. Section names are now kept exactly as written, with or without "per", and a trailing colon no longer breaks them
 - Fixed recipe sections being listed alphabetically instead of in the order you actually cook them — a cake now shows its base before its cream, rather than the other way round
@@ -113,7 +117,8 @@
 - Improved the shopping list so it never asks you to buy tap water or ice: "Acqua", "Acqua di cottura della pasta" or "Ghiaccio" in a recipe stay out of the list, while anything you add by hand is always kept
 - Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
 - Improved planner loading behavior by removing distracting global loading flashes on protected pages
-- Improved the planner generation state with a more polished editorial animation while the week is being composed
+- Improved the meal planner layout: the calendar now comes first with the plan's days and meals tucked into a collapsible summary, setup is split into an essential card plus optional shuffle rules, there is an "Oggi" shortcut back to the current week, and on phones the week opens on today
+- Improved the meal editor in the planner: tapping a meal opens a single panel where you change the recipe, the number of people and the variants without it closing after every choice
 - Improved desktop readability in the meal planner so long recipe names are easier to read in the weekly grid
 - Improved the AI Assistant startup path by loading cookbook data only when the chat tab actually needs it
 - Improved recipe page filter performance and planner-related loading responsiveness across the app

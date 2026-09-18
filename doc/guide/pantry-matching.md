@@ -98,7 +98,10 @@ items left in `shoppingCheckedIds` are inert, like the ids of a recipe that left
 One helper feeds both the list badge ("mancano 50 g") and the batch prefill, so they can't
 disagree: the shortfall when the stock covers part of the need, the whole amount otherwise
 (no stock at all, or an item re-included despite enough stock). The row quantity itself stays
-the recipes' need.
+the recipes' need — since Spec F (2026-09-17) that need is already scaled to the people planned
+on each meal before it reaches the aggregator (`buildContributions`, legacy slots excepted), so
+stock comparison, badge and prefill see the scaled figure and nothing here needs to know about
+people. The ad-hoc "Voglio preparare questo" rows are never scaled.
 
 ## Checked items → pantry (`buildPantryDraftRows` / `buildPantryBatchOps`)
 

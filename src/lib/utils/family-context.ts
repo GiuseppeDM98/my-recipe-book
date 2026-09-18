@@ -38,6 +38,17 @@ export function normalizeFamilyProfile(
   };
 }
 
+/**
+ * Display label of a family member: the saved label, or "Componente N" (1-based
+ * position in the NORMALIZED members array) when the user left it blank.
+ *
+ * Shared by the AI family context and the meal planner so the same person is
+ * never called "Componente 2" in one place and "Componente 3" in another.
+ */
+export function resolveFamilyMemberLabel(label: string | null, index: number): string {
+  return label ?? `Componente ${index + 1}`;
+}
+
 export function buildFamilyContextPrompt(
   familyProfile: FamilyProfile | null | undefined,
   useFamilyContext: boolean
@@ -52,7 +63,7 @@ export function buildFamilyContextPrompt(
   }
 
   const memberLines = normalizedProfile.members.map((member, index) => {
-    const label = member.label ?? `Componente ${index + 1}`;
+    const label = resolveFamilyMemberLabel(member.label, index);
     return `- ${label}: ${member.age} anni`;
   });
 

@@ -3,7 +3,7 @@
  *
  * WHY CENTRALIZED:
  * MEAL_LABELS was duplicated across four components (MealPlanSetupForm,
- * WeeklyCalendarGrid, RecipePickerSheet, NewRecipeReviewCard) and the copies had
+ * WeeklyCalendarGrid, MealSlotEditorSheet, NewRecipeReviewCard) and the copies had
  * already drifted apart ("Primo piatto" in one, "Primo" in the others). A single
  * source of truth keeps the calendar, the picker and the setup form in agreement.
  *

@@ -4,6 +4,13 @@
 
 This spec must be read together with `specs/00-roadmap.md` (contracts 1, 4 and 5 and product decisions 5 and 6). In case of conflict the roadmap wins.
 
+**Amendments at implementation time (2026-09-17, each confirmed by the user)** — the body below is already updated, this list only says what changed and why:
+1. **Legacy slot: explicit `Conferma {n} persone` button** (§4.5 view `main`, item 3). "Confirm to activate" had no gesture when the default was already the right number: ± necessarily changes it.
+2. **Variants are editable** (`Modifica` on each row, §4.5 item 4), not only removable: the row walks the same two steps (members → recipe) with the current values preselected. It is also what makes the orphan hint "Modifica o rimuovi questa variante" (§4.5.5) true.
+3. **The base recipe is excluded from the variant picker** (§4.5 `variant-recipe`): a variant identical to the base meal is not a variant.
+4. **The plan-structure panel sits collapsed ABOVE the grid** (§4.6.3), not below it: closed it costs 56px, and below the grid it would land after seven stacked day cards on a phone.
+5. **The people chosen at setup are persisted** as `MealPlan.defaultServingsPlanned` (§4.1, §4.6.2, roadmap contract 5) instead of living only in the session: cells keep being filled for days, often after a reload or from another device, and they silently fell back to the family size.
+
 **Note on file:line references**: verified against the code as of 2026-08-12, **before** Spec A was implemented. After Spec A some lines of `meal-types.ts`, `useMealPlanner.ts` and `MealPlanSetupForm.tsx` will shift slightly; the symbols cited remain valid.
 
 ---
@@ -175,7 +182,9 @@ Firestore rules: `servingsPlanned` and `variants` are written as `null` or omitt
 
 **Document size**: a variant weighs ~120 bytes serialized (UUID id + 1-2 memberIds + recipeId + title). Worst case 7 days × 5 meals × 3 variants ≈ 105 variants ≈ 13 KB extra on a document that today weighs a few KB — irrelevant compared to Firestore's 1 MiB limit. Inline variants avoid a new collection (rules, index, N reads per plan), consistent with the choice already made for `shoppingCustomItems` on the plan and `adHocShoppingRecipes` on `users/{uid}`.
 
-**Default people**: `defaultServingsPlanned = normalizeFamilyProfile(familyProfile)?.members.length ?? 2` (use `normalizeFamilyProfile` from src/lib/utils/family-context.ts:12-39 to discard invalid members, as the AI flows do). Computed in `useMealPlanner` by composing `useFamilyProfile()` (staleTime 5 min: a just-edited profile may take up to 5 minutes to be reflected in the default — acceptable, the value is editable per slot anyway).
+**Plan-level default people**: `MealPlan` gains `defaultServingsPlanned?: number | null` — the answer to "Per quante persone cucini di solito?" given at setup, persisted on the plan document (written by `createMealPlan` in both the shuffle and the manual path, carried by copy-plan). It only seeds `servingsPlanned` on cells filled **later**; it never rescales existing slots and never touches a legacy slot. `null`/absent (every plan created before the field) → family default below. No rule/index change: `meal_plans` rules are owner-based with no field validation.
+
+**Default people**: `defaultServingsPlanned = currentPlan?.defaultServingsPlanned ?? normalizeFamilyProfile(familyProfile)?.members.length ?? 2` (use `normalizeFamilyProfile` from src/lib/utils/family-context.ts:12-39 to discard invalid members, as the AI flows do). Computed in `useMealPlanner` by composing `useFamilyProfile()` (staleTime 5 min: a just-edited profile may take up to 5 minutes to be reflected in the default — acceptable, the value is editable per slot anyway).
 
 ### 4.2 Shopping list scaling (`ingredient-aggregator.ts`)
 
@@ -345,16 +354,16 @@ File: `src/components/meal-planner/MealSlotEditorSheet.tsx`, bottom sheet `side=
    - without variants: `Il pasto base copre {n} person{a|e}.`
    - with variants: `Base per {n−k} person{a|e} · {k} con variante.`
    - `n−k <= 0`: warning with a warning-tone `StatusBanner`: `Le varianti coprono tutte le persone: la ricetta base non entrerà nella lista della spesa.`
-   - Legacy slot (`servingsPlanned == null`): the stepper shows the default but with caption `Quantità non ancora adattate alle persone — conferma per attivare.` and the value is persisted **only** on the user's first interaction (± tap or input edit), never merely by opening the sheet. This protects invariant §1: opening and closing the editor doesn't change the shopping list.
+   - Legacy slot (`servingsPlanned == null`): the stepper shows the default but with caption `Quantità non ancora adattate alle persone — conferma per attivare.` next to an outline button `Conferma {n} person{a|e}`, and the value is persisted **only** on an explicit user action (± tap, input edit, or that button — needed because when the default is already right, ± can't confirm it without changing it), never merely by opening the sheet. `ServingsStepper` re-emits its value on blur: an unchanged value is ignored. This protects invariant §1: opening and closing the editor doesn't change the shopping list.
    - Stepper persistence: local 600 ms debounce (`setTimeout` ref) on `onSetServings`, with **flush on sheet close and unmount** (same risk as the AGENTS "debounce non-flushed" gotcha: timer cleared when it fires, read from ref).
 4. **Variants**: heading `Varianti` + subtitle `Un piatto diverso per uno o più componenti.`
-   - List of current variants: for each, a row with member chips (label or initial) + recipe title + `X` button (**direct** removal, without ConfirmDialog: it's a single-slot edit rebuildable in two taps, same weight as the current "Rimuovi ricetta da questo slot" :220-229; ConfirmDialogs remain for multi-slot destruction: day, meal, plan).
+   - List of current variants: for each, a row with member chips (label or initial) + recipe title + `Modifica` button (→ `variant-members` with the variant's current members preselected — members no longer in the profile are dropped — then `variant-recipe` with its recipe highlighted; the commit replaces the variant in place, same `id`) + `X` button (**direct** removal, without ConfirmDialog: it's a single-slot edit rebuildable in two taps, same weight as the current "Rimuovi ricetta da questo slot" :220-229; ConfirmDialogs remain for multi-slot destruction: day, meal, plan).
    - `+ Aggiungi variante` button → `variant-members` view. Disabled with a hint when: (a) family profile empty/missing → `Per creare varianti aggiungi i componenti nel profilo famiglia.` + link `Vai al profilo famiglia` (`/profilo-famiglia`); (b) all members already covered → `Tutti i componenti hanno già una variante.`
 5. **Footer**: ghost destructive button `Svuota slot` (behavior = current `clearSlot`: removes recipe, people and variants; copy below: `Rimuove ricetta, persone e varianti di questo pasto.`) + sheet close.
 
 **`variant-members` view**: title `Per chi?`; toggle chip for each profile member (label or `Componente N`), members already covered by another variant disabled with caption `già coperto da una variante`; CTA `Continua` (disabled at 0 selected) → `variant-recipe`; `Annulla` → `main`.
 
-**`variant-recipe`** and **`pick-base`** views: full-height `RecipePickerPanel`; tapping a recipe = immediate commit (`onSetVariants` with the new variant appended / `onSelectBase`) and return to `main` (the sheet does **not** close: the user often configures several things). Every commit writes to Firestore immediately via the hook's mutations (consistent with the planner's optimistic-write model) and shows an error toast on failure (pattern page.tsx:170-189).
+**`variant-recipe`** and **`pick-base`** views: full-height `RecipePickerPanel` (in `variant-recipe` the slot's base recipe is left out of the list via `excludedRecipeIds` — the same dish would not be a variant); tapping a recipe = immediate commit (`onSetVariants` with the new variant appended / `onSelectBase`) and return to `main` (the sheet does **not** close: the user often configures several things). Every commit writes to Firestore immediately via the hook's mutations (consistent with the planner's optimistic-write model) and shows an error toast on failure (pattern page.tsx:170-189).
 
 **State synchronization**: the sheet derives everything from `currentSlot` (prop) — it keeps no local copies of recipe/variants; the only local state is the current view, the in-progress member selection and the stepper draft (with a sync `useEffect` on slot change — `useState(prop)` gotcha).
 
@@ -379,14 +388,14 @@ When the week has no plan, no abrupt jump to the form: **empty state** (`Editori
 
 **Setup: progressive cards, not a step wizard.** Rationale: there are few fields (season, days, meals, people, shuffle rules) and a 3-screen wizard adds taps without reducing load; progressive cards keep everything reviewable at a glance. Structure:
 
-1. **`Giorni e portate` card** (always open): day chips + meal checkboxes (order `sortMealTypes`/`SELECTABLE_MEAL_TYPES` post-Spec A, with `Spuntino`/`Merenda`) + **new people field**: label `Per quante persone cucini di solito?`, `ServingsStepper` `size='md'`, prefilled with `defaultServingsPlanned`; caption `Puoi cambiarlo pasto per pasto dal calendario.` The value flows into `MealPlanSetupConfig` as a new field `defaultServingsPlanned?: number | null` and from there into the shuffle and into `createManualPlan` (which uses it only as the hook's default for slots created later).
+1. **`Giorni e portate` card** (always open): day chips + meal checkboxes (order `sortMealTypes`/`SELECTABLE_MEAL_TYPES` post-Spec A, with `Spuntino`/`Merenda`) + **new people field**: label `Per quante persone cucini di solito?`, `ServingsStepper` `size='md'`, prefilled with `defaultServingsPlanned`; caption `Puoi cambiarlo pasto per pasto dal calendario.` The value flows into `MealPlanSetupConfig` as a new field `defaultServingsPlanned?: number | null` and from there into the shuffle and into both creation paths, which persist it as `MealPlan.defaultServingsPlanned` (§4.1) — the default for cells filled later, reload and other devices included.
 2. **`Stagione e regole` card — disclosure collapsed by default** (`grid-rows-[0fr]→[1fr]` pattern, never `max-h`): season (default `getCurrentSeason()`) + the current "Categorie per portata" (:197-295) with unchanged logic. **Where they live after setup**: nowhere — they are **generation** rules, not plan properties (`MealPlanSetupConfig` is not persisted, verified src/types/index.ts:526-546 "Setup configuration… consumed locally"); the live plan is edited per slot and the re-roll uses the current recipe's category tiers (`pickReshuffledRecipe`). This choice must be written in the disclosure copy: `Queste regole guidano solo la generazione: dopo, modifichi ogni pasto direttamente dal calendario.`
 3. **Sticky CTA bar** (`sticky bottom-0 max-lg:portrait:bottom-20 bg-background border-t py-4 z-10` — below 1440px scrolling is window-level, so `sticky` is legitimate; on desktop ≥1440px verify the behavior inside `<main>`'s internal scroll and, if needed, make it non-sticky from `lg`): `Genera piano (shuffle)` (primary) + `Crea piano manuale` (outline), labels unchanged.
 4. The "Come usare il pianificatore" info box (:420-436) becomes a `Come funziona?` disclosure collapsed at the end of the setup (declutter; the current content stays).
 
 #### 4.6.3 Calendar
 
-- **Integrated `PlanStructureCard`**: no longer two always-open cards above the grid (:469-478) but a single collapsible section `Giorni e portate del piano` (current chips + add/remove, logic and ConfirmDialog unchanged, PlanStructureCard.tsx:46-261) closed by default, with a compact summary in the heading (`7 giorni · Pranzo e Cena`). The grid gains the first visual position.
+- **Integrated `PlanStructureCard`**: no longer two always-open cards above the grid (:469-478) but a single collapsible section `Giorni e portate del piano` (current chips + add/remove, logic and ConfirmDialog unchanged, PlanStructureCard.tsx:46-261) closed by default, with a compact summary in the heading (`7 giorni · Pranzo e Cena`). It stays **above** the grid: closed it is a 56px row, so the grid is effectively the first content, while below the grid it would sit after seven stacked day cards on mobile portrait.
 - **Desktop grid**: current layout kept (`88px repeat(n, minmax(150px,1fr))` + `overflow-x-auto`, rows in `sortMealTypes` order); "today" emphasis unchanged (:126). With 5 active meals the rows become 5: no structural change needed (vertical scroll of `<main>`).
 - **Mobile portrait grid**: stacked day cards unchanged; on mount **auto-scroll to today's card** (`scrollIntoView({ block: 'start' })` guarded by a one-time ref) if the week is the current one.
 - **Per-day kcal/pers. badge**: §4.3.5.
@@ -523,7 +532,8 @@ Every phase leaves the project compiling (`npx tsc --noEmit` green).
 - Scaling of the **ad-hoc** "Voglio preparare questo" list (quantities copied as-is by design, types/index.ts:491-495) and any change to `aggregateIngredients`/`mergeQuantities`/canonical keys.
 - Batch migration of existing plans (lazy dual-read).
 - Per-member preferences/diets (the family profile stays label+age+notes).
-- Persisting per-meal generation rules on the plan (they stay setup-only, §4.6.2).
+- Persisting per-meal generation rules on the plan (they stay setup-only, §4.6.2). The people default is the one setup value that IS persisted (§4.1).
+- A UI to change `MealPlan.defaultServingsPlanned` after the plan is created (people stay editable meal by meal).
 - kcal in the shopping list; estimate `confidence`; macros if Spec C is not implemented (extension point only, §4.3.4).
 - Changes to cooking mode, `estimate-calories`, AI prompts, Firestore rules/indexes (the new fields live in existing documents covered by the owner-based rules).
 - Server-side enforcement of "one plan per week" (stays client-side as today).

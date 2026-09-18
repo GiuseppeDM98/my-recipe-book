@@ -436,9 +436,33 @@ export type MealType =
   | 'primo' | 'secondo' | 'contorno' | 'dolce'; // legacy course types, solo render di piani storici
 
 /**
+ * Per-member variant of a slot: one or more family members eat a recipe
+ * different from the base meal.
+ *
+ * EXISTING RECIPES ONLY: no inline `newRecipe` — variants reference the
+ * cookbook. Allowing an inline recipe would duplicate the AI review/save flow
+ * and grow the meal_plans document by a full recipe per variant.
+ *
+ * memberIds references FamilyMember.id from the family profile. A member later
+ * removed from the profile leaves an "orphan variant": scaling keeps counting
+ * memberIds.length (the planned people stay planned), the UI marks the chip as
+ * "Componente rimosso". There is no auto-cleanup, because an implicit write
+ * that changes the shopping list would break the same principle as the legacy
+ * invariant on MealSlot.servingsPlanned.
+ */
+export interface MealSlotVariant {
+  id: string;                       // crypto.randomUUID()
+  memberIds: string[];              // always >= 1 element (client-side guard)
+  existingRecipeId: string | null;  // cookbook recipe; null only for corrupt data (defensive skip)
+  recipeTitle: string | null;       // Denormalized for O(1) render, like MealSlot.recipeTitle
+}
+
+/**
  * A single slot in the weekly meal plan.
  *
  * SLOT IDENTITY: dayIndex (0=Mon … 6=Sun) + mealType = unique key per plan.
+ * Family variants live INSIDE the slot, so they never create a second slot for
+ * the same meal and are deleted together with it.
  *
  * RECIPE REFERENCE STRATEGY:
  * - existingRecipeId: points to a recipe already in the user's cookbook
@@ -460,6 +484,19 @@ export interface MealSlot {
   suggestedCategoryName?: string;
   /** AI-suggested seasons for new recipes. */
   suggestedSeasons?: Season[];
+  /**
+   * TOTAL people served by the slot, variants included: the base meal covers
+   * servingsPlanned − Σ variants[].memberIds.length people, clamped to 0.
+   *
+   * LEGACY INVARIANT (non-negotiable): null/undefined = plan created before
+   * the family model OR slot never reconfigured → NO scaling, quantities
+   * as-is. Existing shopping lists must not change on their own. The value is
+   * written only by: shuffle (family default), the slot editor, updateSlot on
+   * a previously empty cell.
+   */
+  servingsPlanned?: number | null;
+  /** Per-member variants; null/undefined/[] = none. Persist null, never undefined. */
+  variants?: MealSlotVariant[] | null;
 }
 
 /**
@@ -487,6 +524,13 @@ export interface MealPlan {
   generatedByAI: boolean;
   /** Days included in this plan: 0=Mon … 6=Sun. null/undefined = all 7 days. */
   activeDays?: number[] | null;
+  /**
+   * People a newly filled slot of THIS plan is planned for — the "Per quante persone
+   * cucini di solito?" answer given at setup. It only seeds MealSlot.servingsPlanned on
+   * cells filled later; it never rescales existing slots and never touches a legacy
+   * slot. null/undefined (every plan created before the field) = use the family size.
+   */
+  defaultServingsPlanned?: number | null;
   /** Shopping list state stored here to sync across devices. */
   shoppingCheckedIds?: string[] | null;
   shoppingCustomItems?: ShoppingItem[] | null;
@@ -605,4 +649,11 @@ export interface MealPlanSetupConfig {
   activeDays?: number[] | null;
   /** Per-meal category settings (preferred + excluded). Supersedes courseCategoryMap + excludedCategoryIds. */
   mealTypeConfigs?: Partial<Record<MealType, MealTypeConfig>> | null;
+  /**
+   * People the user usually cooks for, chosen at setup. Becomes servingsPlanned on
+   * every shuffled slot and is persisted as MealPlan.defaultServingsPlanned — the ONE
+   * field of this config that outlives setup, because cells keep being filled for days.
+   * null/undefined = use the family-profile default.
+   */
+  defaultServingsPlanned?: number | null;
 }

@@ -169,12 +169,14 @@ Plan your meals for the week — generated locally from your own recipes, or ful
 - **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
 - **Per-meal categories**: For each meal (breakfast, morning snack, lunch, afternoon snack, dinner) choose a preferred category and categories to avoid, so the shuffle won't put, say, a dessert at lunch
 - **Reshuffle a slot**: Use the ↺ action on any slot to swap in a different recipe of the same category, without rebuilding the week
-- **Edit anytime**: Click any slot to change the recipe manually
+- **Edit anytime**: Click any slot to change its recipe, the number of people and the per-person variants from a single panel
+- **Family plan**: Every meal knows how many people it is cooked for (your family size by default) and the shopping list scales quantities to match; plans created before this feature keep their quantities untouched
+- **Per-person variants**: When someone eats a different dish, add a variant for one or more family members — it joins the shopping list for the right number of people and is marked on the calendar with their initials
 - **Copy plan**: Duplicate a week you liked into another week (it stops you if that week already has a plan)
 - **Day-by-day correction**: Remove individual days from a generated week without rebuilding the whole plan
 - **Day selector**: Plan only specific days (e.g. weekdays only) instead of the full week
 - **Quick navigation**: Recipe cells link directly to the full recipe page
-- **Daily nutrition totals**: Each day's header shows combined calories and protein/carbs/fat for its planned meals, with a "≥" marker when a recipe is missing an estimate
+- **Daily nutrition totals**: Each day's header shows per-person calories and protein/carbs/fat for its planned meals, with a "≥" marker when a recipe is missing an estimate and each person's own total when they eat a variant
 - **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
 - **Persistent**: Plans are saved to Firebase and the current week is restored automatically on your next visit

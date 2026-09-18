@@ -1,4 +1,5 @@
-import { MealPlan, MealType, Recipe, ShoppingItem } from '@/types';
+import { MealPlan, MealSlot, MealType, Recipe, ShoppingItem } from '@/types';
+import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
 
 export interface IngredientContribution {
   name: string;
@@ -10,11 +11,75 @@ export interface IngredientContribution {
 }
 
 /**
+ * Servings assumed for a recipe that does not declare them. Same fallback as
+ * cooking mode (`recipe.servings || 4`), so the planner and the stove agree on
+ * what "the recipe as written" feeds.
+ */
+const DEFAULT_RECIPE_SERVINGS = 4;
+
+/** Ingredients and servings behind a slot's base meal, whichever source carries them. */
+interface ResolvedBaseRecipe {
+  title: string;
+  ingredients: Recipe['ingredients'];
+  servings: number;
+}
+
+/**
+ * Resolves the base meal of a slot: a saved recipe by id first, then the inline
+ * ParsedRecipe carried by legacy AI-generated plans. Returns null for an empty
+ * slot and for a recipe deleted from the cookbook (id no longer in recipesById).
+ */
+function resolveBaseRecipe(
+  slot: MealSlot,
+  recipesById: Map<string, Recipe>
+): ResolvedBaseRecipe | null {
+  const source = slot.existingRecipeId
+    ? recipesById.get(slot.existingRecipeId)
+    : slot.newRecipe;
+  if (!source) return null;
+
+  return {
+    title: source.title,
+    ingredients: source.ingredients,
+    servings: source.servings || DEFAULT_RECIPE_SERVINGS,
+  };
+}
+
+/**
+ * Ids of every cookbook recipe buildContributions() will look up: base meals AND
+ * variants. Lives next to buildContributions because it is the other half of its
+ * contract — a variant recipe left out of the batch fetch is silently skipped as
+ * "deleted", and the person it feeds just vanishes from the shopping list.
+ *
+ * Duplicates are left in: getRecipesByIds() already deduplicates.
+ */
+export function collectPlanRecipeIds(plan: MealPlan): string[] {
+  return plan.slots.flatMap(slot => [
+    ...(slot.existingRecipeId ? [slot.existingRecipeId] : []),
+    ...(slot.variants ?? [])
+      .map(variant => variant.existingRecipeId)
+      .filter((id): id is string => !!id),
+  ]);
+}
+
+/**
  * Builds a flat list of ingredient contributions from all filled slots in a MealPlan.
  *
  * For existingRecipeId slots the recipe must be present in recipesById (batch-fetched
- * by the caller). For newRecipe slots the ingredients are read from the embedded
- * ParsedRecipe directly. Empty slots and slots missing from recipesById are skipped.
+ * by the caller, variants' recipes included). For newRecipe slots the ingredients are
+ * read from the embedded ParsedRecipe directly. Empty slots and recipes missing from
+ * recipesById are skipped.
+ *
+ * SCALING BY PEOPLE: each contribution is scaled by people / recipe servings through
+ * scaleQuantity(), which already owns the parsing of fractions, ranges and
+ * non-scalable strings ("q.b.") — nothing is re-parsed here, and the quantity reaches
+ * aggregateIngredients() already scaled, so the merge logic is unaware of people.
+ *
+ * LEGACY INVARIANT: a slot with `servingsPlanned == null` (every plan saved before the
+ * family model) copies quantities AS-IS, byte for byte. It must not go through
+ * scaleQuantity() at all: even at factor 1 a different code path could reformat
+ * "1/2 tazza", and a shopping list that changes on its own after a deploy is a bug the
+ * user cannot explain.
  */
 export function buildContributions(
   plan: MealPlan,
@@ -23,30 +88,58 @@ export function buildContributions(
   const contributions: IngredientContribution[] = [];
 
   for (const slot of plan.slots) {
-    let ingredients: Recipe['ingredients'] = [];
-    let recipeTitle = slot.recipeTitle ?? '';
+    // Corrupt variants (no recipe, no members) are ignored BEFORE counting people,
+    // otherwise they would take servings away from the base and feed nobody.
+    const variants = (slot.variants ?? []).filter(
+      variant => variant.existingRecipeId && variant.memberIds.length > 0
+    );
+    const variantPersons = variants.reduce((sum, variant) => sum + variant.memberIds.length, 0);
 
-    if (slot.existingRecipeId) {
-      const recipe = recipesById.get(slot.existingRecipeId);
-      if (!recipe) continue;
-      ingredients = recipe.ingredients;
-      recipeTitle = recipe.title;
-    } else if (slot.newRecipe) {
-      ingredients = slot.newRecipe.ingredients;
-      recipeTitle = slot.newRecipe.title;
-    } else {
-      continue;
+    // Base meal. null = legacy slot, quantities as-is; 0 = variants cover everyone,
+    // the base recipe is not cooked and must not enter the list.
+    const basePersons =
+      slot.servingsPlanned == null ? null : Math.max(0, slot.servingsPlanned - variantPersons);
+    const base = resolveBaseRecipe(slot, recipesById);
+
+    if (base && basePersons !== 0) {
+      for (const ing of base.ingredients) {
+        contributions.push({
+          name: ing.name,
+          quantity:
+            basePersons === null
+              ? ing.quantity
+              : scaleQuantity(ing.quantity, base.servings, basePersons),
+          section: ing.section ?? null,
+          recipeTitle: base.title,
+          dayIndex: slot.dayIndex,
+          mealType: slot.mealType,
+        });
+      }
     }
 
-    for (const ing of ingredients) {
-      contributions.push({
-        name: ing.name,
-        quantity: ing.quantity,
-        section: ing.section ?? null,
-        recipeTitle,
-        dayIndex: slot.dayIndex,
-        mealType: slot.mealType,
-      });
+    // Variants always scale, even on a slot without servingsPlanned (a state the UI
+    // cannot produce — setSlotVariants sets the default in the same write — but a
+    // variant has no "as written" meaning: it is by definition a meal for N people).
+    for (const variant of variants) {
+      const variantRecipe = recipesById.get(variant.existingRecipeId!);
+      // Deleted recipe: skipped like a base slot. Its people stay subtracted from the
+      // base above — they are still planned on something else, not on the base meal.
+      if (!variantRecipe) continue;
+
+      for (const ing of variantRecipe.ingredients) {
+        contributions.push({
+          name: ing.name,
+          quantity: scaleQuantity(
+            ing.quantity,
+            variantRecipe.servings || DEFAULT_RECIPE_SERVINGS,
+            variant.memberIds.length
+          ),
+          section: ing.section ?? null,
+          recipeTitle: variantRecipe.title,
+          dayIndex: slot.dayIndex,
+          mealType: slot.mealType,
+        });
+      }
     }
   }
 
