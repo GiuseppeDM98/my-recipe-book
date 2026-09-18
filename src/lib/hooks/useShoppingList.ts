@@ -8,7 +8,11 @@ import { getMealPlanByWeek, updateMealPlanShoppingState } from '@/lib/firebase/m
 import { getRecipesByIds } from '@/lib/firebase/firestore';
 import { getAdHocShoppingList, updateAdHocShoppingList } from '@/lib/firebase/shopping-adhoc';
 import { addPantryItemAlias } from '@/lib/firebase/pantry';
-import { buildContributions, aggregateIngredients } from '@/lib/utils/ingredient-aggregator';
+import {
+  buildContributions,
+  aggregateIngredients,
+  collectPlanRecipeIds,
+} from '@/lib/utils/ingredient-aggregator';
 import {
   canonicalIngredientKey,
   classifyPantryAvailability,
@@ -172,11 +176,7 @@ export function useShoppingList(weekStartDate: string): UseShoppingListReturn {
       const plan = await getMealPlanByWeek(user!.uid, weekStartDate);
       if (!plan) return null; // null signals "no plan for this week"
 
-      const existingIds = plan.slots
-        .map(s => s.existingRecipeId)
-        .filter((id): id is string => !!id);
-
-      const recipesById = await getRecipesByIds(existingIds, user!.uid);
+      const recipesById = await getRecipesByIds(collectPlanRecipeIds(plan), user!.uid);
 
       const contributions = buildContributions(plan, recipesById);
       const items = aggregateIngredients(contributions);

@@ -124,6 +124,35 @@ describe('buildShuffledSlots', () => {
     expect(slots).toHaveLength(0);
     expect(unfilledMealTypes).toEqual(['pranzo']);
   });
+
+  it('plans every generated slot for the default number of people, without variants', () => {
+    const recipes = makeRecipes(10, 'cat-a');
+
+    const { slots } = buildShuffledSlots(recipes, {
+      season: 'estate',
+      activeMealTypes: ['pranzo', 'cena'],
+      activeDays: [0, 1, 2],
+      defaultServingsPlanned: 3,
+    });
+
+    expect(slots).toHaveLength(6);
+    expect(slots.every(s => s.servingsPlanned === 3)).toBe(true);
+    expect(slots.every(s => s.variants === null)).toBe(true);
+  });
+
+  it('produces legacy (unscaled) slots when no default people count is given', () => {
+    const recipes = makeRecipes(10, 'cat-a');
+
+    const { slots } = buildShuffledSlots(recipes, {
+      season: 'estate',
+      activeMealTypes: ['pranzo'],
+      activeDays: [0, 1, 2],
+    });
+
+    // null, never undefined: the slots array goes to Firestore as-is.
+    expect(slots.every(s => s.servingsPlanned === null)).toBe(true);
+    expect(slots.every(s => s.variants === null)).toBe(true);
+  });
 });
 
 describe('pickReshuffledRecipe', () => {

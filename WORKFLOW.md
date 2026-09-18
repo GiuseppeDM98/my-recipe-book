@@ -147,6 +147,17 @@ production.
   credentials in `.env.local` and only does `get`/queries. No `set`/`update`/`delete`,
   no writes to Auth or Storage: a mistake there hits the user's real data, not a
   fixture.
+- **Tracked helpers** (promoted from `e2e/scratch/` on 2026-09-17, third guided test
+  that wanted the mirror): `node e2e/mirror-dump.mjs` (step 1, read-only, loads
+  `.env.local` by itself) and `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+  FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 node e2e/mirror-load.mjs` (step 2). They
+  are tracked ON PURPOSE: reading production is gated by a permission rule on that exact
+  command (`Bash(node e2e/mirror-dump.mjs)` in the gitignored
+  `.claude/settings.local.json`), and a rule is only as safe as the code behind it — a
+  tracked file is reviewed in the diff, a scratch file is not. Keep the dump's SAFETY
+  CONTRACT header true, and never put the account, its uid or any document content in
+  them: the repo is public. Without that rule the dump is run by the user from the
+  prompt (`! node e2e/mirror-dump.mjs`).
 - **Two processes, not one**: the Admin SDK routes to the emulator for the whole
   process as soon as `FIRESTORE_EMULATOR_HOST` is set, so the same script can't read
   from production and write to the emulator (and without `gcloud` there is no managed

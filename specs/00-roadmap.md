@@ -130,6 +130,10 @@ per session, no commit without explicit OK).
   - `variants?: MealSlotVariant[] | null` with
     `MealSlotVariant = { id: string; memberIds: string[]; existingRecipeId: string | null; recipeTitle: string | null }`
     — the base meal covers the members not covered by variants.
+- `MealPlan` gains `defaultServingsPlanned?: number | null` (amendment 2026-09-17,
+  confirmed by the user): the people chosen at setup, persisted so that cells filled
+  later — after a reload, from another device — get the same default. It never
+  rescales existing slots; `null`/absent = family size.
 - Shopping list: scale factor per contribution =
   `peopleServed / (recipe.servings || 4)` applied with `scaleQuantity()`.
 - Planner calories: daily totals **per person** (base + variants resolved
@@ -172,6 +176,6 @@ per session, no commit without explicit OK).
 - [x] Spec C — implemented (2026-09-15)
 - [x] Spec D — implemented (2026-09-15)
 - [x] Spec E — implemented (2026-09-15)
-- [ ] Spec F — to be implemented
+- [x] Spec F — implemented (2026-09-17)
 
 Update this checklist (and "Recent Changes" in CLAUDE.md) every time a spec is completed.

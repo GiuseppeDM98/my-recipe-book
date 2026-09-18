@@ -21,6 +21,12 @@ export interface ShuffleConfig {
   activeMealTypes: MealType[];
   activeDays?: number[] | null;
   mealTypeConfigs?: Partial<Record<MealType, MealTypeConfig>> | null;
+  /**
+   * People every generated slot is planned for (MealSlot.servingsPlanned).
+   * Omitted/null produces legacy slots whose quantities are never scaled — callers
+   * that know the family size must pass it, the generator has no profile access.
+   */
+  defaultServingsPlanned?: number | null;
 }
 
 export interface ShuffleResult {
@@ -61,6 +67,8 @@ export function buildShuffledSlots(recipes: Recipe[], config: ShuffleConfig): Sh
         existingRecipeId: recipe.id,
         newRecipe: null,
         recipeTitle: recipe.title,
+        servingsPlanned: config.defaultServingsPlanned ?? null,
+        variants: null,
       });
     });
   }

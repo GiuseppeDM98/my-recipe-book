@@ -5,7 +5,8 @@ import { Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
- * ServingsStepper - Numeric servings control shared by cooking setup and cooking mode.
+ * ServingsStepper - Numeric servings control shared by cooking setup, cooking mode and
+ * the meal planner (where it counts people rather than recipe servings — see `labels`).
  *
  * Why a shared component: the setup screen and the active cooking screen previously
  * duplicated the same −/input/+ block with slightly different sizing, so a change to
@@ -25,7 +26,16 @@ interface ServingsStepperProps {
   max?: number;
   /** 'lg' for the setup screen (larger touch targets), 'md' for active cooking */
   size?: 'md' | 'lg';
+  disabled?: boolean;
+  /** Accessible names, for callers that count something other than servings. */
+  labels?: { decrease: string; increase: string; input: string };
 }
+
+const DEFAULT_LABELS = {
+  decrease: 'Riduci porzioni',
+  increase: 'Aumenta porzioni',
+  input: 'Numero di porzioni',
+};
 
 const SIZE_CLASSES = {
   md: { button: 'w-12 h-12', icon: 'w-5 h-5', input: 'w-20 h-12 text-2xl' },
@@ -38,6 +48,8 @@ export function ServingsStepper({
   min = 1,
   max = 99,
   size = 'md',
+  disabled = false,
+  labels = DEFAULT_LABELS,
 }: ServingsStepperProps) {
   const classes = SIZE_CLASSES[size];
 
@@ -72,12 +84,13 @@ export function ServingsStepper({
   return (
     <div className="flex items-center gap-3">
       <Button
+        type="button"
         variant="outline"
         size="lg"
         onClick={() => onChange(clamp(value - 1))}
-        disabled={value <= min}
+        disabled={disabled || value <= min}
         className={`${classes.button} p-0`}
-        aria-label="Riduci porzioni"
+        aria-label={labels.decrease}
       >
         <Minus className={classes.icon} />
       </Button>
@@ -86,18 +99,20 @@ export function ServingsStepper({
         value={draft}
         onChange={(e) => commitDraft(e.target.value)}
         onBlur={normalizeOnBlur}
-        className={`${classes.input} text-center font-bold border-2 border-input rounded-md focus:border-primary focus:outline-none bg-background text-foreground`}
+        className={`${classes.input} text-center font-bold border-2 border-input rounded-md focus:border-primary focus:outline-none bg-background text-foreground disabled:cursor-not-allowed disabled:opacity-50`}
         min={min}
         max={max}
-        aria-label="Numero di porzioni"
+        disabled={disabled}
+        aria-label={labels.input}
       />
       <Button
+        type="button"
         variant="outline"
         size="lg"
         onClick={() => onChange(clamp(value + 1))}
-        disabled={value >= max}
+        disabled={disabled || value >= max}
         className={`${classes.button} p-0`}
-        aria-label="Aumenta porzioni"
+        aria-label={labels.increase}
       >
         <Plus className={classes.icon} />
       </Button>
