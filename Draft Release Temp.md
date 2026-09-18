@@ -10,15 +10,20 @@
 - Added an expiring-items strip at the top of the Pantry page so items that are expired, due today, or running low are always visible at a glance
 - Added a "Con quello che hai" section on the Pantry page that suggests recipes from your cookbook whose ingredients you already have in the pantry
 - Added position filters, a search field, and a "show expiring only" toggle to the Pantry page so you can quickly find what you are looking for
-- Added three ways to add items to the pantry: a full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
-- Added a mobile quick-action sheet on pantry items for marking an item as consumed, adjusting quantity, editing, or deleting
+- Added two ways to fill the pantry: a full manual form, or in one step from the items you checked off on the shopping list
+- Added a quick-action sheet on pantry items — a bottom sheet on phones, a centred window on desktop — to mark an item as consumed, move it between fridge, pantry and freezer, edit it, or delete it after a confirmation. "Consumato" takes one piece off counted items and offers "Un po' (−25%)", "Metà (−50%)" and "Tutto" for items measured in grams or litres
 - Added a Pantry summary sidebar on desktop with counts for expiring items, low-stock items, and total items across the three storage locations
 - Added the Pantry page to the main navigation — it is now the second tab on the mobile bottom bar and appears in the sidebar on desktop
 
 - Added a Weekly Shopping List page that automatically generates your shopping list from the current week's meal plan — ingredients from all recipes are aggregated and organised by section
 - Added the ability to check off items as you shop, with a progress bar showing how many items you have left
-- Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan
+- Added support for adding custom items to the shopping list manually, so you can include things not in your meal plan — also on weeks without a meal plan
 - Added week navigation on the shopping list page so you can view the list for past and future weeks
+- Added a collapsed "Hai già in casa" section to the shopping list for ingredients your pantry already covers, so they no longer count as items to buy. Tap "Mi serve comunque" to put one back in the list, or "Ce l'ho già" to set it aside again
+- Added pantry stock hints on shopping list items you only partly have, such as "In dispensa: 50 g · mancano 50 g", so you know exactly how much to buy
+- Added "Forse ce l'hai già" suggestions when a shopping list item looks like something in your pantry under a different name (e.g. "spaghetti" and "Spaghetti fini"). Confirm once with "Sì, è lo stesso" and the app remembers the link for the shopping list and for cooking
+- Added an "Aggiungi alla dispensa" button that saves every item you checked off on the shopping list to the pantry in one go, with quantity, category, location and expiry pre-filled and editable. Items you already had are topped up instead of duplicated, and only the missing amount is pre-filled
+- Added a "Per reparto" view to the shopping list that groups everything by supermarket department (produce, dairy, meat, frozen, bakery, and more) instead of by recipe, so shopping follows the store's layout. Switch back to the familiar recipe view anytime with the toggle at the top of the list, and permanently correct a misclassified item with "Sposta in reparto…"
 - Added a new Statistics page to track your most cooked recipes, total completed cooking sessions, and recent completions
 - Added cooking history tracking so completed sessions can power long-term stats and activity insights
 - Added manual step reordering when creating or editing recipes
@@ -38,6 +43,7 @@
 - Added support for multiple timers running at the same time, so you can track an oven and a resting time simultaneously
 - Added a "Duration (min)" field to the step editor in recipe create and edit, so you can set timers for any step manually
 - Added an "Auto-detect durations" button in recipe edit that scans step text and pre-fills durations automatically, without overwriting values you already set
+- Added a "Scala la dispensa" step when you finish cooking: the app proposes the pantry quantities you used, already scaled to the servings you cooked, and you can adjust, untick or skip them. Stock never drops below zero, and deleting an unfinished cooking session never touches the pantry
 - Added a reshuffle button on each occupied meal slot — click ↺ to swap in a different recipe of the same category without rebuilding the entire week
 - Added a day selector to the meal planner so you can plan only specific days (e.g. weekdays only) instead of the full week
 - Added a "Copy plan" action in the planner to duplicate a week you liked into another week (it stops you if that week already has a plan)
@@ -45,12 +51,19 @@
 - Added the ability to check off, remove individual ingredients from, or remove an entire ad-hoc recipe addition in the shopping list — these sections appear even on weeks without a saved meal plan, and stay in sync across your devices
 - Added automatic refresh for ad-hoc recipe additions: tapping "Voglio preparare questo" again on a recipe you already added updates its ingredient list in place instead of creating a duplicate section
 
-- Added estimated calories per serving for recipes — enter a value manually, or tap "Estimate calories" on any recipe to have the AI calculate it from the ingredient list; shown on recipe cards, the recipe detail page, and AI extraction previews
-- Added daily calorie totals to the meal planner, summing all recipes planned for each day (days with recipes that have no estimate show a "≥" total instead of hiding the number)
+- Added full nutrition info for recipes: alongside calories per serving, you can now enter or AI-estimate the serving weight and protein/carbs/fat, with kcal per 100 g calculated automatically from the two. The new figures show on the recipe detail page and in the AI extraction preview; recipe cards continue to show calories only
+- Added daily protein, carb, and fat totals to the meal planner, shown alongside the calorie totals for each planned day, all expressed per person. As with calories, a day where some recipes are missing an estimate shows a "≥" total instead of hiding the number
+- Added a family plan to the meal planner: every meal now knows how many people it is cooked for (your family size by default, adjustable per meal), and the shopping list scales each recipe's quantities to match. Plans created before this update keep their quantities exactly as they were until you set the people on a meal. The number of people you choose when creating a plan is remembered for the meals you add to it later
+- Added per-person variants to planned meals, for when someone eats a different dish ("pasta for everyone, minestrone for Sofia"). The variant's ingredients join the shopping list for the right number of people, small initials mark it on the calendar, and the day's calories show each person's own total
 - Added an optional "Search the web" toggle to Chat AI, so the assistant can look up real recipes online and cite its sources before generating a result
 - Added support for attaching up to 3 photos (max 3 MB total) to a Chat AI message, so you can ask about a dish from a picture or get suggestions from a photo of your ingredients
 - Added the ability to add or remove meal types (breakfast, lunch, dinner, etc.) on a meal plan that's already in progress, without having to delete and recreate the whole week
 - Added the ability to add back a day you previously removed from a meal plan
+
+- Added two new meal types to the weekly planner: Spuntino (mid-morning snack) and Merenda (afternoon snack) — select them during setup or add them to a plan that's already running, just like breakfast, lunch, or dinner
+
+- Added an "Organizza in sezioni" button on recipes that are one long list, which asks the AI to split them into their real components (e.g. "Per il ragù", "Per la besciamella", "Per l'assemblaggio"). You see the proposed split — with how many ingredients and steps land in each section — before anything is saved, and your ingredient names, quantities and step texts are never rewritten
+- Added automatic sections to recipes created with Chat AI and from free text: when a dish has genuinely distinct components, the AI now splits ingredients and method into matching named sections instead of producing one flat list. Simple one-component recipes stay as they are, and recipes imported from a PDF still follow the document exactly
 
 ## 🐛 Bug Fixes
 
@@ -89,12 +102,23 @@
 - Fixed the servings selector in cooking mode jumping back to 1 when you cleared the field to type a new number
 - Fixed an error while cooking (for example a failed save) replacing the whole screen — problems now show as a dismissible message and your cooking progress stays in view
 
+- Fixed meal rows in the weekly planner sometimes displaying out of the natural order of the day (e.g. adding breakfast to an existing plan could show it after lunch and dinner instead of first) — meal rows now always follow breakfast → morning snack → lunch → afternoon snack → dinner, including in plans saved before this fix
+- Fixed today's highlight in the weekly planner, which showed a cold blue outline on desktop and no highlight at all on phones — today is now marked in terracotta on both
+- Fixed soft color tints, hover states and outlines that were silently missing across the app (selected items, badges, panels), and the harsh near-white divider lines in dark mode — both themes now show the warm, low-contrast borders and backgrounds they were designed with
+
+- Fixed recipe sections disappearing on import when their name did not start with "per" — a cookbook heading like "La pasta" or "Il ragù" was silently dropped and its ingredients ended up in one unlabelled list. Section names are now kept exactly as written, with or without "per", and a trailing colon no longer breaks them
+- Fixed recipe sections being listed alphabetically instead of in the order you actually cook them — a cake now shows its base before its cream, rather than the other way round
+- Fixed sections you created by hand in the recipe editor always being pushed to the bottom in an unpredictable order — they now stay where you put them
+- Fixed the Ingredients and Preparation columns of the same recipe showing its sections in different orders — both now follow the order of the method
+
 ## 🔧 Improvements
 
 - Improved the shopping list so the same ingredient is merged across recipes even when written in different but compatible units (e.g. 200 g + 1 kg → 1,2 kg) or as singular/plural or accented spellings (e.g. pomodoro/pomodori)
+- Improved the shopping list so it never asks you to buy tap water or ice: "Acqua", "Acqua di cottura della pasta" or "Ghiaccio" in a recipe stay out of the list, while anything you add by hand is always kept
 - Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
 - Improved planner loading behavior by removing distracting global loading flashes on protected pages
-- Improved the planner generation state with a more polished editorial animation while the week is being composed
+- Improved the meal planner layout: the calendar now comes first with the plan's days and meals tucked into a collapsible summary, setup is split into an essential card plus optional shuffle rules, there is an "Oggi" shortcut back to the current week, and on phones the week opens on today
+- Improved the meal editor in the planner: tapping a meal opens a single panel where you change the recipe, the number of people and the variants without it closing after every choice
 - Improved desktop readability in the meal planner so long recipe names are easier to read in the weekly grid
 - Improved the AI Assistant startup path by loading cookbook data only when the chat tab actually needs it
 - Improved recipe page filter performance and planner-related loading responsiveness across the app

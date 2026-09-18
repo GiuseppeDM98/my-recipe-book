@@ -102,7 +102,10 @@ REGOLE PER LE RICETTE:
 - NON usare MAI asterischi (**testo**, *testo*) negli ingredienti, nel procedimento o nelle note
 - Usa unità metriche italiane (g, kg, ml, l, cucchiai, cucchiaini)
 - Usa decimali con virgola: 1,5 kg (NON 1.5 kg)
-- Includi porzioni e tempi solo se sei ragionevolmente sicuro, altrimenti ometti`;
+- Includi porzioni e tempi solo se sei ragionevolmente sicuro, altrimenti ometti
+- SEZIONI - REGOLA IMPORTANTE: se il piatto ha componenti logicamente distinte (es: impasto + farcitura, pasta + condimento, base + crema, ripieno + salsa), DEVI dividere la ricetta in sezioni, usando "## Ingredienti per [nome componente]" e "## Procedimento per [nome componente]"
+- I nomi delle sezioni devono essere COERENTI tra ingredienti e procedimento: se esiste "## Ingredienti per il ragù" deve esistere "## Procedimento per il ragù"
+- Le ricette semplici a componente unica restano SENZA sezioni: usa "## Ingredienti" e "## Procedimento" semplici, senza nome`;
 
 /**
  * Appended to the system prompt only when the user enables web search.

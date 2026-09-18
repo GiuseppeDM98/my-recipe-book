@@ -36,6 +36,15 @@ export interface User {
    * of whether a weekly plan exists. See lib/firebase/shopping-adhoc.ts.
    */
   adHocShoppingRecipes?: AdHocShoppingRecipe[] | null;
+  /**
+   * Manual "ingredient → department" overrides for the shopping list's
+   * per-department view (Spec E). Key = canonicalIngredientKey(name) (stem),
+   * value = slug in PANTRY_CATEGORIES. Applies permanently to that canonical
+   * key. Precedence: loses only to the categoryId of the matched pantry entry.
+   * Same pattern as familyProfile/adHocShoppingRecipes: a field on
+   * users/{uid}, no new collection/rule/index.
+   */
+  ingredientDepartmentOverrides?: Record<string, string> | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -63,7 +72,8 @@ export interface FamilyProfile {
  * - Named sections: E.g., "Per la pasta", "Per il sugo" (collapsible groups)
  *
  * Example: Lasagna might have "Per la besciamella" and "Per il ragù" sections.
- * See: ingredient-list-collapsible.tsx for rendering logic (null first, then alphabetical)
+ * See: ingredient-list-collapsible.tsx for rendering logic (null first, then the named
+ * sections in order of first appearance in the array — document order, not alphabetical)
  */
 export interface Ingredient {
   id: string;
@@ -150,6 +160,19 @@ export type Season = 'primavera' | 'estate' | 'autunno' | 'inverno' | 'tutte_sta
  * - Displays "✨ Suggerito da AI" badge in UI (season-selector.tsx)
  * - Users can modify AI suggestions before saving
  */
+/**
+ * Estimated macronutrients for ONE serving, in grams.
+ *
+ * Always the complete trio: a partial estimate (protein only, etc.) cannot be expressed
+ * or persisted — either all three or the field is absent. 0 is a legitimate value
+ * (e.g. 0 g of fat): display gates must use `!= null`, never truthiness.
+ */
+export interface MacrosPerServing {
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+}
+
 export interface Recipe {
   id: string;
   userId: string;
@@ -226,6 +249,16 @@ export interface Recipe {
    */
   caloriesPerServing?: number;
 
+  /**
+   * Estimated weight of ONE serving of the FINISHED recipe, in grams (AI or manual).
+   * Per serving for the same reason as caloriesPerServing. kcal/100g is derived
+   * at render time: never persist derived values.
+   */
+  servingWeightGrams?: number;
+
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
+  macrosPerServing?: MacrosPerServing;
+
   notes?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -289,6 +322,13 @@ export interface CookingSession {
   servings?: number; // Servings being cooked (enables real-time ingredient scaling with scaleQuantity())
   checkedIngredients: string[];
   checkedSteps: string[];
+  /**
+   * true once "Scala la dispensa" has been applied for this cooking. Persisted
+   * (not just a ref) so a page reload between the pantry batch and the end of
+   * "Termina cottura" can't propose — and apply — the deduction twice.
+   * Absent on sessions that never deducted.
+   */
+  pantryDeducted?: boolean;
   startedAt: Timestamp;
   lastUpdatedAt: Timestamp;
 }
@@ -359,6 +399,10 @@ export interface ParsedRecipe {
   notes?: string;
   /** Estimated kcal for one serving (see Recipe.caloriesPerServing). */
   caloriesPerServing?: number;
+  /** Estimated weight of ONE serving, in grams (see Recipe.servingWeightGrams). */
+  servingWeightGrams?: number;
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
+  macrosPerServing?: MacrosPerServing;
   ingredients: Ingredient[];
   steps: Step[];
   aiSuggestion?: AISuggestion; // AI-generated category and season suggestion
@@ -377,18 +421,48 @@ export interface ParsedRecipe {
  * - cena (dinner): second main meal, typically 7:30–9pm
  */
 /**
- * Meal types include both traditional meal slots (colazione/pranzo/cena) and
- * Italian course types (primo/secondo/contorno/dolce).
+ * Meal types include both traditional meal slots (colazione/spuntino/pranzo/
+ * merenda/cena) and Italian course types (primo/secondo/contorno/dolce).
  *
  * Course types are optional rows added in advanced setup, each optionally
  * associated with a preferred category so the AI picks appropriate recipes.
  */
-export type MealType = 'colazione' | 'pranzo' | 'cena' | 'primo' | 'secondo' | 'contorno' | 'dolce';
+export type MealType =
+  | 'colazione'
+  | 'spuntino' // metà mattina
+  | 'pranzo'
+  | 'merenda' // pomeriggio
+  | 'cena'
+  | 'primo' | 'secondo' | 'contorno' | 'dolce'; // legacy course types, solo render di piani storici
+
+/**
+ * Per-member variant of a slot: one or more family members eat a recipe
+ * different from the base meal.
+ *
+ * EXISTING RECIPES ONLY: no inline `newRecipe` — variants reference the
+ * cookbook. Allowing an inline recipe would duplicate the AI review/save flow
+ * and grow the meal_plans document by a full recipe per variant.
+ *
+ * memberIds references FamilyMember.id from the family profile. A member later
+ * removed from the profile leaves an "orphan variant": scaling keeps counting
+ * memberIds.length (the planned people stay planned), the UI marks the chip as
+ * "Componente rimosso". There is no auto-cleanup, because an implicit write
+ * that changes the shopping list would break the same principle as the legacy
+ * invariant on MealSlot.servingsPlanned.
+ */
+export interface MealSlotVariant {
+  id: string;                       // crypto.randomUUID()
+  memberIds: string[];              // always >= 1 element (client-side guard)
+  existingRecipeId: string | null;  // cookbook recipe; null only for corrupt data (defensive skip)
+  recipeTitle: string | null;       // Denormalized for O(1) render, like MealSlot.recipeTitle
+}
 
 /**
  * A single slot in the weekly meal plan.
  *
  * SLOT IDENTITY: dayIndex (0=Mon … 6=Sun) + mealType = unique key per plan.
+ * Family variants live INSIDE the slot, so they never create a second slot for
+ * the same meal and are deleted together with it.
  *
  * RECIPE REFERENCE STRATEGY:
  * - existingRecipeId: points to a recipe already in the user's cookbook
@@ -410,6 +484,19 @@ export interface MealSlot {
   suggestedCategoryName?: string;
   /** AI-suggested seasons for new recipes. */
   suggestedSeasons?: Season[];
+  /**
+   * TOTAL people served by the slot, variants included: the base meal covers
+   * servingsPlanned − Σ variants[].memberIds.length people, clamped to 0.
+   *
+   * LEGACY INVARIANT (non-negotiable): null/undefined = plan created before
+   * the family model OR slot never reconfigured → NO scaling, quantities
+   * as-is. Existing shopping lists must not change on their own. The value is
+   * written only by: shuffle (family default), the slot editor, updateSlot on
+   * a previously empty cell.
+   */
+  servingsPlanned?: number | null;
+  /** Per-member variants; null/undefined/[] = none. Persist null, never undefined. */
+  variants?: MealSlotVariant[] | null;
 }
 
 /**
@@ -437,9 +524,22 @@ export interface MealPlan {
   generatedByAI: boolean;
   /** Days included in this plan: 0=Mon … 6=Sun. null/undefined = all 7 days. */
   activeDays?: number[] | null;
+  /**
+   * People a newly filled slot of THIS plan is planned for — the "Per quante persone
+   * cucini di solito?" answer given at setup. It only seeds MealSlot.servingsPlanned on
+   * cells filled later; it never rescales existing slots and never touches a legacy
+   * slot. null/undefined (every plan created before the field) = use the family size.
+   */
+  defaultServingsPlanned?: number | null;
   /** Shopping list state stored here to sync across devices. */
   shoppingCheckedIds?: string[] | null;
   shoppingCustomItems?: ShoppingItem[] | null;
+  /**
+   * Item ids (ShoppingItem.id) the user re-included in the list despite having
+   * the ingredient in the pantry ("Mi serve comunque"). Persisted together with
+   * checked/custom in the same write (no new persistence target).
+   */
+  shoppingPantryIncludedIds?: string[] | null;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -498,6 +598,12 @@ export interface AdHocShoppingItem {
   name: string;
   quantity: string;
   checked: boolean;
+  /**
+   * true = re-included in the list despite the pantry match. Absent = false.
+   * Never written as undefined/false inside the persisted array: the key is
+   * set to true or omitted (see withPantryIncluded in useShoppingList).
+   */
+  pantryIncluded?: boolean;
 }
 
 /**
@@ -543,4 +649,11 @@ export interface MealPlanSetupConfig {
   activeDays?: number[] | null;
   /** Per-meal category settings (preferred + excluded). Supersedes courseCategoryMap + excludedCategoryIds. */
   mealTypeConfigs?: Partial<Record<MealType, MealTypeConfig>> | null;
+  /**
+   * People the user usually cooks for, chosen at setup. Becomes servingsPlanned on
+   * every shuffled slot and is persisted as MealPlan.defaultServingsPlanned — the ONE
+   * field of this config that outlives setup, because cells keep being filled for days.
+   * null/undefined = use the family-profile default.
+   */
+  defaultServingsPlanned?: number | null;
 }

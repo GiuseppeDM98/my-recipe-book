@@ -5,17 +5,19 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { ShoppingItem } from '@/types';
 import { ShoppingItemRow } from './ShoppingItemRow';
+import { buildPantryRowProps, ShoppingPantryContext } from './pantry-row-props';
+import { DAY_LABELS } from '@/lib/utils/shopping-departments';
 
 interface ShoppingSectionProps {
   title: string;
+  /** Rows to show: the caller has already removed items parked in "Hai già in casa". */
   items: ShoppingItem[];
   checkedIds: Set<string>;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   defaultExpanded?: boolean;
+  pantryContext?: ShoppingPantryContext;
 }
-
-const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
 function footnoteFor(item: ShoppingItem): string | undefined {
   if (item.isCustom) return 'Aggiunto manualmente';
@@ -32,6 +34,7 @@ export function ShoppingSection({
   onToggle,
   onRemove,
   defaultExpanded = true,
+  pantryContext,
 }: ShoppingSectionProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -84,6 +87,8 @@ export function ShoppingSection({
                 quantity={item.displayQuantity}
                 checked={checkedIds.has(item.id)}
                 footnote={footnoteFor(item)}
+                // Custom items are never classified, so this yields {} for them.
+                {...buildPantryRowProps(item.id, item.name, pantryContext)}
                 onToggle={() => onToggle(item.id)}
                 onRemove={item.isCustom ? () => onRemove(item.id) : undefined}
               />

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, CheckSquare, ShoppingCart, MoveRight, Pencil } from 'lucide-react';
+import { ChevronRight, Pencil } from 'lucide-react';
 import { PantryItem } from '@/types/pantry';
 import { expiryStatus, formatQty, stockLevel } from '@/lib/utils/pantry-utils';
 import { FoodInitials } from './FoodInitials';
@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils/cn';
 interface PantryItemRowProps {
   item: PantryItem;
   onClick: (item: PantryItem) => void;
-  onConsume?: (item: PantryItem) => void;
-  onAddToList?: (item: PantryItem) => void;
   onEdit?: (item: PantryItem) => void;
 }
 
@@ -22,7 +20,14 @@ const POSITION_ICONS: Record<PantryItem['position'], string> = {
   freezer: '✻',
 };
 
-export function PantryItemRow({ item, onClick, onConsume, onAddToList, onEdit }: PantryItemRowProps) {
+/**
+ * One pantry entry. Clicking it opens PantryItemQuickSheet at every width
+ * (bottom sheet on mobile, centered modal on desktop), where "Consumato" has the
+ * per-unit semantics. The only inline desktop action is "Modifica": a flat −1
+ * shortcut would reintroduce the wrong semantics for g/ml units.
+ * The hover-only action block is fine here because it is lg-only.
+ */
+export function PantryItemRow({ item, onClick, onEdit }: PantryItemRowProps) {
   const info = expiryStatus(item.expires);
   const { level } = stockLevel(item);
   const borderClass = expiryBorderClass(info.status);
@@ -88,34 +93,17 @@ export function PantryItemRow({ item, onClick, onConsume, onAddToList, onEdit }:
 
         {/* Hover actions on desktop */}
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          {onConsume && (
+          {onEdit ? (
             <button
-              title="Consumato"
-              onClick={e => { e.stopPropagation(); onConsume(item); }}
-              className="rounded-lg p-2 hover:bg-accent/20 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <CheckSquare className="h-4 w-4" />
-            </button>
-          )}
-          {onAddToList && (
-            <button
-              title="In lista spesa"
-              onClick={e => { e.stopPropagation(); onAddToList(item); }}
-              className="rounded-lg p-2 hover:bg-accent/20 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ShoppingCart className="h-4 w-4" />
-            </button>
-          )}
-          {onEdit && (
-            <button
+              type="button"
               title="Modifica"
+              aria-label={`Modifica ${item.name}`}
               onClick={e => { e.stopPropagation(); onEdit(item); }}
               className="rounded-lg p-2 hover:bg-accent/20 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Pencil className="h-4 w-4" />
             </button>
-          )}
-          {!onConsume && !onAddToList && !onEdit && (
+          ) : (
             <ExpiryBadge info={info} />
           )}
         </div>

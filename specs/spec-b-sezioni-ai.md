@@ -1,21 +1,21 @@
-# Spec B — Sezioni ingredienti/procedimento: diagnosi e cura completa
+# Spec B — Ingredient/method sections: diagnosis and complete fix
 
-> Note coperte: 8 (sezioni AI + riorganizzazione ricette esistenti) | Dipendenze: nessuna | Branch: `feature/ai-recipe-sections`
+> Notes covered: 8 (AI sections + reorganization of existing recipes) | Dependencies: none | Branch: `feature/ai-recipe-sections`
 
-## 1. Obiettivo
+## 1. Goal
 
-Oggi le ricette generate o formattate dall'AI escono quasi sempre "piatte" (nessuna sezione), anche quando il piatto ha componenti logicamente distinte (impasto + farcitura, pasta + ragù, base + crema). Quando invece le sezioni arrivano, il parser ne perde silenziosamente una parte (i nomi che non iniziano con "per ") e il renderer ne stravolge l'ordine (sort alfabetico sugli ingredienti). Dopo questa spec:
+Today recipes generated or formatted by the AI almost always come out "flat" (no sections), even when the dish has logically distinct components (dough + filling, pasta + ragù, base + cream). When sections do arrive, the parser silently loses part of them (names that don't start with "per ") and the renderer scrambles their order (alphabetical sort on ingredients). After this spec:
 
-1. il parser riconosce **qualsiasi** nome di sezione dopo `## Ingredienti ` / `## Procedimento ` (con o senza "per"), mantenendo il comportamento `## Ingredienti` nudo → sezione null;
-2. `chat-recipe` e `format-recipe` hanno una regola **prescrittiva**: componenti distinte → sezioni obbligatorie, con nomi coerenti tra ingredienti e procedimento; `extract-recipes` resta fedele alla fonte;
-3. le sezioni si mostrano in **ordine di prima apparizione** (documento), non alfabetico;
-4. una nuova route `POST /api/reorganize-recipe` + un pulsante "Organizza in sezioni" nel dettaglio ricetta permettono di riorganizzare le ricette flat già salvate, senza toccare testi né id (zero rischio per `cooking_sessions` attive e token `{{qty:id}}`).
+1. the parser recognizes **any** section name after `## Ingredienti ` / `## Procedimento ` (with or without "per"), keeping the bare `## Ingredienti` behavior → null section;
+2. `chat-recipe` and `format-recipe` have a **prescriptive** rule: distinct components → mandatory sections, with names consistent between ingredients and method; `extract-recipes` stays faithful to the source;
+3. sections are shown in **order of first appearance** (document), not alphabetically;
+4. a new `POST /api/reorganize-recipe` route + an "Organizza in sezioni" button on the recipe detail page make it possible to reorganize flat recipes already saved, without touching text or ids (zero risk for active `cooking_sessions` and `{{qty:id}}` tokens).
 
-## 2. Stato attuale (diagnosi verificata sul codice)
+## 2. Current state (diagnosis verified against the code)
 
-### 2.1 Prompt — perché le ricette escono flat
+### 2.1 Prompts — why recipes come out flat
 
-**(a) `CHAT_SYSTEM_PROMPT`** (`src/app/api/chat-recipe/route.ts:38-105`) non contiene NESSUNA regola prescrittiva sulle sezioni. Le uniche menzioni sono due parenthetical descrittivi nel template (righe 65-67 e 75-77):
+**(a) `CHAT_SYSTEM_PROMPT`** (`src/app/api/chat-recipe/route.ts:38-105`) contains NO prescriptive rule about sections. The only mentions are two descriptive parentheticals in the template (lines 65-67 and 75-77):
 
 ```
 *(Se la ricetta ha più sezioni di ingredienti, usa:)*
@@ -29,9 +29,9 @@ Oggi le ricette generate o formattate dall'AI escono quasi sempre "piatte" (ness
 - [Passo]
 ```
 
-Il blocco `REGOLE PER LE RICETTE:` (righe 88-105) elenca 15+ regole su formato ingredienti, `[ING:n]`/`[QTY:n]`/`[DUR:N]`, decimali, markdown — e **zero** regole sulle sezioni. Un modello che genera una lasagna da zero non ha alcuna istruzione a decomporla: la forma flat è l'attrattore di default.
+The `REGOLE PER LE RICETTE:` block (lines 88-105) lists 15+ rules on ingredient format, `[ING:n]`/`[QTY:n]`/`[DUR:N]`, decimals, markdown — and **zero** rules about sections. A model generating a lasagna from scratch has no instruction to decompose it: the flat form is the default attractor.
 
-**(b) `FORMAT_RECIPE_PROMPT`** (`src/app/api/format-recipe/route.ts:30-129`) ha la regola §4 (righe 98-101):
+**(b) `FORMAT_RECIPE_PROMPT`** (`src/app/api/format-recipe/route.ts:30-129`) has rule §4 (lines 98-101):
 
 ```
 ### 4. SEZIONI MULTIPLE
@@ -40,13 +40,13 @@ Il blocco `REGOLE PER LE RICETTE:` (righe 88-105) elenca 15+ regole su formato i
 - Mantieni "Per" se presente (es: "Per il sugo", "Per la pasta")
 ```
 
-ma il template (righe 38-52) mostra la forma flat **per prima** e quella con sezioni solo come parenthetical, quindi la regola è debole e la forma flat resta il default.
+but the template (lines 38-52) shows the flat form **first** and the sectioned one only as a parenthetical, so the rule is weak and the flat form remains the default.
 
-**(c) `EXTRACTION_PROMPT`** (`src/app/api/extract-recipes/route.ts:26-157`) è correttamente fedele alla fonte: la §3 (righe 91-98) impone di copiare i nomi di sezione ESATTAMENTE, con esempi corretti espliciti `"La pasta"`, `"Il ragù"` (riga 97). Non va toccato: non deve inventare sezioni che il PDF non ha.
+**(c) `EXTRACTION_PROMPT`** (`src/app/api/extract-recipes/route.ts:26-157`) is correctly faithful to the source: §3 (lines 91-98) requires copying section names EXACTLY, with explicit correct examples `"La pasta"`, `"Il ragù"` (line 97). It must not be touched: it must not invent sections the PDF doesn't have.
 
-### 2.2 BUG parser — sezioni non-"per" droppate in silenzio
+### 2.2 Parser BUG — non-"per" sections silently dropped
 
-`src/lib/utils/recipe-parser.ts:78-84` (ingredienti):
+`src/lib/utils/recipe-parser.ts:78-84` (ingredients):
 
 ```ts
 if (line.startsWith('## Ingredienti')) {
@@ -58,7 +58,7 @@ if (line.startsWith('## Ingredienti')) {
 }
 ```
 
-e `recipe-parser.ts:86-99` (procedimento):
+and `recipe-parser.ts:86-99` (method):
 
 ```ts
 if (line.startsWith('## Procedimento')) {
@@ -76,13 +76,13 @@ if (line.startsWith('## Procedimento')) {
 }
 ```
 
-Il gruppo di cattura `(per\s+.+)` accetta SOLO nomi che iniziano con "per ". Ma `EXTRACTION_PROMPT` §3 ordina di preservare `"La pasta"` / `"Il ragù"`: se il modello obbedisce ed emette `## Ingredienti La pasta`, il gruppo opzionale fallisce **e l'ancora `$` fa fallire l'intera regex** → `sectionMatch` è `null` → sezione `null`. La riga è comunque consumata da `startsWith('## Ingredienti')`, quindi la sezione **sparisce senza errore**: gli item finiscono nel gruppo flat. Il contratto prompt↔parser è rotto oggi.
+The capture group `(per\s+.+)` accepts ONLY names starting with "per ". But `EXTRACTION_PROMPT` §3 orders preserving `"La pasta"` / `"Il ragù"`: if the model obeys and emits `## Ingredienti La pasta`, the optional group fails **and the `$` anchor makes the whole regex fail** → `sectionMatch` is `null` → section `null`. The line is consumed anyway by `startsWith('## Ingredienti')`, so the section **disappears without an error**: the items end up in the flat group. The prompt↔parser contract is broken today.
 
-`capitalizeSectionName` (`recipe-parser.ts:420-429`) ha già il ramo non-"per" (`return sectionName;`) ma è dead code, perché la cattura non produce mai nomi senza "per".
+`capitalizeSectionName` (`recipe-parser.ts:420-429`) already has the non-"per" branch (`return sectionName;`) but it is dead code, because the capture never produces names without "per".
 
-### 2.3 Ordinamento a render — asimmetrico e lossy
+### 2.3 Render ordering — asymmetric and lossy
 
-**Ingredienti** (`src/components/recipe/ingredient-list-collapsible.tsx:74-79`): le sezioni nominate vengono riordinate **alfabeticamente**, perdendo l'ordine documento:
+**Ingredients** (`src/components/recipe/ingredient-list-collapsible.tsx:74-79`): named sections are re-sorted **alphabetically**, losing document order:
 
 ```ts
 groupedIngredients.sort((a, b) => {
@@ -92,16 +92,16 @@ groupedIngredients.sort((a, b) => {
 });
 ```
 
-**Step** (`src/components/recipe/steps-list-collapsible.tsx:104-114`): l'ordine documento è preservato via `sectionOrder`, ma il fallback per step senza `sectionOrder` (creati dal form: `addStep` a `recipe-form.tsx:272-277` crea `{ ..., section: '', duration: null }` senza chiave `sectionOrder`) è `999` → tutte le sezioni aggiunte a mano finiscono in coda in ordine casuale:
+**Steps** (`src/components/recipe/steps-list-collapsible.tsx:104-114`): document order is preserved via `sectionOrder`, but the fallback for steps without `sectionOrder` (created from the form: `addStep` at `recipe-form.tsx:272-277` creates `{ ..., section: '', duration: null }` with no `sectionOrder` key) is `999` → all sections added by hand end up at the bottom in random order:
 
 ```ts
 const orderA = a.steps[0]?.sectionOrder ?? 999;
 const orderB = b.steps[0]?.sectionOrder ?? 999;
 ```
 
-### 2.4 Round-trip del form — sezione fantasma "Ingredienti"
+### 2.4 Form round-trip — phantom "Ingredienti" section
 
-Al load il form rinomina la sezione null in `'Ingredienti'` (`recipe-form.tsx:245`) e al save persiste **qualsiasi** nome non vuoto, incluso il default (`recipe-form.tsx:409-421`):
+On load the form renames the null section to `'Ingredienti'` (`recipe-form.tsx:245`) and on save it persists **any** non-empty name, including the default (`recipe-form.tsx:409-421`):
 
 ```ts
 if (section.name && section.name.trim()) {
@@ -111,49 +111,49 @@ if (section.name && section.name.trim()) {
 }
 ```
 
-Quindi una ricetta flat modificata nel form si ritrova con `section: "Ingredienti"` su tutti gli ingredienti: stringa truthy che il renderer NON normalizza → compare un header collassabile "Ingredienti" superfluo. Questa spec non migra i dati, ma il gating del pulsante "Organizza in sezioni" (§4.5) deve trattare questo stato come "senza sezioni".
+So a flat recipe edited in the form ends up with `section: "Ingredienti"` on every ingredient: a truthy string the renderer does NOT normalize → a superfluous collapsible "Ingredienti" header appears. This spec does not migrate data, but the gating of the "Organizza in sezioni" button (§4.5) must treat this state as "no sections".
 
-### 2.5 Nessuna capacità di ristrutturazione AI
+### 2.5 No AI restructuring capability
 
-La superficie API è `chat-recipe`, `estimate-calories`, `extract-recipes`, `format-recipe`, `suggest-category` (`ls src/app/api`). Nessuna route accetta una ricetta strutturata esistente. Il precedente architetturale per "passaggio di arricchimento separato su ricetta esistente" è `estimate-calories` (`src/app/api/estimate-calories/route.ts`) col suo hook `useEstimateCalories` (`src/lib/hooks/useEstimateCalories.ts`) e il client helper `getAICalorieEstimateForRecipe` (`recipe-parser.ts:579-618`).
+The API surface is `chat-recipe`, `estimate-calories`, `extract-recipes`, `format-recipe`, `suggest-category` (`ls src/app/api`). No route accepts an existing structured recipe. The architectural precedent for "separate enrichment pass on an existing recipe" is `estimate-calories` (`src/app/api/estimate-calories/route.ts`) with its hook `useEstimateCalories` (`src/lib/hooks/useEstimateCalories.ts`) and the client helper `getAICalorieEstimateForRecipe` (`recipe-parser.ts:579-618`).
 
-### 2.6 Dipendenze a valle di `ingredient.section`
+### 2.6 Downstream dependencies of `ingredient.section`
 
-- Lista spesa: `buildContributions` copia `section: ing.section ?? null` (`src/lib/utils/ingredient-aggregator.ts:45`); `aggregateIngredients` usa "first encountered section value for the group" come `ShoppingItem.section`; `useShoppingList` ordina per sezione (`src/lib/hooks/useShoppingList.ts:370-381`, null in coda) e deriva `sectionNames` (righe 386+); la sezione null è etichettata `'Senza categoria'` (`src/components/shopping-list/ShoppingListContent.tsx:31`).
-- Numerazione globale step: contatore `let globalStepNumber = 0` incrementato durante il render, anche nelle sezioni collassate (`steps-list-collapsible.tsx:174,194,320`); il contenuto collassato resta montato (`grid-rows-[0fr]`).
-- `cooking_sessions` persistono `checkedSteps`/`checkedIngredients` per **id** item; gli step contengono token `{{qty:ingredientId}}` risolti sugli id correnti.
+- Shopping list: `buildContributions` copies `section: ing.section ?? null` (`src/lib/utils/ingredient-aggregator.ts:45`); `aggregateIngredients` uses "first encountered section value for the group" as `ShoppingItem.section`; `useShoppingList` sorts by section (`src/lib/hooks/useShoppingList.ts:370-381`, null last) and derives `sectionNames` (lines 386+); the null section is labeled `'Senza categoria'` (`src/components/shopping-list/ShoppingListContent.tsx:31`).
+- Global step numbering: counter `let globalStepNumber = 0` incremented during render, even in collapsed sections (`steps-list-collapsible.tsx:174,194,320`); collapsed content stays mounted (`grid-rows-[0fr]`).
+- `cooking_sessions` persist `checkedSteps`/`checkedIngredients` by item **id**; steps contain `{{qty:ingredientId}}` tokens resolved against the current ids.
 
-## 3. Decisioni di prodotto (dal roadmap, vincolanti — contratto cross-spec 6)
+## 3. Product decisions (from the roadmap, binding — cross-spec contract 6)
 
-1. Parser: la regex si amplia per catturare **qualsiasi** nome dopo `## Ingredienti ` / `## Procedimento ` (con e senza "per"), preservando `## Ingredienti` nudo → sezione null.
-2. Prompt: `chat-recipe` e `format-recipe` guadagnano una regola **prescrittiva** ("se il piatto ha componenti logicamente distinte DEVI creare sezioni"); `extract-recipes` resta fedele alla fonte (non inventa sezioni).
-3. Ordinamento: sezioni ingredienti in **ordine di prima apparizione** nell'array (niente sort alfabetico); il fallback degli step senza `sectionOrder` diventa anch'esso l'ordine di prima apparizione. Nessun nuovo campo su `Ingredient`, nessuna migrazione.
-4. Nuova route `POST /api/reorganize-recipe`: riceve la ricetta strutturata (id + testi), restituisce **solo l'assegnazione delle sezioni** keyed sugli id esistenti (`ingredientId → section`, `stepId → section + sectionOrder`). Non tocca testi né id.
-5. UI: pulsante "Organizza in sezioni" nel dettaglio ricetta, anteprima in Dialog, conferma → `updateRecipe`, toast per gli esiti.
+1. Parser: the regex is widened to capture **any** name after `## Ingredienti ` / `## Procedimento ` (with and without "per"), preserving bare `## Ingredienti` → null section.
+2. Prompts: `chat-recipe` and `format-recipe` gain a **prescriptive** rule ("if the dish has logically distinct components you MUST create sections"); `extract-recipes` stays faithful to the source (does not invent sections).
+3. Ordering: ingredient sections in **order of first appearance** in the array (no alphabetical sort); the fallback for steps without `sectionOrder` also becomes order of first appearance. No new field on `Ingredient`, no migration.
+4. New route `POST /api/reorganize-recipe`: receives the structured recipe (ids + text), returns **only the section assignment** keyed on the existing ids (`ingredientId → section`, `stepId → section + sectionOrder`). Does not touch text or ids.
+5. UI: "Organizza in sezioni" button on the recipe detail page, preview in a Dialog, confirm → `updateRecipe`, toasts for the outcomes.
 
-## 4. Design proposto
+## 4. Proposed design
 
-### 4.1 Parser: regex ampliata e `capitalizeSectionName`
+### 4.1 Parser: widened regex and `capitalizeSectionName`
 
-**Regex attuale (verbatim, `recipe-parser.ts:81` e `:89`):**
+**Current regex (verbatim, `recipe-parser.ts:81` and `:89`):**
 
 ```ts
 /##\s+Ingredienti(?:\s+(per\s+.+))?$/i
 /##\s+Procedimento(?:\s+(per\s+.+))?$/i
 ```
 
-**Regex proposta:**
+**Proposed regex:**
 
 ```ts
 /^##\s+Ingredienti(?:\s+(.+?))?[\s:]*$/i
 /^##\s+Procedimento(?:\s+(.+?))?[\s:]*$/i
 ```
 
-Razionale: `(.+?)` lazy cattura qualsiasi nome; `[\s:]*$` assorbe spazi finali e un eventuale `:` di chiusura (il modello a volte emette `## Ingredienti per la crema:`); il gruppo resta opzionale → `## Ingredienti` nudo non cattura nulla → `sectionMatch[1]` è `undefined` → sezione null, come oggi. L'ancora `^` è innocua (le righe sono già trimmate a `recipe-parser.ts:47`) ma rende la regex autonoma.
+Rationale: lazy `(.+?)` captures any name; `[\s:]*$` absorbs trailing spaces and an optional closing `:` (the model sometimes emits `## Ingredienti per la crema:`); the group stays optional → bare `## Ingredienti` captures nothing → `sectionMatch[1]` is `undefined` → null section, as today. The `^` anchor is harmless (lines are already trimmed at `recipe-parser.ts:47`) but makes the regex self-contained.
 
-**Tabella casi di test (da implementare in `recipe-parser.test.ts`):**
+**Test case table (to implement in `recipe-parser.test.ts`):**
 
-| Input riga | Cattura | Sezione risultante |
+| Input line | Capture | Resulting section |
 |---|---|---|
 | `## Ingredienti` | — | `null` |
 | `## Ingredienti ` (trailing space) | — | `null` |
@@ -164,10 +164,10 @@ Razionale: `(.+?)` lazy cattura qualsiasi nome; `[\s:]*$` assorbe spazi finali e
 | `## Ingredienti per l'impasto` | `per l'impasto` | `Per l'impasto` |
 | `## Ingredienti la farcitura` | `la farcitura` | `La farcitura` |
 | `## Ingredienti per la crema:` | `per la crema` | `Per la crema` |
-| `## Procedimento Il ragù` | `Il ragù` | `Il ragù` (e `sectionOrder` incrementa) |
-| `## INGREDIENTI PER LA BASE` | — | riga NON riconosciuta come header: il guard `line.startsWith('## Ingredienti')` (`recipe-parser.ts:78` e `:86`) è **case-sensitive** e scarta la variante tutta maiuscola PRIMA che la regex (case-insensitive) venga valutata — vero oggi e dopo la modifica; il guard resta invariato |
+| `## Procedimento Il ragù` | `Il ragù` | `Il ragù` (and `sectionOrder` increments) |
+| `## INGREDIENTI PER LA BASE` | — | line NOT recognized as a header: the `line.startsWith('## Ingredienti')` guard (`recipe-parser.ts:78` and `:86`) is **case-sensitive** and discards the all-caps variant BEFORE the (case-insensitive) regex is evaluated — true today and after the change; the guard stays unchanged |
 
-**`capitalizeSectionName` aggiornata** (`recipe-parser.ts:420-429`). Attuale (verbatim):
+**Updated `capitalizeSectionName`** (`recipe-parser.ts:420-429`). Current (verbatim):
 
 ```ts
 function capitalizeSectionName(sectionName: string | null): string | null {
@@ -182,7 +182,7 @@ function capitalizeSectionName(sectionName: string | null): string | null {
 }
 ```
 
-Proposta: il ramo non-"per" (ora raggiungibile) capitalizza la prima lettera, lasciando il resto invariato (i nomi da PDF arrivano già capitalizzati per la regola di fedeltà; quelli minuscoli da chat/format vanno normalizzati):
+Proposal: the non-"per" branch (now reachable) capitalizes the first letter, leaving the rest unchanged (names from PDFs already arrive capitalized because of the fidelity rule; lowercase ones from chat/format need normalizing):
 
 ```ts
 function capitalizeSectionName(sectionName: string | null): string | null {
@@ -192,16 +192,16 @@ function capitalizeSectionName(sectionName: string | null): string | null {
     return 'Per' + sectionName.substring(3);
   }
 
-  // Nomi senza "per" ("La pasta", "il ragù"): prima lettera maiuscola, resto invariato
+  // Names without "per" ("La pasta", "il ragù"): first letter uppercase, rest unchanged
   return sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
 }
 ```
 
-Nessuna modifica alla logica di `sectionOrder` (`recipe-parser.ts:92-98`) né a `parseIngredientLine` (la sezione è passata come parametro, `recipe-parser.ts:139`).
+No change to the `sectionOrder` logic (`recipe-parser.ts:92-98`) nor to `parseIngredientLine` (the section is passed as a parameter, `recipe-parser.ts:139`).
 
-### 4.2 Prompt: regola prescrittiva su chat e format (mirror convention)
+### 4.2 Prompts: prescriptive rule on chat and format (mirror convention)
 
-**`CHAT_SYSTEM_PROMPT`** (`chat-recipe/route.ts`): aggiungere in coda al blocco `REGOLE PER LE RICETTE:` (dopo la riga 105, `- Includi porzioni e tempi solo se sei ragionevolmente sicuro, altrimenti ometti`) queste righe, nello stile del prompt:
+**`CHAT_SYSTEM_PROMPT`** (`chat-recipe/route.ts`): append to the end of the `REGOLE PER LE RICETTE:` block (after line 105, `- Includi porzioni e tempi solo se sei ragionevolmente sicuro, altrimenti ometti`) these lines, in the prompt's style:
 
 ```
 - SEZIONI - REGOLA IMPORTANTE: se il piatto ha componenti logicamente distinte (es: impasto + farcitura, pasta + condimento, base + crema, ripieno + salsa), DEVI dividere la ricetta in sezioni, usando "## Ingredienti per [nome componente]" e "## Procedimento per [nome componente]"
@@ -209,9 +209,9 @@ Nessuna modifica alla logica di `sectionOrder` (`recipe-parser.ts:92-98`) né a 
 - Le ricette semplici a componente unica restano SENZA sezioni: usa "## Ingredienti" e "## Procedimento" semplici, senza nome
 ```
 
-I template parenthetical (righe 65-67, 75-77) restano invariati: la forma resta identica, cambia solo la prescrittività.
+The parenthetical templates (lines 65-67, 75-77) stay unchanged: the form stays identical, only the prescriptiveness changes.
 
-**`FORMAT_RECIPE_PROMPT`** (`format-recipe/route.ts:98-101`). §4 attuale citata verbatim in §2.1(b). Proposta sostitutiva:
+**`FORMAT_RECIPE_PROMPT`** (`format-recipe/route.ts:98-101`). Current §4 quoted verbatim in §2.1(b). Replacement proposal:
 
 ```
 ### 4. SEZIONI MULTIPLE - REGOLA IMPORTANTE
@@ -222,27 +222,27 @@ I template parenthetical (righe 65-67, 75-77) restano invariati: la forma resta 
 - Le ricette semplici a componente unica restano SENZA sezioni: "## Ingredienti" e "## Procedimento" semplici
 ```
 
-**`EXTRACTION_PROMPT`: NESSUNA modifica** (fedeltà alla fonte, decisione di prodotto). La convenzione mirror documentata in CLAUDE.md/AGENTS.md (regola ingredienti orfani: "Keep the rule mirrored in both prompts") va rispettata al contrario qui: la regola prescrittiva vive in chat + format e **deliberatamente NON** in extract — stesso schema di scope del family context (`AGENTS.md §7 "Family Context Scope"`). Documentarlo in CLAUDE.md (Recent Changes) e in AGENTS.md §7 (accanto agli altri scope: "Family Context Scope", "Web Search & Vision Scope").
+**`EXTRACTION_PROMPT`: NO changes** (fidelity to the source, product decision). The mirror convention documented in CLAUDE.md/AGENTS.md (orphan ingredients rule: "Keep the rule mirrored in both prompts") must be respected in reverse here: the prescriptive rule lives in chat + format and **deliberately NOT** in extract — the same scoping scheme as the family context (`AGENTS.md §7 "Family Context Scope"`). Document it in CLAUDE.md (Recent Changes) and in AGENTS.md §7 (next to the other scopes: "Family Context Scope", "Web Search & Vision Scope").
 
-### 4.3 Ordinamento a render: prima apparizione
+### 4.3 Render ordering: first appearance
 
-**`ingredient-list-collapsible.tsx`** — sostituire il sort alfabetico (righe 74-79, citate in §2.3) con una partizione stabile che preserva l'ordine di inserzione della `Map` (= ordine di prima apparizione nell'array flat, che a sua volta preserva l'ordine di parse/documento):
+**`ingredient-list-collapsible.tsx`** — replace the alphabetical sort (lines 74-79, quoted in §2.3) with a stable partition that preserves the `Map`'s insertion order (= order of first appearance in the flat array, which in turn preserves parse/document order):
 
 ```ts
-// Null section first, poi le sezioni nominate in ordine di prima apparizione
-// nell'array (la Map preserva l'ordine di inserzione = ordine documento).
+// Null section first, then the named sections in order of first appearance
+// in the array (the Map preserves insertion order = document order).
 const nullGroups = groupedIngredients.filter(g => g.section === null);
 const namedGroups = groupedIngredients.filter(g => g.section !== null);
 const orderedGroups = [...nullGroups, ...namedGroups];
 ```
 
-e usare `orderedGroups` nel render. Aggiornare i commenti "WHY ALPHABETICAL" (righe 49-57) e l'header del file (righe 20-23): la motivazione nuova è "l'ordine documento è l'ordine di preparazione — un sort alfabetico mette la crema prima della base".
+and use `orderedGroups` in the render. Update the "WHY ALPHABETICAL" comments (lines 49-57) and the file header (lines 20-23): the new rationale is "document order is preparation order — an alphabetical sort puts the cream before the base".
 
-**`steps-list-collapsible.tsx`** — sostituire il fallback `?? 999` (righe 104-114) con l'indice di prima apparizione. La `Map` di grouping già itera in ordine di prima apparizione, quindi al momento della conversione in array si annota l'indice:
+**`steps-list-collapsible.tsx`** — replace the `?? 999` fallback (lines 104-114) with the first-appearance index. The grouping `Map` already iterates in order of first appearance, so the index is recorded when converting to an array:
 
 ```ts
-// Sort key: sectionOrder del parser se presente, altrimenti indice di prima
-// apparizione del gruppo (stessa scala: entrambi crescono con l'ordine documento).
+// Sort key: the parser's sectionOrder if present, otherwise the group's index of
+// first appearance (same scale: both grow with document order).
 const sortKeys = new Map<string | null, number>();
 let insertionIndex = 0;
 stepsBySection.forEach((steps, section) => {
@@ -258,13 +258,13 @@ groupedSteps.sort((a, b) => {
 });
 ```
 
-Nota: `Array.prototype.sort` è stabile (ES2019+), quindi a parità di chiave l'ordine di apparizione resta. Il comparator null-first attuale è mantenuto identico. Il contatore globale `globalStepNumber` NON viene toccato: continua a incrementare durante il render attraverso le sezioni collassate (contratto hard, `steps-list-collapsible.tsx:164-174`).
+Note: `Array.prototype.sort` is stable (ES2019+), so with equal keys the order of appearance is kept. The current null-first comparator is kept identical. The global `globalStepNumber` counter is NOT touched: it keeps incrementing during render across collapsed sections (hard contract, `steps-list-collapsible.tsx:164-174`).
 
-Nessuna modifica a `extracted-recipe-preview.tsx`: raggruppa già in ordine di inserzione della Map.
+No change to `extracted-recipe-preview.tsx`: it already groups in the Map's insertion order.
 
-### 4.4 Nuova route `POST /api/reorganize-recipe`
+### 4.4 New route `POST /api/reorganize-recipe`
 
-**File**: `src/app/api/reorganize-recipe/route.ts`. Auth Bearer via `requireAuthenticatedUser` (`src/lib/api/require-user.ts`), modello via `AI_MODEL` (`src/lib/utils/constants.ts`), `thinking: { type: 'adaptive' }` + `output_config: { effort: 'low', format: { type: 'json_schema', schema } }` — stesso pattern di `estimate-calories/route.ts:146-162`. Niente `temperature`/`top_p`/`top_k`.
+**File**: `src/app/api/reorganize-recipe/route.ts`. Bearer auth via `requireAuthenticatedUser` (`src/lib/api/require-user.ts`), model via `AI_MODEL` (`src/lib/utils/constants.ts`), `thinking: { type: 'adaptive' }` + `output_config: { effort: 'low', format: { type: 'json_schema', schema } }` — same pattern as `estimate-calories/route.ts:146-162`. No `temperature`/`top_p`/`top_k`.
 
 **Request body:**
 
@@ -276,9 +276,9 @@ Nessuna modifica a `extracted-recipe-preview.tsx`: raggruppa già in ordine di i
 }
 ```
 
-Validazione input: `title` stringa non vuota, `ingredients` array non vuoto, `steps` array non vuoto → altrimenti 400 `{ error: 'Parametri mancanti: title, ingredients e steps sono richiesti' }`.
+Input validation: `title` non-empty string, `ingredients` non-empty array, `steps` non-empty array → otherwise 400 `{ error: 'Parametri mancanti: title, ingredients e steps sono richiesti' }`.
 
-**JSON schema della risposta** (structured output — SOLO forma e tipi, NIENTE `minItems`/`maximum`/`minLength`: darebbero 400, vedi gotcha `json_schema` in AGENTS.md):
+**Response JSON schema** (structured output — ONLY shape and types, NO `minItems`/`maximum`/`minLength`: they would return 400, see the `json_schema` gotcha in AGENTS.md):
 
 ```ts
 const REORGANIZE_SCHEMA = {
@@ -321,7 +321,7 @@ const REORGANIZE_SCHEMA = {
 } as const;
 ```
 
-**Prompt** (funzione `createReorganizePrompt(title, ingredients, steps)`; gli id vengono inclusi verbatim così il modello li restituisce keyed):
+**Prompt** (function `createReorganizePrompt(title, ingredients, steps)`; ids are included verbatim so the model returns them keyed):
 
 ```
 Analizza questa ricetta italiana e proponi una suddivisione in sezioni per componenti logicamente distinte.
@@ -345,15 +345,15 @@ ${steps.map((s, idx) => `${idx + 1}. [${s.id}] ${s.description}`).join('\n')}
 - Un ingrediente usato in più componenti va assegnato alla sezione dove viene usato per primo o in quantità maggiore.
 ```
 
-**Parametri chiamata**: `max_tokens: 3000` (output = solo assegnazioni JSON: ~20 token per item, una ricetta grande da 40 ingredienti + 30 step sta sotto i 2000; 3000 dà margine per il tokenizer Sonnet 5).
+**Call parameters**: `max_tokens: 3000` (output = JSON assignments only: ~20 tokens per item, a large recipe with 40 ingredients + 30 steps stays under 2000; 3000 leaves margin for the Sonnet 5 tokenizer).
 
-**Validazione server (dopo il parse del JSON):**
+**Server validation (after parsing the JSON):**
 
-1. Se `reorganizable === false` → risposta `{ success: true, reorganized: false }` (HTTP 200: "nessuna riorganizzazione sensata" è un esito legittimo, non un errore — stesso principio del `null` di `estimate-calories`).
-2. Scartare le assegnazioni con id sconosciuti (non presenti nell'input) e con `section` vuota/non stringa (funzione pura condivisa, §4.6).
-3. Ricalcolare `sectionOrder` server-side ignorando quello del modello: iterando gli **step originali nell'ordine ricevuto**, la prima sezione incontrata prende 1, la seconda 2, ecc. (elimina la dipendenza dall'aritmetica del modello; il campo resta nello schema perché forza il modello a ragionare sull'ordine, ma il server è l'autorità).
-4. Contare le sezioni distinte risultanti **sugli ingredienti** dopo la pulizia: se `< 2` → `{ success: true, reorganized: false }` (una "riorganizzazione" con una sola sezione è la ricetta flat con un header in più).
-5. Risposta positiva:
+1. If `reorganizable === false` → response `{ success: true, reorganized: false }` (HTTP 200: "no sensible reorganization" is a legitimate outcome, not an error — same principle as the `null` of `estimate-calories`).
+2. Discard assignments with unknown ids (not present in the input) and with an empty/non-string `section` (shared pure function, §4.6).
+3. Recompute `sectionOrder` server-side, ignoring the model's: iterating the **original steps in the order received**, the first section encountered gets 1, the second 2, etc. (removes the dependency on the model's arithmetic; the field stays in the schema because it forces the model to reason about order, but the server is the authority).
+4. Count the resulting distinct sections **on the ingredients** after cleanup: if `< 2` → `{ success: true, reorganized: false }` (a "reorganization" with a single section is the flat recipe with one extra header).
+5. Positive response:
 
 ```ts
 {
@@ -364,11 +364,11 @@ ${steps.map((s, idx) => `${idx + 1}. [${s.id}] ${s.description}`).join('\n')}
 }
 ```
 
-La route **non tocca testi né id e non scrive su Firestore**: restituisce solo la proposta; la persistenza avviene client-side dopo conferma dell'utente (§4.5).
+The route **does not touch text or ids and does not write to Firestore**: it only returns the proposal; persistence happens client-side after the user confirms (§4.5).
 
-### 4.5 UI: "Organizza in sezioni" nel dettaglio ricetta
+### 4.5 UI: "Organizza in sezioni" on the recipe detail page
 
-**Visibilità del pulsante** (`src/components/recipe/recipe-detail.tsx`). Nuova utility pura `hasNamedSections(recipe)` (in `src/lib/utils/section-assignments.ts`, §4.6):
+**Button visibility** (`src/components/recipe/recipe-detail.tsx`). New pure utility `hasNamedSections(recipe)` (in `src/lib/utils/section-assignments.ts`, §4.6):
 
 ```ts
 export function hasNamedSections(recipe: Pick<Recipe, 'ingredients' | 'steps'>): boolean {
@@ -378,9 +378,9 @@ export function hasNamedSections(recipe: Pick<Recipe, 'ingredients' | 'steps'>):
   const stepSections = new Set(
     recipe.steps.map(s => s.section).filter((s): s is string => !!s)
   );
-  // La sezione unica "Ingredienti" è l'artefatto del round-trip del form
-  // (recipe-form.tsx:245 rinomina null → 'Ingredienti' al load e la persiste
-  // al save): equivale a "nessuna sezione".
+  // The single "Ingredienti" section is the artifact of the form round-trip
+  // (recipe-form.tsx:245 renames null → 'Ingredienti' on load and persists it
+  // on save): it is equivalent to "no sections".
   const realIngredientSections =
     ingredientSections.size === 1 && ingredientSections.has('Ingredienti')
       ? 0
@@ -389,7 +389,7 @@ export function hasNamedSections(recipe: Pick<Recipe, 'ingredients' | 'steps'>):
 }
 ```
 
-Condizione di render del pulsante:
+Button render condition:
 
 ```ts
 const canReorganize =
@@ -399,9 +399,9 @@ const canReorganize =
   recipe.steps.length >= 4;
 ```
 
-**Soglia proposta: ≥ 6 ingredienti E ≥ 4 step.** Sotto, una ricetta non ha materiale per 2 componenti da almeno 2-3 elementi l'una e la proposta uscirebbe quasi sempre `reorganized: false` (chiamata AI sprecata).
+**Proposed threshold: ≥ 6 ingredients AND ≥ 4 steps.** Below that, a recipe doesn't have enough material for 2 components of at least 2-3 items each and the proposal would almost always come out `reorganized: false` (wasted AI call).
 
-**Posizione**: nella colonna Ingredienti del grid (recipe-detail.tsx:137-141), tra l'`<h2>Ingredienti</h2>` e `<IngredientListCollapsible>`, con lo stesso pattern ghost del bottone "Stima calorie" (recipe-detail.tsx:104-134: `Button variant="ghost" size="sm"`, `className="h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"`, spinner + label in pending). Icona `ListTree` (lucide-react). Il pulsante è sempre visibile quando `canReorganize` (mai solo `group-hover`: contesto touch-primary).
+**Position**: in the Ingredients column of the grid (recipe-detail.tsx:137-141), between the `<h2>Ingredienti</h2>` and `<IngredientListCollapsible>`, with the same ghost pattern as the "Stima calorie" button (recipe-detail.tsx:104-134: `Button variant="ghost" size="sm"`, `className="h-auto gap-1.5 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"`, spinner + label while pending). Icon `ListTree` (lucide-react). The button is always visible when `canReorganize` (never `group-hover` only: touch-primary context).
 
 ```tsx
 {canReorganize && (
@@ -416,25 +416,25 @@ const canReorganize =
 )}
 ```
 
-**Hook `useReorganizeRecipe`** (`src/lib/hooks/useReorganizeRecipe.ts`, stile `useEstimateCalories`): due mutation.
+**Hook `useReorganizeRecipe`** (`src/lib/hooks/useReorganizeRecipe.ts`, `useEstimateCalories` style): two mutations.
 
-1. `propose` — chiama il client helper `getAISectionProposalForRecipe(recipe)` (nuovo, in `recipe-parser.ts` accanto a `getAICalorieEstimateForRecipe:579-618`, stesso pattern: `fetch('/api/reorganize-recipe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await getFirebaseAuthHeader({ forceRefresh: true })) }, body })`). Esiti:
-   - `reorganized: false` → toast informativo `toast('La ricetta è già ben organizzata così com\'è.', { icon: 'ℹ️' })`, nessuna scrittura;
-   - `reorganized: true` → salva la proposta in uno stato locale e apre il Dialog di anteprima;
-   - errore rete/500 → `toast.error('Impossibile organizzare la ricetta in questo momento.')`.
-2. `apply` — su conferma nel Dialog: costruisce i nuovi array con `applySectionAssignments` (§4.6), poi `updateRecipe(recipe.id, { ingredients, steps })` (`src/lib/firebase/firestore.ts:125-133`), invalida `['recipe', recipe.id, user.uid]` **e** `recipesQueryKey(user.uid)` (stesse invalidazioni di `useEstimateCalories.ts:54-55`), chiude il Dialog e `toast.success(\`Ricetta organizzata in ${n} sezioni\`)`.
+1. `propose` — calls the client helper `getAISectionProposalForRecipe(recipe)` (new, in `recipe-parser.ts` next to `getAICalorieEstimateForRecipe:579-618`, same pattern: `fetch('/api/reorganize-recipe', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await getFirebaseAuthHeader({ forceRefresh: true })) }, body })`). Outcomes:
+   - `reorganized: false` → informational toast `toast('La ricetta è già ben organizzata così com\'è.', { icon: 'ℹ️' })`, no write;
+   - `reorganized: true` → stores the proposal in local state and opens the preview Dialog;
+   - network error/500 → `toast.error('Impossibile organizzare la ricetta in questo momento.')`.
+2. `apply` — on confirmation in the Dialog: builds the new arrays with `applySectionAssignments` (§4.6), then `updateRecipe(recipe.id, { ingredients, steps })` (`src/lib/firebase/firestore.ts:125-133`), invalidates `['recipe', recipe.id, user.uid]` **and** `recipesQueryKey(user.uid)` (same invalidations as `useEstimateCalories.ts:54-55`), closes the Dialog and `toast.success(\`Ricetta organizzata in ${n} sezioni\`)`.
 
-**Dialog di anteprima** (riusa `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle`/`DialogDescription`/`DialogFooter` di `src/components/ui/dialog.tsx`, come `ConfirmDialog`). NON è una conferma distruttiva, quindi non serve `ConfirmDialog`, ma il Dialog Radix condiviso sì (mai `confirm()` nativo). Contenuto:
+**Preview Dialog** (reuses `Dialog`/`DialogContent`/`DialogHeader`/`DialogTitle`/`DialogDescription`/`DialogFooter` from `src/components/ui/dialog.tsx`, like `ConfirmDialog`). It is NOT a destructive confirmation, so `ConfirmDialog` isn't needed, but the shared Radix Dialog is (never native `confirm()`). Content:
 
-- Titolo: `Organizza in sezioni`
-- Descrizione: `L'AI propone questa suddivisione. Testi e quantità restano invariati.`
-- Corpo: una riga per sezione proposta, in ordine di `sectionOrder`: nome in `font-medium text-foreground` + conteggi in `text-sm text-muted-foreground`, es. `Per il ragù — 7 ingredienti · 5 passaggi`. Eventuali item non assegnati (scartati dalla validazione) compaiono come riga `Senza sezione — 1 ingrediente` solo se presenti.
-- Footer: `Annulla` (variant secondary) + `Applica` (variant default, con spinner se `apply.isPending`).
-- Stili solo con token semantici (`bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`): dark mode gratis. Su mobile il Dialog Radix esistente è già responsive; nessun pattern `max-lg:portrait:` aggiuntivo necessario.
+- Title: `Organizza in sezioni`
+- Description: `L'AI propone questa suddivisione. Testi e quantità restano invariati.`
+- Body: one row per proposed section, in `sectionOrder` order: name in `font-medium text-foreground` + counts in `text-sm text-muted-foreground`, e.g. `Per il ragù — 7 ingredienti · 5 passaggi`. Any unassigned items (discarded by validation) appear as a `Senza sezione — 1 ingrediente` row only if present.
+- Footer: `Annulla` (variant secondary) + `Applica` (variant default, with spinner if `apply.isPending`).
+- Styles with semantic tokens only (`bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`): dark mode for free. On mobile the existing Radix Dialog is already responsive; no additional `max-lg:portrait:` pattern needed.
 
-### 4.6 Modulo condiviso `src/lib/utils/section-assignments.ts`
+### 4.6 Shared module `src/lib/utils/section-assignments.ts`
 
-Funzioni pure, testabili con Jest, usate sia dalla route (sanitizzazione) sia dal client (apply). Nessun `'use client'`.
+Pure functions, testable with Jest, used both by the route (sanitization) and by the client (apply). No `'use client'`.
 
 ```ts
 import { Ingredient, Step, Recipe } from '@/types';
@@ -445,9 +445,9 @@ export interface SectionProposal {
 }
 
 /**
- * Pulisce una proposta del modello: scarta id sconosciuti e sezioni vuote,
- * ricalcola sectionOrder dall'ordine di prima apparizione negli step originali.
- * Ritorna null se le sezioni ingredienti distinte risultanti sono < 2.
+ * Cleans a model proposal: discards unknown ids and empty sections,
+ * recomputes sectionOrder from the order of first appearance in the original steps.
+ * Returns null if the resulting distinct ingredient sections are < 2.
  */
 export function sanitizeSectionProposal(
   proposal: SectionProposal,
@@ -455,15 +455,15 @@ export function sanitizeSectionProposal(
   steps: { id: string }[]
 ): SectionProposal | null;
 
-/** true se la ricetta ha sezioni "vere" (la sola sezione ingredienti
- *  "Ingredienti" — artefatto del form — conta come nessuna sezione). */
+/** true if the recipe has "real" sections (the lone ingredient section
+ *  "Ingredienti" — a form artifact — counts as no sections). */
 export function hasNamedSections(recipe: Pick<Recipe, 'ingredients' | 'steps'>): boolean;
 
 /**
- * Applica una proposta sanitizzata: ritorna NUOVI array ingredients/steps con
- * section/sectionOrder valorizzati. Id, name, quantity, description, order,
- * duration restano identici byte-per-byte. Item senza assegnazione →
- * section: null (mai undefined: verrebbe rifiutato da Firestore).
+ * Applies a sanitized proposal: returns NEW ingredients/steps arrays with
+ * section/sectionOrder filled in. Id, name, quantity, description, order,
+ * duration stay byte-for-byte identical. Items without an assignment →
+ * section: null (never undefined: Firestore would reject it).
  */
 export function applySectionAssignments(
   ingredients: Ingredient[],
@@ -472,139 +472,139 @@ export function applySectionAssignments(
 ): { ingredients: Ingredient[]; steps: Step[] };
 ```
 
-Dettagli implementativi vincolanti di `applySectionAssignments`:
-- ingrediente assegnato → `{ ...ing, section: assignment.section }`; non assegnato → `{ ...ing, section: null }` (esplicito, mai chiave `undefined`);
-- step assegnato → `{ ...step, section: assignment.section, sectionOrder: assignment.sectionOrder }`; non assegnato → `{ ...step, section: null, sectionOrder: null }`;
-- l'ordine degli array e i campi `order`/`id`/`description` NON cambiano mai: le `cooking_sessions` attive (checked per id) e i token `{{qty:ingredientId}}` restano validi per costruzione;
-- `sectionOrder` in `sanitizeSectionProposal`: iterare `steps` nell'ordine dato; alla prima occorrenza di ogni sezione assegnare `1, 2, 3…`; riscrivere le assegnazioni con questi valori.
+Binding implementation details of `applySectionAssignments`:
+- assigned ingredient → `{ ...ing, section: assignment.section }`; unassigned → `{ ...ing, section: null }` (explicit, never an `undefined` key);
+- assigned step → `{ ...step, section: assignment.section, sectionOrder: assignment.sectionOrder }`; unassigned → `{ ...step, section: null, sectionOrder: null }`;
+- the array order and the `order`/`id`/`description` fields NEVER change: active `cooking_sessions` (checked by id) and `{{qty:ingredientId}}` tokens stay valid by construction;
+- `sectionOrder` in `sanitizeSectionProposal`: iterate `steps` in the given order; on the first occurrence of each section assign `1, 2, 3…`; rewrite the assignments with these values.
 
-### 4.7 Impatti a valle (accettati e documentati)
+### 4.7 Downstream impacts (accepted and documented)
 
-- **Lista spesa**: `ShoppingItem.section` deriva da `ingredient.section` (§2.6). Riorganizzare una ricetta cambia i raggruppamenti della lista della spesa in cui quella ricetta contribuisce (es. da `Senza categoria` a `Per il ragù`). Accettato: è coerenza, non regressione — la vista raggruppa già per sezione ricetta. Nota: Spec E affiancherà a questo grouping una vista "Per reparto" (default), ma la vista "Per ricetta" conserva invariato questo grouping su `ingredient.section`; nessun conflitto.
-- **Numerazione globale step**: il meccanismo del contatore non viene toccato; dopo una riorganizzazione i numeri visualizzati seguono l'ordine di render per gruppi (come già accade per le ricette estratte da PDF). Il prompt vieta al modello sezioni che richiederebbero riordini; il server non riordina mai.
-- **Cache React Query**: la lista spesa è una vista derivata cachata (`['shoppingList', uid, weekStartDate]`, staleTime 2min); l'apply non la invalida perché la ricetta riorganizzata rientra al prossimo fetch e nessuna quantità cambia. Se in collaudo il ritardo di 2min risultasse confusionario, aggiungere l'invalidazione partial-match `['shoppingList', user.uid]` nell'`onSuccess` di `apply` è ammesso.
+- **Shopping list**: `ShoppingItem.section` derives from `ingredient.section` (§2.6). Reorganizing a recipe changes the groupings of the shopping lists that recipe contributes to (e.g. from `Senza categoria` to `Per il ragù`). Accepted: it's consistency, not regression — the view already groups by recipe section. Note: Spec E will add a "Per reparto" view (default) alongside this grouping, but the "Per ricetta" view keeps this grouping on `ingredient.section` unchanged; no conflict.
+- **Global step numbering**: the counter mechanism is not touched; after a reorganization the displayed numbers follow the render order by group (as already happens for recipes extracted from PDFs). The prompt forbids the model from proposing sections that would require reordering; the server never reorders.
+- **React Query cache**: the shopping list is a cached derived view (`['shoppingList', uid, weekStartDate]`, staleTime 2min); apply doesn't invalidate it because the reorganized recipe comes back on the next fetch and no quantity changes. If during the guided test the 2min delay turns out to be confusing, adding the partial-match invalidation `['shoppingList', user.uid]` in `apply`'s `onSuccess` is allowed.
 
-### 4.8 Edge case ed errori
+### 4.8 Edge cases and errors
 
-1. **`## Ingredienti` nudo** → sezione null (invariato, testato).
-2. **Nome sezione con soli spazi dopo il prefisso** (`## Ingredienti   `) → `[\s:]*$` assorbe, nessuna cattura → null.
-3. **Ricetta con sezione unica "Ingredienti" da round-trip form** → `hasNamedSections` la tratta come flat → pulsante visibile.
-4. **Modello restituisce id inventati** → scartati da `sanitizeSectionProposal`; se dopo lo scarto le sezioni ingredienti distinte sono < 2 → `reorganized: false`.
-5. **Modello restituisce `reorganizable: true` ma array vuoti** → il conteggio < 2 lo converte in `reorganized: false`.
-6. **Modello assegna solo parte degli item** → gli item orfani restano `section: null` e si mostrano nel gruppo flat (che renderizza per primo, senza chrome): degrado leggibile, non rottura. Il Dialog li mostra come "Senza sezione".
-7. **JSON non parsabile / risposta senza blocco text** → catch → 500 → toast errore client. Con structured outputs è raro ma il `JSON.parse` va comunque dentro il try (come `estimate-calories/route.ts:170`).
-8. **Utente non autenticato / token scaduto** → 401 da `requireAuthenticatedUser`; il client helper usa `getFirebaseAuthHeader({ forceRefresh: true })` come gli altri (gotcha "AI route auth").
-9. **Cottura attiva sulla ricetta riorganizzata** → nessun impatto: id invariati, `checkedSteps`/`checkedIngredients` restano validi; cambia solo il grouping visivo al prossimo mount.
-10. **Doppio click su "Applica"** → `apply.isPending` disabilita il bottone; il Dialog non è dismissibile durante l'apply (stesso pattern `isConfirming` di `ConfirmDialog`).
-11. **Ricetta modificata in un'altra tab tra proposta e apply** → l'apply riscrive `ingredients`/`steps` interi dalla copia in memoria: finestra di race accettata (stessa semantica di ogni salvataggio del form; le mutation partono comunque dalla ricetta della cache appena invalidata).
+1. **Bare `## Ingredienti`** → null section (unchanged, tested).
+2. **Section name with only spaces after the prefix** (`## Ingredienti   `) → `[\s:]*$` absorbs, no capture → null.
+3. **Recipe with a single "Ingredienti" section from the form round-trip** → `hasNamedSections` treats it as flat → button visible.
+4. **Model returns invented ids** → discarded by `sanitizeSectionProposal`; if after discarding the distinct ingredient sections are < 2 → `reorganized: false`.
+5. **Model returns `reorganizable: true` but empty arrays** → the < 2 count turns it into `reorganized: false`.
+6. **Model assigns only some of the items** → orphan items stay `section: null` and show in the flat group (which renders first, without chrome): readable degradation, not breakage. The Dialog shows them as "Senza sezione".
+7. **Unparseable JSON / response without a text block** → catch → 500 → client error toast. With structured outputs it's rare, but `JSON.parse` still goes inside the try (as in `estimate-calories/route.ts:170`).
+8. **Unauthenticated user / expired token** → 401 from `requireAuthenticatedUser`; the client helper uses `getFirebaseAuthHeader({ forceRefresh: true })` like the others ("AI route auth" gotcha).
+9. **Active cooking session on the reorganized recipe** → no impact: ids unchanged, `checkedSteps`/`checkedIngredients` stay valid; only the visual grouping changes on the next mount.
+10. **Double click on "Applica"** → `apply.isPending` disables the button; the Dialog is not dismissible during apply (same `isConfirming` pattern as `ConfirmDialog`).
+11. **Recipe modified in another tab between proposal and apply** → apply rewrites the whole `ingredients`/`steps` from the in-memory copy: accepted race window (same semantics as every form save; the mutations start anyway from the recipe in the freshly invalidated cache).
 
-## 5. Piano di implementazione a fasi
+## 5. Phased implementation plan
 
-Ogni fase lascia il progetto compilabile (`npx tsc --noEmit`).
+Each phase leaves the project compilable (`npx tsc --noEmit`).
 
-**Fase 1 — Parser** (fix del bug, nessuna dipendenza):
-- `src/lib/utils/recipe-parser.ts`: le due regex (righe 81, 89) e `capitalizeSectionName` (righe 420-429).
-- `src/lib/utils/recipe-parser.test.ts`: casi della tabella §4.1.
+**Phase 1 — Parser** (bug fix, no dependencies):
+- `src/lib/utils/recipe-parser.ts`: the two regexes (lines 81, 89) and `capitalizeSectionName` (lines 420-429).
+- `src/lib/utils/recipe-parser.test.ts`: cases from the §4.1 table.
 
-**Fase 2 — Ordinamento render**:
-- `src/components/recipe/ingredient-list-collapsible.tsx`: partizione stabile al posto del sort alfabetico + aggiornamento commenti.
-- `src/components/recipe/steps-list-collapsible.tsx`: fallback prima-apparizione al posto di `?? 999` + aggiornamento commenti.
+**Phase 2 — Render ordering**:
+- `src/components/recipe/ingredient-list-collapsible.tsx`: stable partition instead of the alphabetical sort + comment updates.
+- `src/components/recipe/steps-list-collapsible.tsx`: first-appearance fallback instead of `?? 999` + comment updates.
 
-**Fase 3 — Prompt**:
-- `src/app/api/chat-recipe/route.ts`: nuove righe in `REGOLE PER LE RICETTE`.
-- `src/app/api/format-recipe/route.ts`: §4 riscritta.
+**Phase 3 — Prompts**:
+- `src/app/api/chat-recipe/route.ts`: new lines in `REGOLE PER LE RICETTE`.
+- `src/app/api/format-recipe/route.ts`: §4 rewritten.
 
-**Fase 4 — Modulo condiviso + route**:
-- `src/lib/utils/section-assignments.ts` (nuovo): `SectionProposal`, `sanitizeSectionProposal`, `applySectionAssignments`, `hasNamedSections`.
-- `src/lib/utils/section-assignments.test.ts` (nuovo).
-- `src/app/api/reorganize-recipe/route.ts` (nuova).
-- `src/lib/utils/recipe-parser.ts`: client helper `getAISectionProposalForRecipe` (accanto a `getAICalorieEstimateForRecipe`).
+**Phase 4 — Shared module + route**:
+- `src/lib/utils/section-assignments.ts` (new): `SectionProposal`, `sanitizeSectionProposal`, `applySectionAssignments`, `hasNamedSections`.
+- `src/lib/utils/section-assignments.test.ts` (new).
+- `src/app/api/reorganize-recipe/route.ts` (new).
+- `src/lib/utils/recipe-parser.ts`: client helper `getAISectionProposalForRecipe` (next to `getAICalorieEstimateForRecipe`).
 
-**Fase 5 — Hook + UI**:
-- `src/lib/hooks/useReorganizeRecipe.ts` (nuovo).
-- `src/components/recipe/recipe-detail.tsx`: pulsante + Dialog anteprima.
+**Phase 5 — Hook + UI**:
+- `src/lib/hooks/useReorganizeRecipe.ts` (new).
+- `src/components/recipe/recipe-detail.tsx`: button + preview Dialog.
 
-**Fase 6 — Documentazione**:
-- `CLAUDE.md`: Recent Changes + endpoint `/api/reorganize-recipe` nella tabella API.
-- `AGENTS.md`: §7 scope della regola prescrittiva (chat/format sì, extract no); eventuale nuovo gotcha emerso.
-- `specs/00-roadmap.md`: checklist Spec B.
+**Phase 6 — Documentation**:
+- `CLAUDE.md`: Recent Changes + `/api/reorganize-recipe` endpoint in the API table.
+- `AGENTS.md`: §7 scope of the prescriptive rule (chat/format yes, extract no); any new gotcha that emerged.
+- `specs/00-roadmap.md`: Spec B checklist.
 
-## 6. Piano di test
+## 6. Test plan
 
-### Unit test (Jest — `npm run test`, comando verificato in package.json: `"test": "jest"`)
+### Unit tests (Jest — `npm run test`, command verified in package.json: `"test": "jest"`)
 
-**`recipe-parser.test.ts`** (esteso):
-- tutti i casi della tabella §4.1 (bare, trailing space, due punti, "per ...", "La ...", "Il ragù", apostrofo, minuscolo→capitalizzato);
-- markdown multi-sezione misto (`## Ingredienti per la pasta` + `## Ingredienti Il ragù`): entrambe le sezioni presenti sugli ingredienti giusti;
-- `sectionOrder` incrementa correttamente con nomi non-"per";
-- regressione: il test esistente con `## Ingredienti per l'impasto` e i riferimenti `[ING:n]`/`[QTY:n]` (recipe-parser.test.ts:8-40) resta verde — la mappa dei riferimenti è globale e non deve risentire delle sezioni.
+**`recipe-parser.test.ts`** (extended):
+- all cases from the §4.1 table (bare, trailing space, colon, "per ...", "La ...", "Il ragù", apostrophe, lowercase→capitalized);
+- mixed multi-section markdown (`## Ingredienti per la pasta` + `## Ingredienti Il ragù`): both sections present on the right ingredients;
+- `sectionOrder` increments correctly with non-"per" names;
+- regression: the existing test with `## Ingredienti per l'impasto` and the `[ING:n]`/`[QTY:n]` references (recipe-parser.test.ts:8-40) stays green — the reference map is global and must not be affected by sections.
 
-**`section-assignments.test.ts`** (nuovo):
-- `sanitizeSectionProposal`: scarta id sconosciuti; scarta sezioni vuote; ricalcola `sectionOrder` per prima apparizione (proposta con ordini "sbagliati" dal modello → corretti); ritorna `null` con < 2 sezioni ingredienti distinte; ritorna `null` se dopo lo scarto degli id inventati resta 1 sezione;
-- `applySectionAssignments`: id/testi/order/duration invariati (deep-equal sui campi non-sezione); item non assegnati → `section: null` (e `sectionOrder: null` sugli step); nessun `undefined` in output (guardia anti-Firestore: `JSON.stringify` round-trip senza perdita di chiavi);
-- `hasNamedSections`: flat → false; sola sezione "Ingredienti" → false; "Ingredienti" + "Per la crema" → true; sezioni solo sugli step → true.
+**`section-assignments.test.ts`** (new):
+- `sanitizeSectionProposal`: discards unknown ids; discards empty sections; recomputes `sectionOrder` by first appearance (proposal with "wrong" orders from the model → corrected); returns `null` with < 2 distinct ingredient sections; returns `null` if after discarding invented ids 1 section remains;
+- `applySectionAssignments`: ids/text/order/duration unchanged (deep-equal on non-section fields); unassigned items → `section: null` (and `sectionOrder: null` on steps); no `undefined` in output (anti-Firestore guard: `JSON.stringify` round-trip without losing keys);
+- `hasNamedSections`: flat → false; only the "Ingredienti" section → false; "Ingredienti" + "Per la crema" → true; sections on steps only → true.
 
-### Collaudo guidato (Playwright + emulatori Firebase, script usa-e-getta in `e2e/scratch/`, protocollo in CLAUDE.md §"Guided testing tooling")
+### Guided test (Playwright + Firebase emulators, throwaway scripts in `e2e/scratch/`, protocol in CLAUDE.md §"Guided testing tooling")
 
-Setup: `npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev`; serve `ANTHROPIC_API_KEY` reale in `.env.local` (le fasi 3-4 chiamano il modello vero).
+Setup: `npm run emulators` + `NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true npm run dev`; a real `ANTHROPIC_API_KEY` is needed in `.env.local` (phases 3-4 call the real model).
 
-- **Fase A (parser, senza AI)**: script che semina via emulatore una ricetta i cui step/ingredienti provengono da `parseExtractedRecipes` su un markdown fixture con sezioni `La pasta` / `Il ragù`; assert che gli oggetti parsati portino le sezioni (spy word nel titolo, es. "Ragù COLLAUDO-B1").
-- **Fase B (ordinamento)**: ricetta seminata con sezioni in ordine documento Z→A (es. "Per la copertura" prima di "Per la base"); browser sul dettaglio: assert che l'ordine DOM degli header sia quello documento, non alfabetico.
-- **Fase C (riorganizzazione end-to-end)**: seminare una ricetta flat nota (lasagne: ≥ 8 ingredienti, ≥ 6 step); click su "Organizza in sezioni"; attendere il Dialog; assert sui nomi/conteggi proposti; "Applica"; assert su Firestore emulato che `ingredients[].section` e `steps[].sectionOrder` siano valorizzati e che id e description siano **byte-identici** a prima.
-- **Fase D (esito negativo)**: ricetta semplice ma sopra soglia (es. insalata con 6 ingredienti, 4 step banali); attesa del toast "già ben organizzata"; assert che il documento Firestore non sia cambiato (`updatedAt` invariato).
-- Gli script si eliminano a fine collaudo; una riga va aggiunta alla lista "Collaudi eseguiti" in CLAUDE.md.
+- **Phase A (parser, no AI)**: script that seeds via the emulator a recipe whose steps/ingredients come from `parseExtractedRecipes` on a markdown fixture with sections `La pasta` / `Il ragù`; assert that the parsed objects carry the sections (spy word in the title, e.g. "Ragù COLLAUDO-B1").
+- **Phase B (ordering)**: recipe seeded with sections in Z→A document order (e.g. "Per la copertura" before "Per la base"); browser on the detail page: assert that the DOM order of the headers is the document order, not alphabetical.
+- **Phase C (end-to-end reorganization)**: seed a known flat recipe (lasagne: ≥ 8 ingredients, ≥ 6 steps); click "Organizza in sezioni"; wait for the Dialog; assert on the proposed names/counts; "Applica"; assert on emulated Firestore that `ingredients[].section` and `steps[].sectionOrder` are filled in and that ids and description are **byte-identical** to before.
+- **Phase D (negative outcome)**: simple recipe but above the threshold (e.g. a salad with 6 ingredients, 4 trivial steps); wait for the "già ben organizzata" toast; assert that the Firestore document hasn't changed (`updatedAt` unchanged).
+- Scripts are deleted at the end of the guided test; a line must be added to the "Guided tests run with this tooling" list in CLAUDE.md.
 
-## 7. Gotcha e vincoli pertinenti (da AGENTS.md/CLAUDE.md)
+## 7. Relevant gotchas and constraints (from AGENTS.md/CLAUDE.md)
 
-- **Mai `undefined` su Firestore** (AGENTS.md §2): `applySectionAssignments` scrive `null` esplicito per gli item senza sezione; il form usa già `delete newIngredient.section` (recipe-form.tsx:419) per lo stesso motivo.
-- **`json_schema` senza vincoli di quantità** (AGENTS.md Quick Reference): niente `minItems`/`minimum`/`maxLength` nello schema → 400 con sintomo ingannevole a valle. I vincoli "2-5 sezioni", "assegna ogni id" stanno nel prompt; la garanzia sta nella validazione server (`sanitizeSectionProposal`).
-- **Parametri Sonnet 5** (AGENTS.md): mai `temperature`/`top_p`/`top_k`/prefill → 400. Solo `thinking: { type: 'adaptive' }` + `output_config.effort: 'low'`; modello SOLO via `AI_MODEL`.
-- **AI route auth** (AGENTS.md §7): header `Authorization: Bearer <idToken>` con `getFirebaseAuthHeader({ forceRefresh: true })`; server con `requireAuthenticatedUser`.
-- **React Query**: invalidare sia `['recipe', id, uid]` sia `recipesQueryKey(uid)` dopo l'apply (pattern `useEstimateCalories.ts:54-55`); `enabled: !!user` non serve qui (sono mutation, non query) ma il pulsante è gated su `user`.
-- **Global step numbering è un contratto hard** (types/index.ts:80-88, steps-list-collapsible.tsx:164-174): il contatore incrementa anche nelle sezioni collassate e il contenuto collassato resta montato (`grid-rows-[0fr]`); non toccare quel meccanismo.
-- **`prevCheckedRef` init** (AGENTS.md "Collapsible auto-close mount"): non toccare l'inizializzazione con il valore corrente nei due collapsible.
-- **Dialog, mai `confirm()` nativo**: anteprima su `Dialog` Radix condiviso; `ConfirmDialog` non serve (azione non distruttiva) ma lo stile `isConfirming`-lock sì.
-- **Controlli mai solo `group-hover` sotto `lg`** (AGENTS.md): il pulsante "Organizza in sezioni" è sempre visibile.
-- **Token semantici** (`bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`), mai `bg-white`/scale OKLCH inesistenti; per eventuali accenti usare `text-accent`/`bg-accent/10`.
-- **Recipe text plain-text**: la route non tocca `description` degli step (nessun rischio markdown); i nomi sezione sono stringhe semplici.
-- **Convenzione mirror tra prompt** (CLAUDE.md §"AI model and prompts"): la regola prescrittiva è mirrored tra chat e format, e deliberatamente assente da extract — documentare lo scope come per il family context.
-- **Build**: validare con `npx tsc --noEmit` + `npx next build --webpack`; se `spawn EPERM` nel sandbox, rilanciare fuori sandbox (AGENTS.md §8). `next lint` non esiste più.
-- (Non pertinente ma citato dal template di spec: qui non si aggiungono target di persistenza debounced, quindi nessuna registrazione in `flushAll` di `useShoppingList`.)
+- **Never `undefined` on Firestore** (AGENTS.md §2): `applySectionAssignments` writes an explicit `null` for items without a section; the form already uses `delete newIngredient.section` (recipe-form.tsx:419) for the same reason.
+- **`json_schema` without quantity constraints** (AGENTS.md Quick Reference): no `minItems`/`minimum`/`maxLength` in the schema → 400 with a misleading downstream symptom. The "2-5 sections" and "assign every id" constraints live in the prompt; the guarantee lives in server validation (`sanitizeSectionProposal`).
+- **Sonnet 5 parameters** (AGENTS.md): never `temperature`/`top_p`/`top_k`/prefill → 400. Only `thinking: { type: 'adaptive' }` + `output_config.effort: 'low'`; model ONLY via `AI_MODEL`.
+- **AI route auth** (AGENTS.md §7): `Authorization: Bearer <idToken>` header with `getFirebaseAuthHeader({ forceRefresh: true })`; server with `requireAuthenticatedUser`.
+- **React Query**: invalidate both `['recipe', id, uid]` and `recipesQueryKey(uid)` after apply (pattern `useEstimateCalories.ts:54-55`); `enabled: !!user` isn't needed here (these are mutations, not queries) but the button is gated on `user`.
+- **Global step numbering is a hard contract** (types/index.ts:80-88, steps-list-collapsible.tsx:164-174): the counter increments even in collapsed sections and collapsed content stays mounted (`grid-rows-[0fr]`); don't touch that mechanism.
+- **`prevCheckedRef` init** (AGENTS.md "Collapsible auto-close mount"): don't touch the initialization with the current value in the two collapsibles.
+- **Dialog, never native `confirm()`**: preview on the shared Radix `Dialog`; `ConfirmDialog` isn't needed (non-destructive action) but the `isConfirming`-lock style is.
+- **Controls never `group-hover` only below `lg`** (AGENTS.md): the "Organizza in sezioni" button is always visible.
+- **Semantic tokens** (`bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`), never `bg-white`/nonexistent OKLCH scales; for any accents use `text-accent`/`bg-accent/10`.
+- **Recipe text plain-text**: the route doesn't touch step `description` (no markdown risk); section names are plain strings.
+- **Mirror convention between prompts** (CLAUDE.md §"AI model and prompts"): the prescriptive rule is mirrored between chat and format, and deliberately absent from extract — document the scope as for the family context.
+- **Build**: validate with `npx tsc --noEmit` + `npx next build --webpack`; if `spawn EPERM` in the sandbox, rerun outside the sandbox (AGENTS.md §8). `next lint` no longer exists.
+- (Not relevant but mentioned by the spec template: no debounced persistence targets are added here, so no registration in `useShoppingList`'s `flushAll`.)
 
-## 8. Fuori scope
+## 8. Out of scope
 
-- Migrazione batch dei documenti esistenti con `section: "Ingredienti"` fantasma (il gating la neutralizza; la pulizia vera è un eventuale micro-fix futuro).
-- Correzione del round-trip del form (recipe-form.tsx:245/416-417) che genera la sezione fantasma: comportamento noto, documentato, non toccato qui.
-- Sezioni come entità (tipo `Section`, lista sezioni su `Recipe`, id di sezione): restano stringhe ripetute sugli item.
-- Campo di ordinamento sugli ingredienti (`sectionOrder` su `Ingredient`): l'ordine dell'array flat basta.
-- UI di editing sezioni step nel form (resta il campo di testo libero per step).
-- Riorganizzazione di ricette che HANNO già sezioni ("ri-organizza diversamente").
-- Grouping della lista spesa per reparto (Spec E) e qualsiasi tassonomia reparti.
-- Prompt caching sulle route AI (già valutato e scartato, CLAUDE.md Recent Changes 2026-07-05).
+- Batch migration of existing documents with the phantom `section: "Ingredienti"` (the gating neutralizes it; the real cleanup is a possible future micro-fix).
+- Fixing the form round-trip (recipe-form.tsx:245/416-417) that generates the phantom section: known behavior, documented, not touched here.
+- Sections as entities (`Section` type, list of sections on `Recipe`, section ids): they stay strings repeated on the items.
+- Ordering field on ingredients (`sectionOrder` on `Ingredient`): the flat array order is enough.
+- Step section editing UI in the form (the free-text field per step stays).
+- Reorganizing recipes that ALREADY have sections ("reorganize differently").
+- Shopping list grouping by aisle (Spec E) and any aisle taxonomy.
+- Prompt caching on the AI routes (already evaluated and discarded, CLAUDE.md Recent Changes 2026-07-05).
 
-## 9. Prompt di implementazione
+## 9. Implementation prompt
 
 ```markdown
-Implementa la Spec B "Sezioni ingredienti/procedimento" del progetto Il Mio Ricettario.
+Implement Spec B "Sezioni ingredienti/procedimento" of the Il Mio Ricettario project.
 
-PREPARAZIONE (obbligatoria, nell'ordine):
-1. Leggi e applica CLAUDE.md, AGENTS.md, COMMENTS.md e DEVELOPMENT_GUIDELINES.md (root del repo).
-2. Leggi PER INTERO specs/00-roadmap.md (contratto condiviso vincolante) e specs/spec-b-sezioni-ai.md (questa spec).
-3. Crea il branch feature/ai-recipe-sections a partire da develop.
+PREPARATION (mandatory, in order):
+1. Read and apply CLAUDE.md, AGENTS.md, COMMENTS.md and DEVELOPMENT_GUIDELINES.md (repo root).
+2. Read IN FULL specs/00-roadmap.md (binding shared contract) and specs/spec-b-sezioni-ai.md (this spec).
+3. Create the branch feature/ai-recipe-sections from develop.
 
-IMPLEMENTAZIONE:
-- Segui il piano a fasi della sezione 5 della spec, nell'ordine indicato (1 parser → 2 ordinamento → 3 prompt → 4 modulo condiviso + route → 5 hook + UI → 6 docs).
-- Dopo OGNI fase esegui `npx tsc --noEmit` e correggi prima di proseguire.
-- A fine lavoro esegui `npx next build --webpack`; se fallisce con `spawn EPERM` nel sandbox, rilancia la build fuori sandbox prima di indagare il codice.
-- Esegui i test con `npm run test` (comando reale in package.json: "test": "jest") e verifica che passino sia i nuovi test (recipe-parser.test.ts esteso, section-assignments.test.ts nuovo) sia quelli esistenti.
-- Vincoli non negoziabili: mai undefined verso Firestore (null esplicito); niente minItems/minimum/maxLength nello schema json_schema (400); niente temperature/top_p/top_k sulle route AI; modello solo via AI_MODEL; il contatore globale degli step e l'init di prevCheckedRef nei collapsible non si toccano; la route reorganize-recipe non modifica mai testi né id.
+IMPLEMENTATION:
+- Follow the phased plan in section 5 of the spec, in the order given (1 parser → 2 ordering → 3 prompts → 4 shared module + route → 5 hook + UI → 6 docs).
+- After EVERY phase run `npx tsc --noEmit` and fix before continuing.
+- At the end run `npx next build --webpack`; if it fails with `spawn EPERM` in the sandbox, rerun the build outside the sandbox before investigating the code.
+- Run the tests with `npm run test` (actual command in package.json: "test": "jest") and verify that both the new tests (extended recipe-parser.test.ts, new section-assignments.test.ts) and the existing ones pass.
+- Non-negotiable constraints: never undefined towards Firestore (explicit null); no minItems/minimum/maxLength in the json_schema schema (400); no temperature/top_p/top_k on the AI routes; model only via AI_MODEL; the global step counter and the prevCheckedRef init in the collapsibles are not touched; the reorganize-recipe route never modifies text or ids.
 
-CHIUSURA:
-- Aggiorna CLAUDE.md (sezione Recent Changes + tabella API Endpoints con POST /api/reorganize-recipe), AGENTS.md (scope della regola prescrittiva sulle sezioni: chat/format sì, extract no; eventuali nuovi gotcha emersi durante il lavoro) e la checklist in specs/00-roadmap.md (Spec B → fatta).
-- NON committare MAI senza OK esplicito dell'utente (regola di sessione).
-- Al termine proponi un collaudo guidato fase-per-fase secondo la sezione 6 della spec (Playwright + emulatori Firebase, script usa-e-getta in e2e/scratch/, protocollo "Guided testing tooling" in CLAUDE.md), dichiarando per ogni fase l'esito atteso prima di eseguirla.
+CLOSING:
+- Update CLAUDE.md (Recent Changes section + API Endpoints table with POST /api/reorganize-recipe), AGENTS.md (scope of the prescriptive sections rule: chat/format yes, extract no; any new gotchas that emerged during the work) and the checklist in specs/00-roadmap.md (Spec B → done).
+- NEVER commit without the user's explicit OK (session rule).
+- At the end propose a phase-by-phase guided test following section 6 of the spec (Playwright + Firebase emulators, throwaway scripts in e2e/scratch/, "Guided testing tooling" protocol in CLAUDE.md), declaring for each phase the expected outcome before running it.
 ```
 
-## 10. Modello e effort consigliati
+## 10. Recommended model and effort
 
-Opus · effort high — tocca prompt AI (equilibrio delicato tra fedeltà e struttura), regex del parser con back-compat e una nuova route con structured output.
+Opus · effort high — touches AI prompts (delicate balance between fidelity and structure), the parser regex with back-compat, and a new route with structured output.

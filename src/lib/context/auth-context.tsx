@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // (Primi, Secondi, Contorni, Dolci, Antipasti)
           // CHECKLIST: If you modify categories initialization, also update:
           // - categories.ts (DEFAULT_CATEGORIES constant)
-          // - CLAUDE.md (Data initialization documentation)
+          // - README.md, "Database Schema" → categories → "Default Categories"
           await initializeDefaultCategories(firebaseUser.uid);
 
           // Re-read document to get server-generated timestamps

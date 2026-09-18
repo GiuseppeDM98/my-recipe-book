@@ -12,26 +12,29 @@ import {
   SheetClose,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { PANTRY_CATEGORIES } from '@/lib/utils/pantry-utils';
 
 interface AddCustomItemSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (name: string, quantity: string, section?: string) => void;
+  onAdd: (name: string, quantity: string, section?: string, departmentId?: string) => void;
 }
 
 export function AddCustomItemSheet({ open, onOpenChange, onAdd }: AddCustomItemSheetProps) {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [section, setSection] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
 
-    onAdd(name, quantity, section || undefined);
+    onAdd(name, quantity, section || undefined, departmentId || undefined);
     setName('');
     setQuantity('');
     setSection('');
+    setDepartmentId('');
     onOpenChange(false);
   }
 
@@ -88,6 +91,26 @@ export function AddCustomItemSheet({ open, onOpenChange, onAdd }: AddCustomItemS
               placeholder="es. Latticini"
               className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="custom-item-department">
+              Reparto (opzionale)
+            </label>
+            <select
+              id="custom-item-department"
+              value={departmentId}
+              onChange={e => setDepartmentId(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Automatico (dal nome)</option>
+              {PANTRY_CATEGORIES.map(category => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">Usato nella vista per reparto.</p>
           </div>
 
           <SheetFooter className="flex-row gap-2 pt-2">

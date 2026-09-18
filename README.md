@@ -61,6 +61,7 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 - **Manual Step Reordering**: Move preparation steps up or down while editing a recipe
 - **Mobile-Friendly Step Editor**: Step numbers and controls stay compact while editing, so descriptions keep their full readable width on phones
 - **Rich Metadata**: Track servings, prep time, cook time, difficulty level, and seasonal availability
+- **Nutrition Info**: Estimate (via AI) or manually enter calories, serving weight, and macronutrients (protein/carbs/fat) per serving, with kcal per 100g calculated automatically
 - **Smart Categorization**: Organize recipes with multiple customizable categories per recipe (e.g., "Primi" + "Vegetariano"), each with emoji and curated preset colors
 - **Recipe Search**: Fast, real-time search by recipe name with full Italian character support (à, è, ì, ò, ù)
 - **Multiple Seasons**: Assign multiple seasons to recipes (e.g., Pasta e Fagioli for both autumn and winter)
@@ -91,6 +92,7 @@ Loading states, empty states, and inline feedback follow the same warm editorial
 - **Persistent Finish CTA**: A "Finish cooking" button in a sticky footer is always visible; it activates automatically when all ingredients and steps are checked
 - **Per-Step Countdown Timers**: Steps with a duration show a "Start timer" button; multiple timers can run simultaneously (e.g. oven + resting time)
 - **Floating Timer Overlay**: All active timers are visible as fixed chips in the top-right corner, each showing the step label, MM:SS countdown, and a stop button
+- **Pantry Deduction**: When you finish, the app proposes scaling down the pantry stock you used — already adjusted to the servings cooked, each row editable or skippable; abandoning a session never touches the pantry
 
 ### Active Cooking Sessions Dashboard
 
@@ -140,13 +142,15 @@ Three ways to get recipes in — all powered by Claude AI:
 - **Intelligent Categorization**: AI suggests 1-3 appropriate categories per recipe (using existing ones or proposing new ones), editable before saving
 - **Seasonal Classification**: Analyzes ingredients against an Italian seasonal ingredient database
 - **Smart Normalization**: Converts times to minutes, capitalizes section headers, standardizes formatting
+- **Recipe Sections**: Multi-part dishes are split into named sections ("Per il ragù", "La pasta") for both ingredients and method, with matching names on the two sides. Chat and free text create sections when the dish genuinely has distinct components; PDF extraction only preserves the sections the source already has
+- **Organise Into Sections**: A recipe already saved as one long list can be split after the fact — the AI proposes the components, you review the split in a preview, and only the grouping is written (ingredient names, quantities and step texts are never rewritten, so an active cooking session stays valid)
 - **Editable Preview**: Review and modify all recipes before saving
 - **Transparency**: Recipes and categories suggested by AI are clearly marked with badges
 
 **Technical Details**:
 - Powered by Claude Sonnet 5 (1M token context window)
 - Native PDF support with base64 encoding
-- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (kcal)
+- Endpoints: `/api/extract-recipes` (PDF), `/api/format-recipe` (text), `/api/chat-recipe` (chat), `/api/estimate-calories` (nutrition), `/api/reorganize-recipe` (sections)
 - The chat can optionally search the web and read attached photos (both opt-in per message); PDF and free-text extraction stay strictly faithful to the source you provide
 - AI-generated recipes include `[DUR:N]` tokens on timed steps; the parser converts them to `step.duration` automatically
 
@@ -163,13 +167,16 @@ Plan your meals for the week — generated locally from your own recipes, or ful
 
 - **Shuffle generation**: One tap builds a weekly plan by picking recipes from your cookbook that match the selected season and your per-meal category choices
 - **Manual mode**: Start with an empty grid and fill each slot by picking from your cookbook
-- **Per-meal categories**: For each meal (breakfast, lunch, dinner) choose a preferred category and categories to avoid, so the shuffle won't put, say, a dessert at lunch
+- **Per-meal categories**: For each meal (breakfast, morning snack, lunch, afternoon snack, dinner) choose a preferred category and categories to avoid, so the shuffle won't put, say, a dessert at lunch
 - **Reshuffle a slot**: Use the ↺ action on any slot to swap in a different recipe of the same category, without rebuilding the week
-- **Edit anytime**: Click any slot to change the recipe manually
+- **Edit anytime**: Click any slot to change its recipe, the number of people and the per-person variants from a single panel
+- **Family plan**: Every meal knows how many people it is cooked for (your family size by default) and the shopping list scales quantities to match; plans created before this feature keep their quantities untouched
+- **Per-person variants**: When someone eats a different dish, add a variant for one or more family members — it joins the shopping list for the right number of people and is marked on the calendar with their initials
 - **Copy plan**: Duplicate a week you liked into another week (it stops you if that week already has a plan)
 - **Day-by-day correction**: Remove individual days from a generated week without rebuilding the whole plan
 - **Day selector**: Plan only specific days (e.g. weekdays only) instead of the full week
 - **Quick navigation**: Recipe cells link directly to the full recipe page
+- **Daily nutrition totals**: Each day's header shows per-person calories and protein/carbs/fat for its planned meals, with a "≥" marker when a recipe is missing an estimate and each person's own total when they eat a variant
 - **Weekly history**: Keep multiple saved weeks and move between past, current, and future plans
 - **Recoverable setup**: If a week has no plan yet, the planner opens setup for that week without losing access to already saved weeks
 - **Persistent**: Plans are saved to Firebase and the current week is restored automatically on your next visit
@@ -181,8 +188,14 @@ Turn your meal plan into a ready-to-use shopping list in one tap.
 - **Auto-generated from your plan**: All ingredients from the week's recipes are aggregated automatically
 - **Smart aggregation**: The same ingredient is merged across recipes, summing quantities even across compatible units (e.g. 200 g + 1 kg → "1,2 kg", 500 ml + 0,5 l → "1 l") and matching singular/plural or accented spellings (e.g. pomodoro/pomodori)
 - **Checkboxes**: Check off items as you shop; a progress bar shows how many items remain
-- **Custom items**: Add anything not in your plan with a name and optional quantity
+- **Custom items**: Add anything not in your plan with a name and optional quantity — also on weeks without a meal plan
+- **Nothing you don't buy**: Tap water and ice in a recipe ("acqua", "acqua di cottura", "ghiaccio") never show up in the list; anything you add by hand is always kept
+- **"Hai già in casa"**: Ingredients your pantry already covers move into a collapsed section and stop counting as items to buy; "Mi serve comunque" puts one back in the list
+- **Stock hints**: Items you only partly have say how much is missing (e.g. "In dispensa: 50 g · mancano 50 g")
+- **Pantry suggestions**: When a list item looks like a pantry entry under another name ("spaghetti" vs "Spaghetti fini"), confirm once and the link is remembered for the shopping list and cooking
+- **Add to pantry**: Save every checked item to the pantry in one step — quantity, category, location and expiry are pre-filled and editable, and entries you already had are topped up instead of duplicated
 - **Sections**: Ingredients are grouped by section (e.g., "Per la pasta", "Per il sugo") and collapse as you complete them
+- **"Per reparto" view**: Switch the whole list to group by supermarket department (produce, dairy, meat, frozen, bakery, and more) instead of by recipe, matching how you actually walk the store. Toggle back to the recipe-based view anytime; a misclassified item can be moved to the right department for good with "Sposta in reparto…"
 - **Week navigation**: Browse the shopping list for any week, not just the current one
 - **Synced check state**: Checked items and custom additions are saved to the cloud and stay in sync across all your devices
 - **"Voglio preparare questo"**: Add a single recipe's ingredients straight from its detail page, independent of your weekly plan — shows up as its own section, even on weeks without a saved plan, and tapping it again on the same recipe refreshes that section instead of duplicating it
@@ -197,9 +210,10 @@ Track what you have at home, manage expiry dates, and see which recipes you can 
 - **Storage locations**: Track whether an item is in the fridge, pantry, or freezer, and filter by location
 - **Stock levels**: Each item has a minimum quantity threshold; a stock bar shows whether you are well-stocked, running low, or out
 - **Expiry tinting**: Overdue items get a whole-card warm tint so nothing slips past unnoticed
-- **Quick actions (mobile)**: Tap an item to open a bottom sheet with consume, edit, and delete actions
+- **Quick actions**: Tap an item to mark it consumed (one piece for counted items, a quarter, half or all of it for weighed ones), move, edit, or delete it after a confirmation — a bottom sheet on phones, a centred window on desktop
 - **Desktop sidebar**: A sticky summary panel shows expiring, low-stock, and per-location counts at a glance
-- **Add in three ways**: Full manual form, a voice entry tab (coming soon), and a "from shopping list" tab (coming soon)
+- **Two ways to add**: A full manual form, or in one step from the items checked off on the shopping list
+- **Linked to cooking**: When you finish cooking, the app proposes scaling down the stock you used
 
 ### Mobile-First Responsive Design
 
@@ -909,7 +923,9 @@ Checkbox changes → Auto-save to Firestore
     ↓
 100% complete → Show "Finish cooking" CTA
     ↓
-User confirms → Write cooking history + close session
+Pantry matches? → "Scala la dispensa" dialog (confirm or skip)
+    ↓
+Write cooking history (id = session id) + close session
 ```
 
 ---
@@ -1190,7 +1206,7 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 5. Add Vercel domain to Firebase authorized domains
 
 **Production auth note**:
-- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, and `/api/estimate-calories` all verify Firebase ID tokens server-side
+- `/api/extract-recipes`, `/api/format-recipe`, `/api/suggest-category`, `/api/chat-recipe`, `/api/estimate-calories`, and `/api/reorganize-recipe` all verify Firebase ID tokens server-side
 - `NEXT_PUBLIC_FIREBASE_*` alone are not enough for those endpoints
 - On Vercel, prefer `FIREBASE_ADMIN_CREDENTIALS_BASE64` to avoid multiline private key formatting issues
 
@@ -1345,6 +1361,7 @@ interface User {
   photoURL: string | null;
   familyProfile?: FamilyProfile | null;        // Household members, used for AI quantity guidance
   adHocShoppingRecipes?: AdHocShoppingRecipe[] | null; // "Voglio preparare questo" groups, global across weeks
+  ingredientDepartmentOverrides?: Record<string, string> | null; // "Sposta in reparto…" — canonical ingredient key → department slug
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -1372,7 +1389,13 @@ interface Recipe {
   cookTime: number | null;     // Minutes
   difficulty: string | null;   // "Facile", "Media", "Difficile"
 
-  caloriesPerServing?: number; // Estimated kcal for ONE serving (AI or manual, never measured)
+  caloriesPerServing?: number;   // Estimated kcal for ONE serving (AI or manual, never measured)
+  servingWeightGrams?: number;   // Estimated weight of ONE serving, in grams (kcal/100g is derived, never stored)
+  macrosPerServing?: {           // Estimated macronutrients for ONE serving, in grams (all-or-nothing)
+    proteinGrams: number;
+    carbsGrams: number;
+    fatGrams: number;
+  };
 
   categoryIds: string[];       // A recipe can belong to multiple categories
   season: Season | null;       // Seasonal classification
@@ -1429,10 +1452,8 @@ interface Category {
 }
 ```
 
-**Default Categories**: New users get 10 default Italian categories:
-- Antipasti (🥗), Primi Piatti (🍝), Secondi (🍖), Contorni (🥕)
-- Dolci (🍰), Pane e Pizza (🍞), Salse e Condimenti (🧈)
-- Conserve (🫙), Bevande (🍹), Altro (📋)
+**Default Categories**: New users get 5 default Italian categories (`DEFAULT_CATEGORIES` in `src/lib/firebase/categories.ts`):
+- Primi piatti (🍝), Secondi piatti (🥩), Contorni (🥗), Dolci (🍰), Antipasti (🧀)
 
 **Security**: Owner-only access
 
@@ -1568,7 +1589,7 @@ Body:
 
 ### POST /api/estimate-calories
 
-Estimates kcal per serving from a recipe's ingredient list.
+Estimates kcal, serving weight, and macronutrients (protein/carbs/fat) per serving from a recipe's ingredient list, in a single AI call.
 
 **Endpoint**: `POST /api/estimate-calories`
 
@@ -1592,13 +1613,16 @@ Estimates kcal per serving from a recipe's ingredient list.
 {
   "success": true,
   "caloriesPerServing": 520,
+  "servingWeightGrams": 280,
+  "macrosPerServing": { "proteinGrams": 12, "carbsGrams": 65, "fatGrams": 16 },
   "confidence": "alta"
 }
 ```
 
 **Notes**:
-- The estimate is always **per serving**, never a recipe total: servings are editable and cooking mode scales them at runtime.
-- `caloriesPerServing` is `null` when the ingredients are too vague to estimate, or when the returned figure falls outside a plausible 20–3000 kcal range. A `null` result is a successful response and is never saved — nothing is worse than a stored number nobody can tell is wrong.
+- Every figure is always **per serving**, never a recipe total: servings are editable and cooking mode scales them at runtime. kcal/100g is derived on screen from `caloriesPerServing` and `servingWeightGrams`, never stored.
+- The model estimates weight and macros as recipe **totals**; the server divides by `servings` and applies plausibility clamps plus a consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of `caloriesPerServing`) before returning them.
+- Each field is independently nullable: `caloriesPerServing` is `null` outside a plausible 20–3000 kcal range, `servingWeightGrams` outside 30–1500 g/serving, `macrosPerServing` when the consistency check fails or `caloriesPerServing` itself is `null`. A `null` field is a successful response and is never saved — nothing is worse than a stored number nobody can tell is wrong.
 - `confidence` is `alta` / `media` / `bassa`, based on how many quantities were precise.
 - Ingredients with no numeric quantity are ignored, except cooking fats (oil, butter), which are estimated because they materially affect the total.
 
@@ -1662,6 +1686,58 @@ AI suggests 1-3 categories and a season for a recipe.
 - **Estate**: pomodori, melanzane, zucchine, basilico, pesche
 - **Autunno**: zucca, funghi, castagne, radicchio, uva
 - **Inverno**: cavolo nero, agrumi, cime di rapa, finocchi
+
+---
+
+### POST /api/reorganize-recipe
+
+AI proposes how to split an already-saved flat recipe into named sections.
+
+**Endpoint**: `POST /api/reorganize-recipe`
+
+**Content-Type**: `application/json`
+
+**Request** (ids come from the stored recipe and are echoed back verbatim):
+```json
+{
+  "title": "Lasagne alla bolognese",
+  "ingredients": [
+    { "id": "a1", "name": "Sfoglie di lasagna", "quantity": "250 g" },
+    { "id": "a2", "name": "Carne macinata", "quantity": "500 g" }
+  ],
+  "steps": [
+    { "id": "s1", "description": "Rosola la carne con il soffritto." },
+    { "id": "s2", "description": "Alterna sfoglie, ragù e besciamella." }
+  ]
+}
+```
+
+**Response** (a split was found):
+```json
+{
+  "success": true,
+  "reorganized": true,
+  "ingredientSections": [
+    { "ingredientId": "a2", "section": "Per il ragù" },
+    { "ingredientId": "a1", "section": "Per l'assemblaggio" }
+  ],
+  "stepSections": [
+    { "stepId": "s1", "section": "Per il ragù", "sectionOrder": 1 },
+    { "stepId": "s2", "section": "Per l'assemblaggio", "sectionOrder": 2 }
+  ]
+}
+```
+
+**Response** (single-component recipe — a success, not an error):
+```json
+{ "success": true, "reorganized": false }
+```
+
+**Guarantees**:
+- The response contains **only** section assignments keyed on the ids you sent. No name, quantity or step text is ever returned or rewritten, so active cooking sessions (which track checked items by id) and `{{qty:ingredientId}}` tokens inside steps stay valid.
+- The endpoint never writes to Firestore. It returns a proposal; the client persists it after the user confirms in a preview dialog.
+- `sectionOrder` is recomputed server-side by walking the steps in their real order, so the numbering does not depend on the model's arithmetic.
+- Assignments referencing unknown ids are discarded; if that leaves fewer than two distinct ingredient sections, the response becomes `reorganized: false`.
 
 ---
 

@@ -1,4 +1,5 @@
-import { MealPlan, MealType, Recipe, ShoppingItem } from '@/types';
+import { MealPlan, MealSlot, MealType, Recipe, ShoppingItem } from '@/types';
+import { scaleQuantity } from '@/lib/utils/ingredient-scaler';
 
 export interface IngredientContribution {
   name: string;
@@ -10,11 +11,75 @@ export interface IngredientContribution {
 }
 
 /**
+ * Servings assumed for a recipe that does not declare them. Same fallback as
+ * cooking mode (`recipe.servings || 4`), so the planner and the stove agree on
+ * what "the recipe as written" feeds.
+ */
+const DEFAULT_RECIPE_SERVINGS = 4;
+
+/** Ingredients and servings behind a slot's base meal, whichever source carries them. */
+interface ResolvedBaseRecipe {
+  title: string;
+  ingredients: Recipe['ingredients'];
+  servings: number;
+}
+
+/**
+ * Resolves the base meal of a slot: a saved recipe by id first, then the inline
+ * ParsedRecipe carried by legacy AI-generated plans. Returns null for an empty
+ * slot and for a recipe deleted from the cookbook (id no longer in recipesById).
+ */
+function resolveBaseRecipe(
+  slot: MealSlot,
+  recipesById: Map<string, Recipe>
+): ResolvedBaseRecipe | null {
+  const source = slot.existingRecipeId
+    ? recipesById.get(slot.existingRecipeId)
+    : slot.newRecipe;
+  if (!source) return null;
+
+  return {
+    title: source.title,
+    ingredients: source.ingredients,
+    servings: source.servings || DEFAULT_RECIPE_SERVINGS,
+  };
+}
+
+/**
+ * Ids of every cookbook recipe buildContributions() will look up: base meals AND
+ * variants. Lives next to buildContributions because it is the other half of its
+ * contract — a variant recipe left out of the batch fetch is silently skipped as
+ * "deleted", and the person it feeds just vanishes from the shopping list.
+ *
+ * Duplicates are left in: getRecipesByIds() already deduplicates.
+ */
+export function collectPlanRecipeIds(plan: MealPlan): string[] {
+  return plan.slots.flatMap(slot => [
+    ...(slot.existingRecipeId ? [slot.existingRecipeId] : []),
+    ...(slot.variants ?? [])
+      .map(variant => variant.existingRecipeId)
+      .filter((id): id is string => !!id),
+  ]);
+}
+
+/**
  * Builds a flat list of ingredient contributions from all filled slots in a MealPlan.
  *
  * For existingRecipeId slots the recipe must be present in recipesById (batch-fetched
- * by the caller). For newRecipe slots the ingredients are read from the embedded
- * ParsedRecipe directly. Empty slots and slots missing from recipesById are skipped.
+ * by the caller, variants' recipes included). For newRecipe slots the ingredients are
+ * read from the embedded ParsedRecipe directly. Empty slots and recipes missing from
+ * recipesById are skipped.
+ *
+ * SCALING BY PEOPLE: each contribution is scaled by people / recipe servings through
+ * scaleQuantity(), which already owns the parsing of fractions, ranges and
+ * non-scalable strings ("q.b.") — nothing is re-parsed here, and the quantity reaches
+ * aggregateIngredients() already scaled, so the merge logic is unaware of people.
+ *
+ * LEGACY INVARIANT: a slot with `servingsPlanned == null` (every plan saved before the
+ * family model) copies quantities AS-IS, byte for byte. It must not go through
+ * scaleQuantity() at all: even at factor 1 a different code path could reformat
+ * "1/2 tazza", and a shopping list that changes on its own after a deploy is a bug the
+ * user cannot explain.
  */
 export function buildContributions(
   plan: MealPlan,
@@ -23,30 +88,58 @@ export function buildContributions(
   const contributions: IngredientContribution[] = [];
 
   for (const slot of plan.slots) {
-    let ingredients: Recipe['ingredients'] = [];
-    let recipeTitle = slot.recipeTitle ?? '';
+    // Corrupt variants (no recipe, no members) are ignored BEFORE counting people,
+    // otherwise they would take servings away from the base and feed nobody.
+    const variants = (slot.variants ?? []).filter(
+      variant => variant.existingRecipeId && variant.memberIds.length > 0
+    );
+    const variantPersons = variants.reduce((sum, variant) => sum + variant.memberIds.length, 0);
 
-    if (slot.existingRecipeId) {
-      const recipe = recipesById.get(slot.existingRecipeId);
-      if (!recipe) continue;
-      ingredients = recipe.ingredients;
-      recipeTitle = recipe.title;
-    } else if (slot.newRecipe) {
-      ingredients = slot.newRecipe.ingredients;
-      recipeTitle = slot.newRecipe.title;
-    } else {
-      continue;
+    // Base meal. null = legacy slot, quantities as-is; 0 = variants cover everyone,
+    // the base recipe is not cooked and must not enter the list.
+    const basePersons =
+      slot.servingsPlanned == null ? null : Math.max(0, slot.servingsPlanned - variantPersons);
+    const base = resolveBaseRecipe(slot, recipesById);
+
+    if (base && basePersons !== 0) {
+      for (const ing of base.ingredients) {
+        contributions.push({
+          name: ing.name,
+          quantity:
+            basePersons === null
+              ? ing.quantity
+              : scaleQuantity(ing.quantity, base.servings, basePersons),
+          section: ing.section ?? null,
+          recipeTitle: base.title,
+          dayIndex: slot.dayIndex,
+          mealType: slot.mealType,
+        });
+      }
     }
 
-    for (const ing of ingredients) {
-      contributions.push({
-        name: ing.name,
-        quantity: ing.quantity,
-        section: ing.section ?? null,
-        recipeTitle,
-        dayIndex: slot.dayIndex,
-        mealType: slot.mealType,
-      });
+    // Variants always scale, even on a slot without servingsPlanned (a state the UI
+    // cannot produce — setSlotVariants sets the default in the same write — but a
+    // variant has no "as written" meaning: it is by definition a meal for N people).
+    for (const variant of variants) {
+      const variantRecipe = recipesById.get(variant.existingRecipeId!);
+      // Deleted recipe: skipped like a base slot. Its people stay subtracted from the
+      // base above — they are still planned on something else, not on the base meal.
+      if (!variantRecipe) continue;
+
+      for (const ing of variantRecipe.ingredients) {
+        contributions.push({
+          name: ing.name,
+          quantity: scaleQuantity(
+            ing.quantity,
+            variantRecipe.servings || DEFAULT_RECIPE_SERVINGS,
+            variant.memberIds.length
+          ),
+          section: ing.section ?? null,
+          recipeTitle: variantRecipe.title,
+          dayIndex: slot.dayIndex,
+          mealType: slot.mealType,
+        });
+      }
     }
   }
 
@@ -71,6 +164,10 @@ export function buildContributions(
  *    joins with " + " so the result is always human-readable.
  *
  * SECTION: first encountered section value for the group.
+ *
+ * TRIVIAL INGREDIENTS (tap water, ice — see TRIVIAL_INGREDIENT_NAMES) are
+ * dropped here rather than in buildContributions: buildContributions describes
+ * what the plan contains, this function decides what is worth shopping for.
  */
 export function aggregateIngredients(
   contributions: IngredientContribution[]
@@ -87,6 +184,10 @@ export function aggregateIngredients(
 
   for (const c of contributions) {
     const key = canonicalIngredientKey(c.name);
+    // A filtered item's id may still sit in the plan's shoppingCheckedIds (it
+    // was checked before the filter existed): that entry is inert, exactly like
+    // the ids left behind when a recipe leaves the plan. No cleanup needed.
+    if (isTrivialIngredientKey(key)) continue;
     const existing = groups.get(key);
 
     if (existing) {
@@ -138,7 +239,14 @@ export function aggregateIngredients(
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// Name normalisation and quantity helpers
+//
+// Exported because ingredient-matching.ts (pantry matching, Spec D) and the
+// shopping-list department grouping (Spec E) reuse exactly the same rules:
+// one definition of "same ingredient" and "same quantity" for the whole app.
+// Dependency direction is matching → aggregator only (never the reverse), so
+// anything the aggregator itself needs — including the trivial-ingredient
+// list — has to live here, not in ingredient-matching.ts.
 // ---------------------------------------------------------------------------
 
 /**
@@ -160,11 +268,14 @@ function toSlug(name: string): string {
  * Each whitespace-separated word is stemmed independently, so multi-word names
  * keep their distinguishing tokens (e.g. "pomodori pelati" never collapses onto
  * "pomodori"). The original display name is preserved separately by the caller.
+ *
+ * WARNING: PantryItem.aliases stores keys produced by this function. Changing
+ * the normalisation silently orphans every alias the user has confirmed.
  */
-function canonicalIngredientKey(name: string): string {
+export function canonicalIngredientKey(name: string): string {
   return name
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // strip diacritics (à → a, é → e …)
+    .replace(/[̀-ͯ]/g, '') // strip diacritics (à → a, é → e …)
     .toLowerCase()
     .trim()
     .replace(/\s+/g, ' ')
@@ -181,7 +292,7 @@ function canonicalIngredientKey(name: string): string {
  * ingredients, and leaves anything it cannot confidently normalise untouched so
  * unrelated words are not merged.
  */
-function singularizeWord(word: string): string {
+export function singularizeWord(word: string): string {
   if (word.length < 4) return word;
   let stem = word;
 
@@ -205,9 +316,50 @@ function singularizeWord(word: string): string {
   return stem;
 }
 
-type QuantityDimension = 'mass' | 'volume' | 'count';
+/**
+ * ONLY things nobody buys at the supermarket. Fixed, curated, closed list.
+ * DO NOT add salt/oil/pepper/sugar: they get bought, the pantry match handles
+ * them. Comparison is by exact equality of the canonical key:
+ * "acqua di rose" or "acqua di mare" do NOT match and stay in the list (correct).
+ *
+ * "acqua frizzante" is here on purpose: in recipes it is a batter/dough
+ * component, not a drink to buy (product decision, don't reopen it).
+ */
+const TRIVIAL_INGREDIENT_NAMES = [
+  'acqua',
+  'acqua fredda',
+  'acqua calda',
+  'acqua tiepida',
+  'acqua bollente',
+  'acqua frizzante',
+  'acqua gassata',
+  'acqua naturale',
+  'acqua a temperatura ambiente',
+  'acqua di cottura',
+  'acqua di cottura della pasta',
+  'acqua della pasta',
+  'ghiaccio',
+  'cubetti di ghiaccio',
+  'ghiaccio tritato',
+];
 
-interface ParsedQuantity {
+// Keys derived once through the same normalisation as everything else, so the
+// readable list above never has to be written in stemmed form.
+const TRIVIAL_KEYS = new Set(TRIVIAL_INGREDIENT_NAMES.map(name => canonicalIngredientKey(name)));
+
+/** True when the ingredient is something nobody shops for (tap water, ice). */
+export function isTrivialIngredient(name: string): boolean {
+  return TRIVIAL_KEYS.has(canonicalIngredientKey(name));
+}
+
+/** Variant for callers that already hold the canonical key (aggregator). */
+export function isTrivialIngredientKey(key: string): boolean {
+  return TRIVIAL_KEYS.has(key);
+}
+
+export type QuantityDimension = 'mass' | 'volume' | 'count';
+
+export interface ParsedQuantity {
   /** Value expressed in the dimension's base unit (g for mass, ml for volume). */
   baseValue: number;
   dimension: QuantityDimension;
@@ -215,13 +367,13 @@ interface ParsedQuantity {
   unit: string;
 }
 
-const NON_SCALABLE_RE = /q\.b\.|quanto\s+basta|un\s+pizzico|una\s+presa|a\s+piacere/i;
+export const NON_SCALABLE_RE = /q\.b\.|quanto\s+basta|un\s+pizzico|una\s+presa|a\s+piacere/i;
 
 /**
  * Maps Italian unit spellings to a base unit and conversion factor.
  * Mass base = grams, volume base = millilitres.
  */
-const UNIT_ALIASES: Record<string, { dimension: 'mass' | 'volume'; factor: number }> = {
+export const UNIT_ALIASES: Record<string, { dimension: 'mass' | 'volume'; factor: number }> = {
   mg: { dimension: 'mass', factor: 0.001 },
   g: { dimension: 'mass', factor: 1 },
   gr: { dimension: 'mass', factor: 1 },
@@ -295,7 +447,7 @@ function mergeQuantities(quantities: string[]): string {
  * missing units are treated as a non-convertible "count" so they only sum with
  * an identical token. Returns null for non-numeric / non-scalable forms.
  */
-function parseQuantity(quantity: string): ParsedQuantity | null {
+export function parseQuantity(quantity: string): ParsedQuantity | null {
   const q = quantity.trim();
   if (!q || NON_SCALABLE_RE.test(q)) return null;
 
@@ -319,7 +471,7 @@ function parseQuantity(quantity: string): ParsedQuantity | null {
 }
 
 /** Formats a summed mass/volume base value in the clearest unit (g↔kg, ml↔l). */
-function formatQuantity(baseValue: number, dimension: 'mass' | 'volume'): string {
+export function formatQuantity(baseValue: number, dimension: 'mass' | 'volume'): string {
   if (baseValue >= 1000) {
     const major = dimension === 'mass' ? 'kg' : 'l';
     return `${formatItalianNumber(baseValue / 1000)} ${major}`;
@@ -329,7 +481,7 @@ function formatQuantity(baseValue: number, dimension: 'mass' | 'volume'): string
 }
 
 /** Formats a number using Italian decimal comma notation. */
-function formatItalianNumber(value: number): string {
+export function formatItalianNumber(value: number): string {
   if (value % 1 === 0) return String(value);
   const rounded = Math.round(value * 100) / 100;
   return rounded.toString().replace('.', ',');

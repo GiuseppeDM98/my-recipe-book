@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ParsedRecipe } from '@/lib/utils/recipe-parser';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, Check, Clock, Users, Sparkles, X, Flame } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, Clock, Users, Sparkles, X, Flame, Scale } from 'lucide-react';
 import { Season } from '@/types';
 import { Input } from '@/components/ui/input';
 import { SeasonSelector } from './season-selector';
@@ -138,6 +138,17 @@ export function ExtractedRecipePreview({
               <div className="flex items-center gap-1">
                 <Flame className="w-4 h-4" />
                 <span>{recipe.caloriesPerServing} kcal / porz.</span>
+              </div>
+            )}
+            {recipe.servingWeightGrams != null && (
+              <div className="flex items-center gap-1">
+                <Scale className="w-4 h-4" />
+                <span>≈ {recipe.servingWeightGrams} g / porz.</span>
+              </div>
+            )}
+            {recipe.macrosPerServing != null && (
+              <div className="flex items-center gap-1 tabular-nums">
+                <span>P {recipe.macrosPerServing.proteinGrams} · C {recipe.macrosPerServing.carbsGrams} · G {recipe.macrosPerServing.fatGrams} g</span>
               </div>
             )}
           </div>

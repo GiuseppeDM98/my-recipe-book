@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Ingredient, Step, AISuggestion } from '@/types';
+import { Ingredient, Step, AISuggestion, Recipe, MacrosPerServing } from '@/types';
 import { getFirebaseAuthHeader } from '@/lib/firebase/client-auth';
 import { createStepQuantityToken } from './step-description';
+import { SectionProposal } from './section-assignments';
 
 export interface ParsedRecipe {
   title: string;
@@ -13,6 +14,10 @@ export interface ParsedRecipe {
   notes?: string;
   /** Estimated kcal for one serving (see Recipe.caloriesPerServing in types/index.ts). */
   caloriesPerServing?: number;
+  /** Estimated weight of ONE serving, in grams (see Recipe.servingWeightGrams). */
+  servingWeightGrams?: number;
+  /** Estimated macronutrients for ONE serving (see MacrosPerServing). */
+  macrosPerServing?: MacrosPerServing;
   aiSuggestion?: AISuggestion;
 }
 
@@ -39,6 +44,28 @@ export function parseExtractedRecipes(markdownText: string): ParsedRecipe[] {
 
   return recipes;
 }
+
+/**
+ * Section header patterns for the "## Ingredienti [nome]" / "## Procedimento [nome]" lines.
+ *
+ * The capture group is deliberately permissive: it accepts ANY section name, not just
+ * the "per ..." form. EXTRACTION_PROMPT tells the model to copy source section names
+ * verbatim ("La pasta", "Il ragù"), so a "per"-only capture silently dropped those —
+ * the `$` anchor made the whole match fail, the line was still consumed by the
+ * `startsWith` guard, and the items fell into the flat group with no error.
+ *
+ * - `(.+?)` lazy: captures the name without swallowing the trailing separators below.
+ * - `[\s:]*$`: absorbs trailing spaces and a closing colon ("## Ingredienti per la crema:").
+ * - the group stays optional, so a bare "## Ingredienti" captures nothing → section null.
+ *
+ * NOTE: the call sites guard with a case-SENSITIVE `startsWith('## Ingredienti')`, so an
+ * all-caps "## INGREDIENTI PER LA BASE" is not treated as a header at all — these
+ * case-insensitive patterns never get to see it. Unchanged behaviour, kept on purpose.
+ */
+const SECTION_HEADER_PATTERNS = {
+  ingredients: /^##\s+Ingredienti(?:\s+(.+?))?[\s:]*$/i,
+  steps: /^##\s+Procedimento(?:\s+(.+?))?[\s:]*$/i,
+} as const;
 
 /**
  * Parse a single recipe section
@@ -78,7 +105,7 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
     if (line.startsWith('## Ingredienti')) {
       currentSection = 'ingredients';
       // Extract section name (e.g., "## Ingredienti per la pasta" -> "Per la pasta")
-      const sectionMatch = line.match(/##\s+Ingredienti(?:\s+(per\s+.+))?$/i);
+      const sectionMatch = line.match(SECTION_HEADER_PATTERNS.ingredients);
       currentIngredientSection = capitalizeSectionName(sectionMatch?.[1] || null);
       continue;
     }
@@ -86,7 +113,7 @@ function parseRecipeSection(section: string): ParsedRecipe | null {
     if (line.startsWith('## Procedimento')) {
       currentSection = 'steps';
       // Extract section name (e.g., "## Procedimento per la genovese" -> "Per la genovese")
-      const sectionMatch = line.match(/##\s+Procedimento(?:\s+(per\s+.+))?$/i);
+      const sectionMatch = line.match(SECTION_HEADER_PATTERNS.steps);
       const newStepSection = capitalizeSectionName(sectionMatch?.[1] || null);
 
       // Track section order: increment when we encounter a new section
@@ -410,12 +437,14 @@ function parseTimeToMinutes(timeStr: string): number {
 }
 
 /**
- * Capitalize first letter of section name if it starts with "per"
+ * Normalize the capitalization of a section name, leaving the rest untouched.
+ *
  * Examples:
  *   "per la genovese" → "Per la genovese"
  *   "Per la pasta" → "Per la pasta" (unchanged)
  *   "PER la genovese" → "Per la genovese" (normalized)
- *   "La pasta" → "La pasta" (unchanged, doesn't start with "per")
+ *   "la farcitura" → "La farcitura"
+ *   "Il ragù" → "Il ragù" (unchanged)
  */
 function capitalizeSectionName(sectionName: string | null): string | null {
   if (!sectionName) return null;
@@ -425,7 +454,11 @@ function capitalizeSectionName(sectionName: string | null): string | null {
     return 'Per' + sectionName.substring(3);
   }
 
-  return sectionName;
+  // Names without "per" ("La pasta", "il ragù") reach this branch now that the header
+  // patterns capture them. PDF sources arrive already capitalized (fidelity rule), but
+  // chat/format can emit lowercase names — capitalize the first letter only, so that
+  // proper nouns and accents in the rest of the name survive intact.
+  return sectionName.charAt(0).toUpperCase() + sectionName.slice(1);
 }
 
 /**
@@ -566,21 +599,29 @@ export async function getAISuggestionForRecipe(
   }
 }
 
+/** Nutrition estimate returned by `/api/estimate-calories`, one field per persisted value. */
+export interface RecipeNutritionEstimate {
+  caloriesPerServing: number | null;
+  servingWeightGrams: number | null;
+  macrosPerServing: MacrosPerServing | null;
+}
+
 /**
- * Ask the AI to estimate kcal per serving for a recipe.
+ * Ask the AI to estimate kcal, serving weight and macronutrients per serving for a recipe.
  *
  * @param recipeTitle - Recipe title, used as context for the kind of dish
  * @param ingredients - Ingredients with their quantities; both fields matter here,
  *                      unlike the category suggestion which only needs names
  * @param servings - Servings the ingredient list yields. Must be at least 1.
- * @returns The estimate, or null when the recipe is too vague to estimate, the
- *          request fails, or servings is unusable. Callers must not persist null.
+ * @returns The estimate (each field independently nullable when unestimable), or null
+ *          when the request fails or servings is unusable. Callers must not persist a
+ *          null field.
  */
-export async function getAICalorieEstimateForRecipe(
+export async function getAINutritionEstimateForRecipe(
   recipeTitle: string,
   ingredients: Ingredient[],
   servings: number | undefined
-): Promise<number | null> {
+): Promise<RecipeNutritionEstimate | null> {
   // Without a serving count there is nothing to divide by, and guessing one would
   // silently scale the result. Skip the call instead.
   if (!servings || servings < 1) {
@@ -605,14 +646,100 @@ export async function getAICalorieEstimateForRecipe(
     });
 
     if (!response.ok) {
-      console.error('Error estimating calories:', response.statusText);
+      console.error('Error estimating nutrition:', response.statusText);
       return null;
     }
 
     const data = await response.json();
-    return typeof data.caloriesPerServing === 'number' ? data.caloriesPerServing : null;
+    const macros =
+      data.macrosPerServing &&
+      typeof data.macrosPerServing === 'object' &&
+      Number.isFinite(data.macrosPerServing.proteinGrams) &&
+      Number.isFinite(data.macrosPerServing.carbsGrams) &&
+      Number.isFinite(data.macrosPerServing.fatGrams)
+        ? {
+            proteinGrams: data.macrosPerServing.proteinGrams,
+            carbsGrams: data.macrosPerServing.carbsGrams,
+            fatGrams: data.macrosPerServing.fatGrams,
+          }
+        : null;
+
+    return {
+      caloriesPerServing: typeof data.caloriesPerServing === 'number' ? data.caloriesPerServing : null,
+      servingWeightGrams: typeof data.servingWeightGrams === 'number' ? data.servingWeightGrams : null,
+      macrosPerServing: macros,
+    };
   } catch (error) {
-    console.error('Error estimating calories:', error);
+    console.error('Error estimating nutrition:', error);
     return null;
+  }
+}
+
+/**
+ * Outcome of a section reorganization request.
+ *
+ * Discriminated on `reorganized` so a caller that checks it gets the assignments
+ * narrowed for free — an undiscriminated union would leave them possibly-null.
+ */
+export type SectionProposalResult =
+  | { reorganized: true; proposal: SectionProposal }
+  | { reorganized: false }
+  | { reorganized: 'error' };
+
+/**
+ * Ask the AI how an already-saved flat recipe could be split into sections.
+ *
+ * The response only ever maps EXISTING item ids to section names: no text is rewritten,
+ * so applying it cannot break an active cooking session or a `{{qty:id}}` token.
+ *
+ * @param recipe - Title plus the ingredients and steps to reorganize, with their ids
+ * @returns The proposal; `reorganized: false` when the recipe has a single component
+ *          (a legitimate answer, not a failure); `'error'` when the request itself failed
+ */
+export async function getAISectionProposalForRecipe(
+  recipe: Pick<Recipe, 'title' | 'ingredients' | 'steps'>
+): Promise<SectionProposalResult> {
+  try {
+    const response = await fetch('/api/reorganize-recipe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getFirebaseAuthHeader({ forceRefresh: true })),
+      },
+      body: JSON.stringify({
+        title: recipe.title,
+        ingredients: recipe.ingredients.map(ingredient => ({
+          id: ingredient.id,
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+        })),
+        steps: recipe.steps.map(step => ({
+          id: step.id,
+          description: step.description,
+        })),
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Error reorganizing recipe:', response.statusText);
+      return { reorganized: 'error' };
+    }
+
+    const data = await response.json();
+
+    if (data.reorganized !== true) {
+      return { reorganized: false };
+    }
+
+    return {
+      reorganized: true,
+      proposal: {
+        ingredientSections: data.ingredientSections ?? [],
+        stepSections: data.stepSections ?? [],
+      },
+    };
+  } catch (error) {
+    console.error('Error reorganizing recipe:', error);
+    return { reorganized: 'error' };
   }
 }

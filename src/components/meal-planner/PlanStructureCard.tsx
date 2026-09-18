@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { MealType } from '@/types';
-import { MEAL_LABELS, SELECTABLE_MEAL_TYPES } from '@/lib/constants/meal-types';
+import { MEAL_LABELS, SELECTABLE_MEAL_TYPES, sortMealTypes } from '@/lib/constants/meal-types';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { DisclosurePanel } from '@/components/ui/disclosure-panel';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,12 @@ import {
 
 const DAY_CHIPS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const ALL_DAY_INDEXES = [0, 1, 2, 3, 4, 5, 6];
+
+/** "Pranzo", "Pranzo e Cena", "Colazione, Pranzo e Cena". */
+function joinItalianList(items: string[]): string {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} e ${items[items.length - 1]}`;
+}
 
 interface PlanStructureCardProps {
   activeDays: number[];
@@ -37,6 +44,11 @@ interface PlanStructureCardProps {
  * Both activeDays and activeMealTypes used to be fixed at creation time. Adding
  * breakfast to a week already in progress meant deleting the plan and rebuilding
  * it from scratch, losing every slot the user had curated.
+ *
+ * WHY COLLAPSED BY DEFAULT:
+ * The shape of a plan changes rarely, the grid is used every day: two always-open cards
+ * above it pushed the calendar below the fold on a phone. The summary in the heading
+ * ("7 giorni · Pranzo e Cena") keeps the current shape readable while closed.
  *
  * CONFIRMATION POLICY:
  * Removing a day or a meal also deletes its slots, so both go through ConfirmDialog.
@@ -75,105 +87,113 @@ export function PlanStructureCard({
     }
   }
 
+  const summary = `${activeDays.length} ${activeDays.length === 1 ? 'giorno' : 'giorni'} · ${joinItalianList(
+    sortMealTypes(activeMealTypes).map(mealType => MEAL_LABELS[mealType])
+  )}`;
+
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {/* ── Days ─────────────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Giorni inclusi nel piano</p>
-          <p className="text-xs text-muted-foreground">
-            Togli un giorno che non ti serve o riaggiungilo, senza rifare l&apos;intera settimana.
-          </p>
+    <>
+      <DisclosurePanel title="Giorni e portate del piano" summary={summary}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* ── Days ─────────────────────────────────────── */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Giorni inclusi nel piano</p>
+              <p className="text-xs text-muted-foreground">
+                Togli un giorno che non ti serve o riaggiungilo, senza rifare l&apos;intera settimana.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {activeDays.map((dayIndex) => (
+                <button
+                  key={dayIndex}
+                  type="button"
+                  onClick={() => setDayToRemove(dayIndex)}
+                  disabled={isLastDay || disabled}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 min-h-11 lg:min-h-9 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+                  title={
+                    isLastDay
+                      ? 'Il piano deve mantenere almeno un giorno attivo'
+                      : `Rimuovi ${DAY_CHIPS[dayIndex]}`
+                  }
+                  aria-label={`Rimuovi ${DAY_CHIPS[dayIndex]} dal piano`}
+                >
+                  <span>{DAY_CHIPS[dayIndex]}</span>
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              ))}
+
+              {inactiveDays.map((dayIndex) => (
+                <button
+                  key={dayIndex}
+                  type="button"
+                  onClick={() => onAddDay(dayIndex)}
+                  disabled={disabled}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-transparent px-3.5 min-h-11 lg:min-h-9 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                  title={`Aggiungi ${DAY_CHIPS[dayIndex]}`}
+                  aria-label={`Aggiungi ${DAY_CHIPS[dayIndex]} al piano`}
+                >
+                  <span>{DAY_CHIPS[dayIndex]}</span>
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Meal types ───────────────────────────────── */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Portate del piano</p>
+              <p className="text-xs text-muted-foreground">
+                Aggiungi una portata alla settimana già avviata: le ricette che hai scelto restano dove sono.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {sortMealTypes(activeMealTypes).map((mealType) => (
+                <button
+                  key={mealType}
+                  type="button"
+                  onClick={() => setMealTypeToRemove(mealType)}
+                  disabled={isLastMealType || disabled}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3.5 min-h-11 lg:min-h-9 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
+                  title={
+                    isLastMealType
+                      ? 'Il piano deve mantenere almeno una portata'
+                      : `Rimuovi ${MEAL_LABELS[mealType]}`
+                  }
+                  aria-label={`Rimuovi ${MEAL_LABELS[mealType]} dal piano`}
+                >
+                  <span>{MEAL_LABELS[mealType]}</span>
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              ))}
+
+              {inactiveMealTypes.map((mealType) => (
+                <button
+                  key={mealType}
+                  type="button"
+                  onClick={() => setMealTypeToAdd(mealType)}
+                  disabled={disabled}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-transparent px-3.5 min-h-11 lg:min-h-9 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                  title={`Aggiungi ${MEAL_LABELS[mealType]}`}
+                  aria-label={`Aggiungi ${MEAL_LABELS[mealType]} al piano`}
+                >
+                  <span>{MEAL_LABELS[mealType]}</span>
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              ))}
+
+              {inactiveMealTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Il piano copre già tutte le portate.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          {activeDays.map((dayIndex) => (
-            <button
-              key={dayIndex}
-              type="button"
-              onClick={() => setDayToRemove(dayIndex)}
-              disabled={isLastDay || disabled}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
-              title={
-                isLastDay
-                  ? 'Il piano deve mantenere almeno un giorno attivo'
-                  : `Rimuovi ${DAY_CHIPS[dayIndex]}`
-              }
-              aria-label={`Rimuovi ${DAY_CHIPS[dayIndex]} dal piano`}
-            >
-              <span>{DAY_CHIPS[dayIndex]}</span>
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          ))}
-
-          {inactiveDays.map((dayIndex) => (
-            <button
-              key={dayIndex}
-              type="button"
-              onClick={() => onAddDay(dayIndex)}
-              disabled={disabled}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-transparent px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
-              title={`Aggiungi ${DAY_CHIPS[dayIndex]}`}
-              aria-label={`Aggiungi ${DAY_CHIPS[dayIndex]} al piano`}
-            >
-              <span>{DAY_CHIPS[dayIndex]}</span>
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Meal types ───────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">Portate del piano</p>
-          <p className="text-xs text-muted-foreground">
-            Aggiungi una portata alla settimana già avviata: le ricette che hai scelto restano dove sono.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {activeMealTypes.map((mealType) => (
-            <button
-              key={mealType}
-              type="button"
-              onClick={() => setMealTypeToRemove(mealType)}
-              disabled={isLastMealType || disabled}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
-              title={
-                isLastMealType
-                  ? 'Il piano deve mantenere almeno una portata'
-                  : `Rimuovi ${MEAL_LABELS[mealType]}`
-              }
-              aria-label={`Rimuovi ${MEAL_LABELS[mealType]} dal piano`}
-            >
-              <span>{MEAL_LABELS[mealType]}</span>
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          ))}
-
-          {inactiveMealTypes.map((mealType) => (
-            <button
-              key={mealType}
-              type="button"
-              onClick={() => setMealTypeToAdd(mealType)}
-              disabled={disabled}
-              className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border bg-transparent px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45"
-              title={`Aggiungi ${MEAL_LABELS[mealType]}`}
-              aria-label={`Aggiungi ${MEAL_LABELS[mealType]} al piano`}
-            >
-              <span>{MEAL_LABELS[mealType]}</span>
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          ))}
-
-          {inactiveMealTypes.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              Il piano copre già tutte le portate.
-            </p>
-          )}
-        </div>
-      </div>
+      </DisclosurePanel>
 
       {/* ── Add meal type: empty or shuffled ─────────── */}
       <Dialog
@@ -256,6 +276,6 @@ export function PlanStructureCard({
           }
         }}
       />
-    </div>
+    </>
   );
 }
