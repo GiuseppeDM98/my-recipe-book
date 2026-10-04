@@ -241,8 +241,8 @@ export function aggregateIngredients(
 // ---------------------------------------------------------------------------
 // Name normalisation and quantity helpers
 //
-// Exported because ingredient-matching.ts (pantry matching, Spec D) and the
-// shopping-list department grouping (Spec E) reuse exactly the same rules:
+// Exported because ingredient-matching.ts (pantry matching) and the
+// shopping-list department grouping reuse exactly the same rules:
 // one definition of "same ingredient" and "same quantity" for the whole app.
 // Dependency direction is matching → aggregator only (never the reverse), so
 // anything the aggregator itself needs — including the trivial-ingredient

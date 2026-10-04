@@ -24,6 +24,13 @@ import { Recipe } from '@/types';
  *
  * "Not reorganizable" is a success, not an error: some recipes really are single-
  * component, and the user is told so without anything being written.
+ *
+ * ACCEPTED LIMITS of `apply`:
+ * - It rewrites the whole `ingredients`/`steps` arrays from the copy the proposal was
+ *   computed on, so an edit made in another tab in between is overwritten — the same
+ *   semantics as saving the recipe form.
+ * - The shopping list is not invalidated: its "Per ricetta" view regroups this recipe's
+ *   items under the new section names only when its own cache expires (2 min at most).
  */
 export function useReorganizeRecipe() {
   const { user } = useAuth();

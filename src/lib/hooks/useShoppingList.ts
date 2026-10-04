@@ -43,7 +43,7 @@ function loadPersistedState(key: string): PersistedState {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return emptyPersistedState();
-    // Every field defaulted: JSON saved before Spec D has no pantryIncludedIds.
+    // Every field defaulted: JSON saved before the pantry integration has no pantryIncludedIds.
     const parsed = JSON.parse(raw) as Partial<PersistedState>;
     return {
       checkedIds: parsed.checkedIds ?? [],

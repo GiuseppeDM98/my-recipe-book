@@ -118,7 +118,7 @@
 - Improved the meal planner by letting you remove individual days from an already generated week without rebuilding the whole plan
 - Improved planner loading behavior by removing distracting global loading flashes on protected pages
 - Improved the meal planner layout: the calendar now comes first with the plan's days and meals tucked into a collapsible summary, setup is split into an essential card plus optional shuffle rules, there is an "Oggi" shortcut back to the current week, and on phones the week opens on today
-- Improved the meal editor in the planner: tapping a meal opens a single panel where you change the recipe, the number of people and the variants without it closing after every choice
+- Improved the meal editor in the planner: tapping anywhere on a planned meal opens a single panel where you change the recipe, the number of people and the variants without it closing after every choice
 - Improved desktop readability in the meal planner so long recipe names are easier to read in the weekly grid
 - Improved the AI Assistant startup path by loading cookbook data only when the chat tab actually needs it
 - Improved recipe page filter performance and planner-related loading responsiveness across the app
@@ -230,6 +230,7 @@
 - Updated the app to a patched Next.js release to address current framework security advisories
 - Added server-side authentication checks to all AI-powered endpoints to block unauthenticated access
 - Tightened Firebase Storage access rules so authenticated users are limited to their own recipe file paths
+- Tightened database access rules so your profile data (family profile, extra shopping items, department preferences) can be read only by you
 - Fixed currently auto-remediable npm vulnerabilities through dependency updates
 
 ## 📚 Documentation

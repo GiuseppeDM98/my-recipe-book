@@ -5,6 +5,7 @@ import { Ingredient, Step } from '@/types';
 import { ChevronDown, ChevronRight, Play, Timer } from 'lucide-react';
 import { renderStepDescription } from '@/lib/utils/step-description';
 import { cn } from '@/lib/utils/cn';
+import { orderedSectionNamesFromSteps } from '@/lib/utils/section-assignments';
 
 /**
  * StepsListCollapsible - Step viewer with global numbering across sections
@@ -72,8 +73,8 @@ export function StepsListCollapsible({
   //
   // ALGORITHM:
   // 1. Group by section field (null = no section)
-  // 2. Convert Map → array of GroupedSteps, noting each group's sort key
-  // 3. Sort: null section first, then by sort key
+  // 2. Convert Map → array of GroupedSteps
+  // 3. Sort: null section first, then by orderedSectionNamesFromSteps()
   //
   // WHY sectionOrder:
   // - PDF extractor assigns sectionOrder to preserve document structure
@@ -84,8 +85,8 @@ export function StepsListCollapsible({
   // - Steps added from the recipe form carry no sectionOrder at all (addStep creates
   //   `{ section: '', duration: null }`). A shared constant collapsed every one of them
   //   into a single tie, so hand-made sections landed at the end in arbitrary order.
-  // - A Map iterates in insertion order, so the index at which a section first appears
-  //   grows with document order — the same scale sectionOrder lives on.
+  // - The position at which a section first appears grows with document order, the
+  //   same direction sectionOrder grows in.
   //
   // Example:
   //   Step 1: section=null, sectionOrder=null         → group 1 (renders first)
@@ -103,22 +104,23 @@ export function StepsListCollapsible({
     stepsBySection.get(section)!.push(step);
   });
 
-  // Convert to array, keeping each section's sort key alongside it
-  const sectionSortKeys = new Map<string | null, number>();
-  let firstAppearanceIndex = 0;
   stepsBySection.forEach((sectionSteps, section) => {
     groupedSteps.push({ section, steps: sectionSteps });
-    sectionSortKeys.set(section, sectionSteps[0]?.sectionOrder ?? firstAppearanceIndex);
-    firstAppearanceIndex++;
   });
 
-  // Sort: null section first, then by sort key.
-  // Array.prototype.sort is stable (ES2019+), so ties keep their appearance order.
+  // The rank comes from the SAME function the ingredient column is ordered with
+  // (orderedSections on IngredientListCollapsible): two separate implementations of
+  // the fallback once disagreed on recipes mixing steps with and without sectionOrder.
+  const sectionRank = new Map(
+    orderedSectionNamesFromSteps(steps).map((section, index) => [section, index])
+  );
+
+  // Sort: null section first, then by rank.
   groupedSteps.sort((a, b) => {
     if (a.section === null) return -1;
     if (b.section === null) return 1;
 
-    return (sectionSortKeys.get(a.section) ?? 0) - (sectionSortKeys.get(b.section) ?? 0);
+    return (sectionRank.get(a.section) ?? 0) - (sectionRank.get(b.section) ?? 0);
   });
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(

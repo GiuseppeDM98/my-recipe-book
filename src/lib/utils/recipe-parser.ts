@@ -616,6 +616,10 @@ export interface RecipeNutritionEstimate {
  * @returns The estimate (each field independently nullable when unestimable), or null
  *          when the request fails or servings is unusable. Callers must not persist a
  *          null field.
+ *
+ * The route also returns a `confidence` level, dropped here on purpose: a saved field
+ * carries no record of whether it came from the AI or was typed by hand, so showing a
+ * confidence would suggest a per-field reliability the app cannot back up.
  */
 export async function getAINutritionEstimateForRecipe(
   recipeTitle: string,
