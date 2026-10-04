@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { DepartmentRow, DepartmentSectionModel } from '@/lib/utils/shopping-departments';
 import { ShoppingItemRow } from './ShoppingItemRow';
+import { buildPantryRowProps, ShoppingPantryContext } from './pantry-row-props';
 
 interface DepartmentSectionProps {
   section: DepartmentSectionModel;
@@ -16,6 +17,8 @@ interface DepartmentSectionProps {
    * an override there would have no effect because of precedence.
    */
   onMove: (row: DepartmentRow, currentDepartmentId: string) => void;
+  /** Same context the per-recipe sections get: both views show the same pantry badge and actions. */
+  pantryContext?: ShoppingPantryContext;
 }
 
 /**
@@ -23,7 +26,7 @@ interface DepartmentSectionProps {
  * Structurally identical to ShoppingSection, plus a color swatch dot (never a
  * side-stripe, AGENTS.md ban) identifying the department at a glance.
  */
-export function DepartmentSection({ section, onToggle, onRemove, onMove }: DepartmentSectionProps) {
+export function DepartmentSection({ section, onToggle, onRemove, onMove, pantryContext }: DepartmentSectionProps) {
   const [expanded, setExpanded] = useState(true);
 
   const checkedCount = section.rows.filter(row => row.checked).length;
@@ -78,6 +81,7 @@ export function DepartmentSection({ section, onToggle, onRemove, onMove }: Depar
                 quantity={row.quantity}
                 checked={row.checked}
                 footnote={row.footnote}
+                {...buildPantryRowProps(row.id, row.name, pantryContext, row.groupId)}
                 onToggle={() => onToggle(row.id, row.groupId)}
                 onRemove={row.kind !== 'plan' ? () => onRemove(row.id, row.groupId) : undefined}
                 onMove={row.source !== 'pantry' ? () => onMove(row, section.id) : undefined}

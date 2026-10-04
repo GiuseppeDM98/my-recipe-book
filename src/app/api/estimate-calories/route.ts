@@ -63,10 +63,10 @@ Tutti i valori si riferiscono alla ricetta INTERA: la divisione per le porzioni 
 **Regole per il peso della ricetta pronta:**
 - Pasta, riso, cereali e legumi secchi assorbono acqua in cottura: usa il peso da cotti (pasta ≈ 2×, riso ≈ 2,5×, legumi secchi ≈ 2,5×).
 - Sughi, brasati e riduzioni perdono acqua per evaporazione: sottrai una quota ragionevole.
-- Vale la stessa regola delle kcal: conta solo ciò che finisce nel piatto — l'acqua di cottura scolata non pesa, l'olio di frittura assorbito è una frazione di quello nella pentola.
 - Peso, macro e kcal devono descrivere la stessa ricetta pronta, in modo coerente tra loro.
 
 **Regole:**
+- Conta solo ciò che finisce nel piatto, per kcal, macro e peso: l'acqua di cottura scolata non conta, l'olio di frittura assorbito è una frazione di quello nella pentola.
 - Ignora gli ingredienti senza quantità numerica (es. "sale q.b.", "prezzemolo a piacere"), TRANNE olio, burro e altri grassi da condimento: quelli incidono troppo, stimane una quantità ragionevole per il tipo di piatto.
 - Usa valori nutrizionali medi per gli ingredienti italiani comuni.
 - Ogni campo è indipendente: se non riesci a stimare il peso ma le kcal sì, restituisci null solo per totalWeightGrams (e viceversa). Se le quantità non bastano per i macro, restituisci totalMacros null.

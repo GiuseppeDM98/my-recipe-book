@@ -17,6 +17,10 @@ import { Recipe } from '@/types';
  * value already present. A field the model couldn't estimate is a legitimate outcome, not
  * a failure — nothing is written for it.
  *
+ * Accepted consequence: an estimate goes stale when the ingredients or `servings` are
+ * edited afterwards, and re-estimating does not refresh it. To get a new figure the user
+ * clears the field in the edit form first.
+ *
  * Invalidates both the single-recipe and the recipe-list queries — the list cards show
  * calories too, and a stale list would keep displaying a recipe as un-estimated.
  */

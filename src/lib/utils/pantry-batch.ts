@@ -24,9 +24,9 @@ import { formatQty } from './pantry-utils';
  */
 
 /**
- * Slug for "no better category". Not in PANTRY_CATEGORIES yet: the pantry page
- * already groups unknown slugs under "Altro", and Spec E formalizes it. Chosen
- * over a guessed default because a wrong category is silently wrong.
+ * Slug for "no better category": the explicit fallback entry of
+ * PANTRY_CATEGORIES. Chosen over a guessed default because a wrong category is
+ * silently wrong.
  */
 export const FALLBACK_PANTRY_CATEGORY_ID = 'altro';
 

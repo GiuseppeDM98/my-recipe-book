@@ -12,7 +12,9 @@ service cloud.firestore {
 
     // Users
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      // Owner only: the document holds the family profile, the ad-hoc shopping
+      // list and the department overrides, and no flow reads another user's.
+      allow read: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update, delete: if isOwner(userId);
     }

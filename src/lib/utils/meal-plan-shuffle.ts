@@ -130,6 +130,12 @@ export function matchesSeason(recipe: Recipe, season: Season): boolean {
  * Builds the candidate recipes for one meal type: excluded categories are
  * always removed, the season is relaxed only when too few recipes match, and a
  * preferred category is honoured when it yields at least one recipe.
+ *
+ * The pool is deliberately NOT meal-specific: nothing here knows that a
+ * spuntino should be lighter than a cena. Without a mealConfig every meal type
+ * draws from the whole cookbook — the per-meal category rules of the setup form
+ * are the user's only lever, and since they are never persisted on the plan a
+ * meal type added later (addMealType with autofill) always gets `null` here.
  */
 function buildCandidatePool(
   recipes: Recipe[],

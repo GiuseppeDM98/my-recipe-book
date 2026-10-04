@@ -362,7 +362,7 @@ describe('buildContributions', () => {
     });
 
     it('should not reformat the quantity when planned people equal the recipe servings', () => {
-      // Arrange — "1/2" would become "0,5" if the scaler ran at factor 1
+      // Arrange — equal servings must return the string untouched ("1/2" becomes "0,5" at any other factor)
       const plan = makePlan([makeSlot({ existingRecipeId: 'r1', servingsPlanned: 4 })]);
       const recipes = recipeMap(makeRecipe('r1', [['Latte', '1/2 tazza']], 4));
 

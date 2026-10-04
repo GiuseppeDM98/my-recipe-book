@@ -11,12 +11,13 @@ import {
 import type { ParsedQuantity, QuantityDimension } from './ingredient-aggregator';
 
 /**
- * Ingredient ↔ pantry matching engine (Spec D, roadmap cross-spec contract §2).
+ * Ingredient ↔ pantry matching engine.
  *
  * One question answered in one place: "is this recipe/shopping ingredient
  * something the user already has in the pantry, and how much of it?". It is
  * consumed by the shopping list ("Hai già in casa"), the batch check → pantry
- * flow, the end-of-cooking deduction and (Spec E) department classification.
+ * flow, the end-of-cooking deduction and the shopping list's department
+ * classification.
  *
  * PHILOSOPHY — a non-match is the safe failure. A false "already in the pantry"
  * hides something the user needs to buy, which is worse than asking them to buy
@@ -28,7 +29,8 @@ import type { ParsedQuantity, QuantityDimension } from './ingredient-aggregator'
  *
  * The quantity/normalisation machinery stays defined in ingredient-aggregator.ts
  * and is re-exported here (dependency direction matching → aggregator only).
- * DO NOT rename the contract exports: Spec E imports them from this module.
+ * DO NOT rename the contract exports: the department classification
+ * (ingredient-departments.ts) imports them from this module.
  */
 
 export {

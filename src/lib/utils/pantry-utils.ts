@@ -17,7 +17,7 @@ export const PANTRY_CATEGORIES: PantryCategory[] = [
   { id: 'bevande', name: 'Bevande', color: 'oklch(82% 0.07 250)' },
   { id: 'surgelati', name: 'Surgelati', color: 'oklch(86% 0.05 220)' },
   { id: 'panetteria', name: 'Panetteria', color: 'oklch(83% 0.08 75)' },
-  // Explicit fallback (Spec E): array order is also the render order of
+  // Explicit fallback: array order is also the render order of
   // departments in the shopping list and of sections in the pantry, so
   // 'altro' stays last.
   { id: 'altro', name: 'Altro', color: 'oklch(85% 0.02 85)' },

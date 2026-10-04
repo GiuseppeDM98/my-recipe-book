@@ -14,7 +14,14 @@ const OPTIONS: Array<{ value: ShoppingViewMode; label: string }> = [
   { value: 'ricetta', label: 'Per ricetta' },
 ];
 
-/** Two-option segmented control switching between department and per-recipe grouping. */
+/**
+ * Two-option segmented control switching between department and per-recipe grouping.
+ *
+ * The choice is stored per device in localStorage by the page, never in Firestore:
+ * the phone at the supermarket wants departments while the desktop used for planning
+ * may want recipes, and a synced preference would also add a Firestore write per
+ * toggle and one more debounced target to the shopping list's flush.
+ */
 export function ShoppingViewToggle({ value, onChange }: ShoppingViewToggleProps) {
   return (
     <div className="inline-flex rounded-lg bg-muted p-1">

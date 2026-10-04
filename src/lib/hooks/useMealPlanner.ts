@@ -577,6 +577,9 @@ export function useMealPlanner(): UseMealPlannerReturn {
    * filtering on activeMealTypes. Dropping the meal type alone would leave orphan
    * slots that keep feeding ingredients into the shopping list for a meal the
    * calendar no longer shows — invisible and very hard to trace back.
+   *
+   * No sortMealTypes here, unlike addMealType: filter keeps the relative order,
+   * and every reader sorts anyway.
    */
   const removeMealType = useCallback(async (mealType: MealType) => {
     if (!currentPlan) return;

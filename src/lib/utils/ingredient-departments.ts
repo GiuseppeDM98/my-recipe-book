@@ -3,10 +3,9 @@ import { PANTRY_CATEGORIES } from './pantry-utils';
 import type { PantryItem } from '@/types/pantry';
 
 /**
- * Shopping list department classification (Spec E, roadmap cross-spec
- * contract §3). Answers "which supermarket department does this ingredient
- * belong to?" through a precedence chain:
- * 1. the matched pantry entry's categoryId (Spec D's matching engine);
+ * Shopping list department classification. Answers "which supermarket
+ * department does this ingredient belong to?" through a precedence chain:
+ * 1. the matched pantry entry's categoryId (via ingredient-matching.ts);
  * 2. the user's manual override (users/{uid}.ingredientDepartmentOverrides);
  * 3. this curated static dictionary;
  * 4. 'altro' fallback.
@@ -153,6 +152,7 @@ export const RAW_INGREDIENT_DEPARTMENTS: Record<string, string> = {
   'olio di girasole': 'condimenti', aceto: 'condimenti',
   'aceto balsamico': 'condimenti', 'aceto di vino': 'condimenti',
   'aceto di mele': 'condimenti', sale: 'condimenti', 'sale fino': 'condimenti',
+  // Sugar, cocoa and chocolate live here because the taxonomy has no "sweets" department.
   'sale grosso': 'condimenti', zucchero: 'condimenti',
   'zucchero a velo': 'condimenti', 'zucchero di canna': 'condimenti',
   miele: 'condimenti', marmellata: 'condimenti', confettura: 'condimenti',
@@ -183,7 +183,7 @@ export const RAW_INGREDIENT_DEPARTMENTS: Record<string, string> = {
   vaniglia: 'spezie', vanillina: 'spezie', 'estratto di vaniglia': 'spezie',
 
   // ── Bevande ──────────────────────────────────────────────
-  acqua: 'bevande', // Spec D's isTrivialIngredient filters it out upstream when active
+  acqua: 'bevande', // recipe water is dropped upstream by isTrivialIngredient(); this covers custom items, which are never filtered
   'acqua frizzante': 'bevande', 'acqua naturale': 'bevande',
   vino: 'bevande', 'vino bianco': 'bevande', 'vino rosso': 'bevande',
   birra: 'bevande', caffe: 'bevande', te: 'bevande', 'te verde': 'bevande',
@@ -209,6 +209,7 @@ export const RAW_INGREDIENT_DEPARTMENTS: Record<string, string> = {
   'impasto per pizza': 'panetteria', 'pasta sfoglia': 'panetteria',
   'pasta brisee': 'panetteria', 'pasta frolla': 'panetteria',
   lievito: 'panetteria', 'lievito di birra': 'panetteria',
+  // "lievito per dolci" is shelved with the flours in most shops; kept with the other yeasts for consistency.
   'lievito madre': 'panetteria', 'lievito per dolci': 'panetteria',
   brioche: 'panetteria', cornetto: 'panetteria', croissant: 'panetteria',
   biscotto: 'panetteria', tarallo: 'panetteria', tortilla: 'panetteria',
@@ -239,7 +240,7 @@ export interface DepartmentClassification {
 }
 
 /**
- * Precedence chain (roadmap contract §3):
+ * Precedence chain:
  * 1. categoryId of the matched pantry entry (only if a known slug — an
  *    unknown slug on the pantry doc does NOT classify and the chain continues);
  * 2. user override (ignored if it points to a slug that is no longer known);
