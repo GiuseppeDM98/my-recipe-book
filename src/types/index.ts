@@ -140,7 +140,6 @@ export interface Step {
  * CHECKLIST: If you add a season value, update:
  * - SEASON_ICONS, SEASON_LABELS, ALL_SEASONS in lib/constants/seasons.ts
  * - ITALIAN_SEASONAL_INGREDIENTS in api/suggest-category/route.ts
- * - ITALIAN_SEASONAL_INGREDIENTS in api/extract-recipes/route.ts
  */
 export type Season = 'primavera' | 'estate' | 'autunno' | 'inverno' | 'tutte_stagioni';
 

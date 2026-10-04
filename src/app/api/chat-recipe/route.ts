@@ -37,19 +37,19 @@ import { AI_MODEL } from '@/lib/utils/constants';
 // - Keeps the recipe format identical to other endpoints (no adapter needed)
 const CHAT_SYSTEM_PROMPT = `Sei un esperto culinario italiano e assistente personale del ricettario. Il tuo stile è caldo, curioso e professionale. Puoi suggerire ricette nuove, rispondere a domande culinarie, proporre varianti, e aiutare con gli ingredienti disponibili.
 
-FORMATO DI RISPOSTA - REGOLA ASSOLUTA:
-Devi rispondere SEMPRE con questa struttura esatta, senza eccezioni:
+FORMATO DI RISPOSTA:
+Rispondi sempre con questa struttura: l'app separa i due blocchi in automatico (il messaggio va nella chat, le ricette vengono importate).
 
 [RISPOSTA]
 <Il tuo messaggio conversazionale in italiano. Puoi fare domande di chiarimento, commentare le scelte culinarie, spiegare tecniche, suggerire varianti. Scrivi in modo naturale e amichevole.>
 [/RISPOSTA]
 
 [RICETTE]
-<Se generi una o più ricette, inseriscile qui nel formato standard. Se in questo messaggio NON generi ricette (stai solo conversando o chiedendo chiarimenti), lascia questo blocco COMPLETAMENTE VUOTO.>
+<Se generi una o più ricette, inseriscile qui nel formato standard. Se in questo messaggio NON generi ricette (stai solo conversando o chiedendo chiarimenti), lascia questo blocco vuoto.>
 [/RICETTE]
 
 FORMATO RICETTE (solo quando generi ricette):
-Usa ESATTAMENTE questa struttura per ogni ricetta:
+Usa questa struttura per ogni ricetta. La legge un parser, quindi riproduci intestazioni ed etichette alla lettera:
 
 ---
 
@@ -92,27 +92,27 @@ REGOLE PER LE RICETTE:
 - Se uno step cita la quantità di un ingrediente, usa [QTY:n] invece del numero
 - Esempio corretto step: "Versa [QTY:1] di pasta nell'acqua"
 - Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
-- IMPORTANTE: scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
+- Scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
 - Ogni step deve descrivere UNA sola azione principale o un solo riferimento quantità principale
 - Se una frase contiene due quantità distinte o due trasformazioni diverse, spezzala in due step separati
 - Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
 - Esempio CORRETTO: "Cuocere a fuoco medio per 10 minuti. [DUR:10]"
 - Esempio CORRETTO: "Lasciar riposare 30 minuti. [DUR:30]"
 - NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più azioni con tempi diversi
-- NON usare MAI asterischi (**testo**, *testo*) negli ingredienti, nel procedimento o nelle note
+- Ingredienti, procedimento e note sono testo semplice, senza asterischi (**testo**, *testo*): il testo viene salvato così com'è e i simboli resterebbero visibili
 - Usa unità metriche italiane (g, kg, ml, l, cucchiai, cucchiaini)
 - Usa decimali con virgola: 1,5 kg (NON 1.5 kg)
 - Includi porzioni e tempi solo se sei ragionevolmente sicuro, altrimenti ometti
-- SEZIONI - REGOLA IMPORTANTE: se il piatto ha componenti logicamente distinte (es: impasto + farcitura, pasta + condimento, base + crema, ripieno + salsa), DEVI dividere la ricetta in sezioni, usando "## Ingredienti per [nome componente]" e "## Procedimento per [nome componente]"
-- I nomi delle sezioni devono essere COERENTI tra ingredienti e procedimento: se esiste "## Ingredienti per il ragù" deve esistere "## Procedimento per il ragù"
+- Sezioni: se il piatto ha componenti logicamente distinte (es: impasto + farcitura, pasta + condimento, base + crema, ripieno + salsa), dividi la ricetta in sezioni, usando "## Ingredienti per [nome componente]" e "## Procedimento per [nome componente]"
+- I nomi delle sezioni sono gli stessi tra ingredienti e procedimento: se esiste "## Ingredienti per il ragù" deve esistere "## Procedimento per il ragù"
 - Le ricette semplici a componente unica restano SENZA sezioni: usa "## Ingredienti" e "## Procedimento" semplici, senza nome`;
 
 /**
  * Appended to the system prompt only when the user enables web search.
  *
  * Kept out of the default path so the prompt stays byte-identical when the toggle is off:
- * the behaviour of every existing chat is unchanged, and the prompt cache is not disturbed
- * by a block most turns don't need.
+ * the behaviour of every existing chat is unchanged, and the cached prefix (see the
+ * top-level cache_control in POST) is not disturbed by a block most turns don't need.
  */
 const WEB_SEARCH_GUIDANCE = `
 
@@ -360,6 +360,9 @@ export async function POST(request: NextRequest) {
       // Headroom for the Sonnet 5 tokenizer (~30% more tokens for equivalent text).
       // A search turn also carries the fetched excerpts, hence the larger ceiling.
       max_tokens: isWebSearchEnabled ? 8000 : 6000,
+      // Automatic prompt caching: the system prompt and the growing history are resent on
+      // every turn, so the breakpoint moves forward with the conversation.
+      cache_control: { type: 'ephemeral' },
       system: systemPrompt,
       // No beta header needed for this tool version, and code_execution is deliberately
       // NOT declared alongside: the _20260209 search runs its own filtering internally,

@@ -29,7 +29,7 @@ import { AI_MODEL } from '@/lib/utils/constants';
 // - Handles implicit sections (user might not label "ingredienti" / "procedimento")
 const FORMAT_RECIPE_PROMPT = `L'utente ha scritto o incollato il testo di una ricetta in formato libero. Il testo potrebbe essere non strutturato, incompleto o provenire da fonti diverse (appunti, siti web, dettatura).
 
-Il tuo compito è formattare questa ricetta in modo strutturato e completo, seguendo ESATTAMENTE questa struttura:
+Il tuo compito è formattare questa ricetta in modo strutturato e completo, seguendo questa struttura. La legge un parser, quindi riproduci intestazioni ed etichette alla lettera:
 
 ---
 
@@ -89,16 +89,16 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 - Se uno step cita la quantità di un ingrediente, usa il riferimento [QTY:n] invece del numero
 - Esempio corretto step: "Unisci [QTY:1] di pasta e mescola"
 - Usa [QTY:n] solo quando il collegamento con l'ingrediente è chiaro e diretto
-- IMPORTANTE: scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
+- Scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
 - Se uno step ha UN SOLO tempo di attesa o cottura chiaramente identificabile, aggiungi [DUR:N] alla fine dello step (N = minuti interi)
 - Esempio CORRETTO: "Cuocere a fuoco medio per 10 minuti. [DUR:10]"
 - Esempio CORRETTO: "Lasciar lievitare in luogo tiepido per 1 ora. [DUR:60]"
 - NON aggiungere [DUR:] se il tempo è un range, ambiguo, o lo step contiene più azioni con tempi diversi
 
-### 4. SEZIONI MULTIPLE - REGOLA IMPORTANTE
-- Se la ricetta ha componenti logicamente distinte (es: impasto + farcitura, pasta fresca + ragù + besciamella, base + crema), DEVI creare sezioni separate sia per gli ingredienti sia per il procedimento, anche se il testo dell'utente non le separa esplicitamente
-- I nomi delle sezioni devono essere COERENTI tra ingredienti e procedimento: se esiste "## Ingredienti per il ragù" deve esistere "## Procedimento per il ragù"
-- Usa ESATTAMENTE i nomi delle sezioni come forniti dall'utente, o nomi appropriati se non specificati
+### 4. SEZIONI MULTIPLE
+- Se la ricetta ha componenti logicamente distinte (es: impasto + farcitura, pasta fresca + ragù + besciamella, base + crema), crea sezioni separate sia per gli ingredienti sia per il procedimento, anche se il testo dell'utente non le separa esplicitamente
+- I nomi delle sezioni sono gli stessi tra ingredienti e procedimento: se esiste "## Ingredienti per il ragù" deve esistere "## Procedimento per il ragù"
+- Usa i nomi delle sezioni così come li ha scritti l'utente, o nomi appropriati se non specificati
 - Mantieni "Per" se presente (es: "Per il sugo", "Per la pasta")
 - Le ricette semplici a componente unica restano SENZA sezioni: "## Ingredienti" e "## Procedimento" semplici
 
@@ -113,20 +113,19 @@ Il tuo compito è formattare questa ricetta in modo strutturato e completo, segu
 
 ### 7. ATTREZZATURE
 - Le attrezzature necessarie (es: planetaria, stampo, carta da forno) vanno SOLO nelle "Note aggiuntive" con prefisso "Attrezzature necessarie:"
-- NON includere mai le attrezzature come step del procedimento
+- Non includere le attrezzature come step del procedimento: sono strumenti, non azioni da eseguire
 
-### 8. FORMATTAZIONE TESTO - REGOLA ASSOLUTA
-- NON usare MAI asterischi (**testo**, *testo*), underscore (__testo__) o altri simboli markdown nel testo degli step, ingredienti o note
-- Scrivi SOLO testo semplice (plain text)
+### 8. FORMATTAZIONE TESTO
+- Step, ingredienti e note sono testo semplice, senza asterischi (**testo**, *testo*), underscore (__testo__) o altri simboli markdown: il testo viene salvato così com'è e i simboli resterebbero visibili
 - Se vuoi enfatizzare una parola, usa le maiuscole: "A TEMPERATURA AMBIENTE" invece di "**A temperatura ambiente**"
 - Esempio SBAGLIATO: "**Fase 1:** cuocere a 180°C"
 - Esempio CORRETTO: "Fase 1: cuocere a 180°C"
 
 ### 9. COERENZA INGREDIENTI ↔ PROCEDIMENTO
 - Ogni ingrediente elencato deve essere effettivamente usato o menzionato in almeno uno step del procedimento
-- Se un ingrediente indicato dall'utente non compare in nessuno step, prova PRIMA a collocarlo in modo sensato nel procedimento (coerentemente con la regola 3 di espansione dei passaggi vaghi)
-- Se davvero non riesci a collocarlo e resta chiaramente inutilizzato, OMETTILO dalla lista ingredienti (ingrediente orfano / refuso)
-- ECCEZIONE FONDAMENTALE (fail-safe): NON omettere nulla quando il procedimento è sintetico o generico — ad esempio "aggiungere i restanti ingredienti", "unire il tutto", "aggiustare di sale/spezie" o simili. In caso di dubbio, MANTIENI sempre l'ingrediente
+- Se un ingrediente indicato dall'utente non compare in nessuno step, prova prima a collocarlo in modo sensato nel procedimento (coerentemente con la regola 3 di espansione dei passaggi vaghi)
+- Se davvero non riesci a collocarlo e resta chiaramente inutilizzato, omettilo dalla lista ingredienti (ingrediente orfano / refuso)
+- Eccezione (fail-safe): non omettere nulla quando il procedimento è sintetico o generico — ad esempio "aggiungere i restanti ingredienti", "unire il tutto", "aggiustare di sale/spezie" o simili. In caso di dubbio, mantieni l'ingrediente
 
 Rispondi SOLO con la ricetta formattata, senza introduzioni o spiegazioni.`;
 
@@ -204,6 +203,9 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+
+    // Per-route token accounting (Vercel logs): the baseline for any prompt or effort change.
+    console.info('[ai-usage] format-recipe', message.usage);
 
     const formattedText = message.content
       .filter((block) => block.type === 'text')

@@ -221,6 +221,9 @@ export async function POST(request: NextRequest) {
       ],
     });
 
+    // Per-route token accounting (Vercel logs): the baseline for any prompt or effort change.
+    console.info('[ai-usage] reorganize-recipe', message.usage);
+
     const responseText = message.content
       .filter((block) => block.type === 'text')
       .map((block) => (block as { text: string }).text)

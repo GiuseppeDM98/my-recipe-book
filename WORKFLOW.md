@@ -107,8 +107,9 @@ and **record the outcome somewhere that survives the session** (`CLAUDE.md` or e
 
 ## 3. What this means in THIS repo
 
-The rules above are the standard. This section is the local translation of obligations 4 and 5 — it
-changes from repo to repo and is the only part to rewrite when the tooling changes.
+The rules above are the standard. This section is their local translation: the tooling behind
+obligations 4 and 5, plus this repo's branches and where things are recorded. It changes from repo
+to repo and is the only part to rewrite when the tooling or those conventions change.
 
 The repo already has all the guided-testing tooling configured (see the "Guided
 testing tooling" section in [CLAUDE.md](CLAUDE.md)); below are only the concrete
@@ -116,7 +117,8 @@ commands and paths.
 
 **Verified commands** (`package.json`):
 - `npm run test` → Jest (unit/integration)
-- `npm run lint` → ESLint
+- No lint step: the `lint` script calls `next lint`, which Next 16 removed (see
+  AGENTS.md) — type-check and build below cover it
 - `npx tsc --noEmit` → type-check (no dedicated script in `package.json`, but
   `tsconfig.json` is present and `tsc` resolves the project)
 - `npx next build --webpack` → verification build (the command recommended by
@@ -136,7 +138,8 @@ commands and paths.
   vars are set — no flag to pass, and no real service-account credentials required
   in that case
 
-**Test identities**: no reusable helper exists yet (by choice, see below) — the
+**Test identities**: no reusable helper for synthetic users exists yet (by choice,
+see below; the tracked mirror scripts cover only the real account) — the
 guided test's throwaway script creates the user on the fly with the Firebase client
 SDK (`createUserWithEmailAndPassword` against the Auth emulator, since the
 `NEXT_PUBLIC_USE_FIREBASE_EMULATOR` flag already routes there) or via the Firebase
@@ -209,10 +212,11 @@ listed in CLAUDE.md directly (`recipes`, `meal_plans`, `pantry_items`,
 Alternatively, the Emulator UI on `localhost:4000` for a quick visual inspection
 while debugging (not for automated assertions, which remain the script's job).
 
-**Where scripts go**: `e2e/scratch/` — gitignored (`.gitignore` lines 64-65), only
+**Where scripts go**: `e2e/scratch/` — gitignored (`/e2e/scratch/*` in `.gitignore`), only
 `.gitkeep` survives. Each guided test writes its own script there and deletes it at
-the end, per the protocol. Reusable helpers, if they ever emerge from repeated guided
-tests, get promoted to tracked `e2e/` — but until that happens, this is the repo's
+the end, per the protocol. A helper that proves reusable across guided tests gets
+promoted to tracked `e2e/` — so far only `e2e/mirror-dump.mjs` and
+`e2e/mirror-load.mjs` (2026-09-17); everything else staying in scratch is the repo's
 intentional choice, not a gap.
 
 **Guided tour (obligation 5)**: the app has neither CI nor a preview environment (no

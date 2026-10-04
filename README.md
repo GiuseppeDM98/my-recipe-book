@@ -1621,7 +1621,7 @@ Estimates kcal, serving weight, and macronutrients (protein/carbs/fat) per servi
 
 **Notes**:
 - Every figure is always **per serving**, never a recipe total: servings are editable and cooking mode scales them at runtime. kcal/100g is derived on screen from `caloriesPerServing` and `servingWeightGrams`, never stored.
-- The model estimates weight and macros as recipe **totals**; the server divides by `servings` and applies plausibility clamps plus a consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of `caloriesPerServing`) before returning them.
+- The model estimates kcal, weight and macros as recipe **totals**; the server divides by `servings` (kcal rounded to the nearest ten) and applies plausibility clamps plus a consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of `caloriesPerServing`) before returning them.
 - Each field is independently nullable: `caloriesPerServing` is `null` outside a plausible 20–3000 kcal range, `servingWeightGrams` outside 30–1500 g/serving, `macrosPerServing` when the consistency check fails or `caloriesPerServing` itself is `null`. A `null` field is a successful response and is never saved — nothing is worse than a stored number nobody can tell is wrong.
 - `confidence` is `alta` / `media` / `bassa`, based on how many quantities were precise.
 - Ingredients with no numeric quantity are ignored, except cooking fats (oil, butter), which are estimated because they materially affect the total.

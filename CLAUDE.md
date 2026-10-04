@@ -5,6 +5,10 @@
 > Read [WORKFLOW.md](WORKFLOW.md) before starting: session rules (branch,
 > commit, language) and the guided testing protocol.
 
+> **Language**: documentation (this file, AGENTS.md, WORKFLOW.md, `doc/guide/`)
+> stays in English, like code, identifiers and comments. Italian is for the
+> conversation with the user and for the app's UI text.
+
 ## Quick Reference
 
 | Resource | Purpose |
@@ -26,7 +30,7 @@ Digital recipe book for home cooks with:
 - cooking mode with active session tracking and per-step countdown timers
 - weekly meal planning (colazione/spuntino/pranzo/merenda/cena, always in canonical day order) with local "shuffle" generation (no AI) and manual editing; **family plan**: every meal knows how many people it is cooked for and can carry per-member variants ("pasta for everyone, minestrone for Sofia")
 - weekly shopping list aggregated from the meal plan (quantities scaled to the people planned on each meal, compatible-unit + singular/plural merging), plus ad-hoc "Voglio preparare questo" additions from any recipe, independent of the weekly plan; a "Per reparto / Per ricetta" toggle groups the list by supermarket department (13-department taxonomy shared with the pantry, precedence chain pantry → user override → curated dictionary → "Altro", user-correctable via "Sposta in reparto…")
-- family-aware AI quantity guidance via saved household profile (PDF/free-text/chat only)
+- family-aware AI quantity guidance via saved household profile (free-text/chat only)
 - estimated nutrition per serving (kcal, serving weight, macronutrients), AI-estimated or entered by hand, with kcal/100g derived on screen and daily **per-person** kcal + macro totals in the planner
 - historical cooking statistics
 - pantry/dispensa tracking with expiry management and stock levels, wired to the shopping list (water/ice never listed, "Hai già in casa" for what the stock covers, batch "Aggiungi alla dispensa" of checked items) and to cooking (stock deduction proposed at "Termina cottura")
@@ -109,7 +113,7 @@ src/
 - Always an estimate (AI or manual), never a measured value. A `null`/incomplete estimate must not be persisted — `MacrosPerServing` is all-or-nothing (a partial trio can't be expressed), the form blocks submit with a toast if only 1-2 of the 3 macro fields are filled
 - kcal/100g is **never persisted**: derived at render time (`caloriesPerServing / servingWeightGrams * 100`), only when both are present and weight `> 0`
 - `0` is a legitimate value for weight-independent macros (e.g. `fatGrams: 0`) — every display/aggregation gate on the new fields uses `!= null`, never truthiness. `caloriesPerServing`'s existing truthy gates stay valid only because 0 kcal is unreachable by construction (server min 20, form `> 0`)
-- `/api/estimate-calories` fills all three in **one** AI call: the model returns kcal-per-serving directly (as before) but weight/macros as recipe **totals**; the server (`deriveNutritionPerServing()`, `lib/utils/nutrition-estimate.ts`) divides by servings and clamps (weight 30-1500 g/serving, each macro 0-300 g/serving) plus an Atwater consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of kcal) — a failed check drops macros only, kcal and weight survive independently
+- `/api/estimate-calories` fills all three in **one** AI call: the model returns kcal, weight and macros as recipe **totals**; the server (`deriveNutritionPerServing()`, `lib/utils/nutrition-estimate.ts`) divides by servings (kcal rounded to the nearest ten) and clamps (kcal 20-3000/serving, weight 30-1500 g/serving, each macro 0-300 g/serving) plus an Atwater consistency check (`4·protein + 4·carbs + 9·fat` within ±30% of kcal) — a failed check drops macros only, kcal and weight survive independently
 - `useEstimateNutrition()` (`lib/hooks/useEstimateNutrition.ts`) is **fill-the-gaps**: re-estimating a recipe only writes fields it doesn't already have, so a manual value is never overwritten
 - Daily planner totals come from `computeWeekNutrition()`/`computeDayNutrition()` (`lib/utils/meal-plan-calories.ts`, module name unchanged): kcal and macros have **separate** completeness counters (a pre-macros recipe has kcal but no macros), partial totals render with `≥`
 - Not shown in the shopping list — per-serving figures don't aggregate into anything a shopper acts on
@@ -146,7 +150,7 @@ Full rules in [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md). The 
 ### AI model and prompts
 - Model string is centralized in `AI_MODEL` (`lib/utils/constants.ts`) — change it there, then update tech-stack docs; never hardcode a model literal in a route
 - On Sonnet 5, `temperature`/`top_p`/`top_k`/`budget_tokens` return **400** — never set them
-- Thinking per endpoint: `extract`/`format` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled`; `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
+- Thinking per endpoint: `extract`/`format`/`estimate-calories`/`reorganize-recipe` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled`; `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
 - `EXTRACTION_PROMPT` and `FORMAT_RECIPE_PROMPT` drop ingredients never used in the procedure (conservative fail-safe: keep everything if the procedure is terse). Keep the rule mirrored in both prompts
 - The **prescriptive sections rule** ("distinct components → you MUST create sections") is mirrored between `chat-recipe` and `format-recipe` and deliberately absent from `extract-recipes`, which promises fidelity to the PDF. Don't "fix" the asymmetry — same scoping doctrine as the family context and web search
 
