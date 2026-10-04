@@ -8,6 +8,17 @@ import { getPantryCategory } from '@/lib/utils/pantry-utils';
 
 export const departmentOverridesQueryKey = (uid: string) => ['departmentOverrides', uid] as const;
 
+interface SetDepartmentOverrideInput {
+  canonicalKey: string;
+  departmentId: string;
+  /**
+   * Department of the pantry entry this ingredient matches, when there is one.
+   * A pantry match wins over the override, so the success toast must not
+   * promise a move that will not show.
+   */
+  pantryDepartmentId?: string;
+}
+
 /**
  * "Sposta in reparto…" overrides for the shopping list's department view.
  *
@@ -26,10 +37,15 @@ export function useDepartmentOverrides() {
   });
 
   const setOverride = useMutation({
-    mutationFn: ({ canonicalKey, departmentId }: { canonicalKey: string; departmentId: string }) =>
+    mutationFn: ({ canonicalKey, departmentId }: SetDepartmentOverrideInput) =>
       setDepartmentOverride(user!.uid, canonicalKey, departmentId),
-    onSuccess: (_, { departmentId }) => {
+    onSuccess: (_, { departmentId, pantryDepartmentId }) => {
       queryClient.invalidateQueries({ queryKey: departmentOverridesQueryKey(user!.uid) });
+      if (pantryDepartmentId && pantryDepartmentId !== departmentId) {
+        // The override is saved but not visible: say where the row really is.
+        toast(`È già in dispensa: resta in ${getPantryCategory(pantryDepartmentId)?.name ?? 'Altro'}`, { icon: 'ℹ️' });
+        return;
+      }
       toast.success(`Spostato in ${getPantryCategory(departmentId)?.name ?? 'Altro'}`);
     },
     onError: () => toast.error('Impossibile salvare il reparto. Riprova.'),

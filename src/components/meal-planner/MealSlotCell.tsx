@@ -86,6 +86,11 @@ export function isNewRecipeSlot(slot: MealSlot | undefined): boolean {
  * - AI-generated new recipe (sparkle badge): not yet saved to cookbook;
  *   shows a "Salva" button so user can add it to their cookbook
  *
+ * TAP TARGET: on a filled cell the whole surface opens the editor (padding and
+ * chips included — a kitchen tap rarely lands on the title). The title stays a
+ * real button for keyboard and screen readers and stops propagation so the
+ * editor opens once; the other inner controls stop it to keep their own action.
+ *
  * WHY SEPARATE onSaveNewRecipe from onClick:
  * The "Salva" action is distinct from the "change recipe" action (onClick).
  * Mixing them would require the parent to infer intent from context.
@@ -132,9 +137,10 @@ export function MealSlotCell({
     }
     return (
       <div
+        onClick={onClick}
         className={cn(
           'w-full min-h-[64px] rounded-lg border border-border bg-muted/30',
-          'p-2 flex flex-col gap-1 group relative',
+          'p-2 flex flex-col gap-1 group relative cursor-pointer',
           'transition-shadow duration-150 ease-out motion-reduce:transition-none',
           'hover:shadow-sm'
         )}
@@ -148,7 +154,7 @@ export function MealSlotCell({
 
         <div className="flex items-start justify-between gap-1 pl-8">
           <button
-            onClick={onClick}
+            onClick={e => { e.stopPropagation(); onClick(); }}
             className="flex-1 text-left text-sm lg:text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
             title={slot.recipeTitle ?? undefined}
           >
@@ -203,9 +209,10 @@ export function MealSlotCell({
   }
   return (
     <div
+      onClick={onClick}
       className={cn(
         'w-full min-h-[64px] rounded-lg border border-border bg-card',
-        'p-2 flex flex-col gap-1 group relative',
+        'p-2 flex flex-col gap-1 group relative cursor-pointer',
         'transition-shadow duration-150 ease-out motion-reduce:transition-none',
         'hover:shadow-sm'
       )}
@@ -218,7 +225,7 @@ export function MealSlotCell({
 
       <div className="flex items-start justify-between gap-1 pl-8">
         <button
-          onClick={onClick}
+          onClick={e => { e.stopPropagation(); onClick(); }}
           className="flex-1 text-left text-sm lg:text-xs font-medium leading-tight text-foreground line-clamp-2 lg:line-clamp-3 hover:underline"
           title={slot.recipeTitle ?? undefined}
         >

@@ -1,102 +1,115 @@
-# Session workflow
+# Workflow — standing instructions
 
-Portable collaboration rules (the same in every repo/machine). They do not duplicate
-the project's technical conventions, which live in [CLAUDE.md](CLAUDE.md) and
-[AGENTS.md](AGENTS.md).
-
----
-
-## Session and collaboration rules
-
-1. **Never commit without explicit approval.** Do not run `git commit` (nor
-   `--amend`) until the OK for that specific commit arrives. Finish the work,
-   summarize the diff, then ask. Creating the branch and editing files needs no
-   approval — only the commit does.
-
-2. **One branch per session.** Before starting implementation work, create a new
-   branch from the branch that was active at the start of the session (always check
-   which one it is; don't assume master/main).
-
-3. **One commit per session.** All of a session's changes are squashed into a single
-   commit, not spread across several.
-
-4. **Always reply in Italian** when working on this repo (this applies to the
-   conversational channel — code, identifiers, comments and documentation stay in
-   English).
-
-5. **Track the work in `SESSION_NOTES.md`** (a working file, deleted at the end of
-   the session). Before asking for the commit OK, close it with a summary: one entry
-   for each thing learned or decided, in this format:
-   - **What**: what was implemented
-   - **Why**: the motivation behind the decision
-   - **Note**: gotchas or important details, with the date if it is a measurement
-   - **Where it goes at session end**: `AGENTS.md` if it applies to the whole repo ·
-     `doc/guide/<topic>.md` if it is a domain lesson · `WORKFLOW.md` if it is a session
-     rule · `CLAUDE.md` if it is project state · a comment at the right spot in the
-     code if it is the why of a line
-
-   The last field is not decorative: `SESSION_NOTES.md` dies with the session, so
-   every entry must **already have been written** to its destination before closing.
+> **Standing instructions for any AI agent working on this repo.** They are not suggestions and not
+> per-session: they hold until this file says otherwise.
+>
+> **Why they live in the repo and not in agent memory**: agent memory is per-machine and per
+> install, so the same rules drift into different versions on the laptop, the desktop and a cloud
+> session. A tracked file travels with the clone and can be reviewed in a diff. If you are an agent
+> with persistent memory, do **not** re-save these rules there — save one pointer to this file. If
+> the owner states a new rule, it is added *here*, in that session's commit.
+>
+> Sections 1-2 are the portable standard, identical across every repo that adopts it. Section 3 is
+> the only project-specific part: it says what "automate it yourself" and "show me the app"
+> concretely mean *here*.
 
 ---
 
-## Guided testing rule
+## 1. Session and collaboration rules
 
-When we need to manually verify that a freshly implemented feature works, don't
-hand over a checklist and disappear. The guided test (*collaudo*) is done together,
-in chat, one phase at a time. Five obligations:
+1. **Never commit without explicit approval.** Do not run `git commit` (nor `--amend`) until the
+   owner gives the OK for that specific commit. Finish the work, summarise the diff, then ask.
+   Creating the branch and editing files needs no approval — only the commit does.
 
-1. **You prepare the test data** — a throwaway script (not tracked by git, deleted at
-   the end of the guided test) using "spy words" (made-up words such as fenicottero,
-   ornitorinco, that appear nowhere else in the archive), not entered by hand by the
-   user.
-2. **One phase per message** — give the phase, wait for the report, then the next
-   one. Never deliver all phases at once: it breaks the prerequisites.
-3. **Declare the expected outcome before running, not after** — otherwise the
-   reading always adapts to whatever happened.
-4. **Do every check you can automate yourself**, and leave only what can't be done.
-   "Together, in chat" does not mean "one click at a time dictated to the user": if
-   sessions are JWT or otherwise scriptable, write a throwaway script that opens a
-   real browser (e.g. Playwright) with an authenticated session — your own if the
-   role allows it, otherwise a throwaway test identity created for the occasion —
-   and verify every outcome against the database or the HTTP response, never against
-   the page's appearance alone. Report results phase by phase, with the expected
-   outcome declared first. Every automated end-to-end test you are able to run must
-   be run: never declare a feature verified if an automated check that could have
-   covered it was left unexecuted. Leave to the user only what is genuinely not
-   automatable: visual/aesthetic judgment, physical hardware (e.g. a real barcode
-   scanner), or an interactive login that can't be driven by a script (e.g. a real
-   OAuth flow with MFA).
-5. **Before tearing down, let the user look.** When the session touched something
-   visible, ask for the OK and then take the user to the dev server with the test
-   data still live: exact URLs, which identity, and at most five things to look at —
-   for each, what should happen and what would be the bug. Only what a probe can't
-   tell: layout, whether the screen says what it should, the wording, whether an
-   action gives feedback that it happened. Also state what that tour does NOT cover,
-   and never ask the user to redo by hand what has already been verified. Whatever
-   the user finds becomes an assertion before the session ends, or it will come
-   back: the tour exists to discover what nobody thought to assert, not to replace
-   the tests.
+2. **One branch per session.** Before starting implementation work, create a new branch from the
+   branch that is active at the start of the session. Always check which one that is; never assume
+   `master`/`main`.
 
-Standard phases to follow when it makes sense: A-Invariance (what was there before
-still works) → B-Context switch (the new role/state is really active) → C-New
-behavior (does what it should, not what it shouldn't — obligation 4 matters most
-here: automate) → D-Below the UI (the same rules hold when calling the route by
-hand) → E-Negative cases (whoever lacks rights is rejected, with the right error) →
-F-Guided tour (the only phase the user does: look with their own eyes, with the
-fixtures still live) → G-Teardown (configuration restored, fixtures removed, script
-deleted).
+3. **One commit per session.** Everything from a session is squashed into a single commit, never
+   scattered across several.
 
-A negative test alone does not prove a security guard: you always need the pair
-own-resource (positive control, must succeed) / someone-else's-resource (the test,
-must fail), with the exact same file/data. Closing the guided test: restore any
-modified config, remove fixtures and test attachments, delete the script, and record
-the outcome somewhere that outlives the session (CLAUDE.md or equivalent) — a guided
-test that isn't recorded counts as not done.
+4. **Always answer in Italian** when working on this repo. This applies to the conversational
+   channel; code, identifiers and comments stay in English.
+
+5. **Questions and proposals are asked interactively** (2026-09-11). When a decision is the owner's —
+   which layers to build, on which surfaces, a wording — put it through the agent's interactive
+   question tool, one batch per topic, multi-select where the options are not exclusive and the
+   recommended option first; never a numbered list of questions in prose. The owner refines the
+   wording through the free-text answer («hai pagato», not «pagherai», for a tax the broker
+   withholds at the sale).
 
 ---
 
-## How it applies in this repo
+## 2. Guided verification (*collaudo guidato*)
+
+When a freshly implemented feature has to be verified by hand, do **not** hand over a checklist and
+disappear. The verification is done together, in chat, one phase at a time.
+
+### Five obligations
+
+1. **You prepare the test data.** A throwaway script (untracked by git, deleted when the
+   verification ends) that plants **decoy words** — invented terms such as *fenicottero*,
+   *ornitorinco*, which appear nowhere else in the data. Not entered by hand by the owner.
+
+2. **One phase per message.** Give the phase, wait for the report, then the next one. Never deliver
+   all the phases at once: it breaks their prerequisites.
+
+3. **State the expected outcome before running, not after** — otherwise the reading always bends to
+   fit whatever happened.
+
+4. **Do every check you can automate yourself, and leave the owner only what you cannot do.**
+   "Together, in chat" does not mean "one dictated click at a time". If the sessions are JWT-based
+   or otherwise scriptable, write a throwaway script that opens a **real browser** (e.g. Playwright)
+   with an authenticated session — your own if the role allows it, otherwise a throwaway test
+   identity created for the occasion — and verify every outcome **against the database or the HTTP
+   response, never against the look of the page alone**. Report the results phase by phase, with the
+   expected outcome stated first.
+   **Any automated end-to-end test that you are able to run, you run.** Never declare a feature
+   verified while an automated check that could have covered it was left unrun. What is left to the
+   owner is only what is genuinely not automatable: visual and aesthetic judgement, physical
+   hardware (a real barcode scanner), or an interactive login that cannot be driven by a script (a
+   real OAuth flow with MFA).
+
+5. **Before dismantling, let the owner look.** When the session touched something visible, ask for
+   the OK and then walk the owner onto the dev server **with the fixtures still alive**: exact URLs,
+   under which identity, and at most **five** things to look at — for each one, what must happen and
+   what would be the bug. Only what a probe cannot say: layout, whether the screen says what it must
+   say, the words, whether an action gives feedback that it happened. State also **what that tour
+   does not cover**, and never ask the owner to redo by hand something already verified. Whatever
+   the tour finds becomes an assertion before the session ends, or it will come back: the tour
+   exists to discover what nobody thought to assert, not to replace the tests.
+
+### Standard phases, when they make sense
+
+| | Phase | What it establishes |
+| --- | --- | --- |
+| **A** | Invarianza | What worked before still works |
+| **B** | Cambio di contesto | The new role/state is genuinely active |
+| **C** | Comportamento nuovo | It does what it must, and not what it must not — obligation 4 matters most here: automate |
+| **D** | Sotto la UI | The same rules hold when the route is called directly |
+| **E** | Casi negativi | Someone without rights is refused, with the right error |
+| **F** | Giro guidato | The only phase the owner executes: they look with their own eyes, fixtures still alive |
+| **G** | Ripristino | Configuration restored, fixtures removed, script deleted |
+
+### A negative test alone never proves a security guard
+
+It always takes the pair: **own resource** (positive control — must succeed) and **someone else's
+resource** (the test — must fail), with the same identical file or record.
+
+### Closing a verification
+
+Restore any configuration that was changed, remove fixtures and test attachments, delete the script,
+and **record the outcome somewhere that survives the session** (`CLAUDE.md` or equivalent).
+*A verification that was not recorded counts as not done.*
+
+---
+
+
+## 3. What this means in THIS repo
+
+The rules above are the standard. This section is their local translation: the tooling behind
+obligations 4 and 5, plus this repo's branches and where things are recorded. It changes from repo
+to repo and is the only part to rewrite when the tooling or those conventions change.
 
 The repo already has all the guided-testing tooling configured (see the "Guided
 testing tooling" section in [CLAUDE.md](CLAUDE.md)); below are only the concrete
@@ -104,7 +117,8 @@ commands and paths.
 
 **Verified commands** (`package.json`):
 - `npm run test` → Jest (unit/integration)
-- `npm run lint` → ESLint
+- No lint step: the `lint` script calls `next lint`, which Next 16 removed (see
+  AGENTS.md) — type-check and build below cover it
 - `npx tsc --noEmit` → type-check (no dedicated script in `package.json`, but
   `tsconfig.json` is present and `tsc` resolves the project)
 - `npx next build --webpack` → verification build (the command recommended by
@@ -124,7 +138,8 @@ commands and paths.
   vars are set — no flag to pass, and no real service-account credentials required
   in that case
 
-**Test identities**: no reusable helper exists yet (by choice, see below) — the
+**Test identities**: no reusable helper for synthetic users exists yet (by choice,
+see below; the tracked mirror scripts cover only the real account) — the
 guided test's throwaway script creates the user on the fly with the Firebase client
 SDK (`createUserWithEmailAndPassword` against the Auth emulator, since the
 `NEXT_PUBLIC_USE_FIREBASE_EMULATOR` flag already routes there) or via the Firebase
@@ -179,9 +194,9 @@ production.
 - **Images**: `recipe.images` holds download URLs from the production bucket, which
   the browser loads read-only anyway, so Storage doesn't need copying. Uploads made
   during the guided test land in the Storage emulator.
-- **Spy words still apply**: assertions never target content from the real archive
+- **Decoy words still apply**: assertions never target content from the real archive
   (it changes over time, and writing it into scripts or records would make it
-  public). The script adds its own spy-word fixtures on top of the mirror and asserts
+  public). The script adds its own decoy-word fixtures on top of the mirror and asserts
   on those; the mirror provides context. Aggregate assertions on real data are fine
   (before/after counts, "no recipe loses its categories").
 - **Teardown (phase G)**: `e2e/scratch/mirror/` contains personal data and is deleted
@@ -197,10 +212,11 @@ listed in CLAUDE.md directly (`recipes`, `meal_plans`, `pantry_items`,
 Alternatively, the Emulator UI on `localhost:4000` for a quick visual inspection
 while debugging (not for automated assertions, which remain the script's job).
 
-**Where scripts go**: `e2e/scratch/` — gitignored (`.gitignore` lines 64-65), only
+**Where scripts go**: `e2e/scratch/` — gitignored (`/e2e/scratch/*` in `.gitignore`), only
 `.gitkeep` survives. Each guided test writes its own script there and deletes it at
-the end, per the protocol. Reusable helpers, if they ever emerge from repeated guided
-tests, get promoted to tracked `e2e/` — but until that happens, this is the repo's
+the end, per the protocol. A helper that proves reusable across guided tests gets
+promoted to tracked `e2e/` — so far only `e2e/mirror-dump.mjs` and
+`e2e/mirror-load.mjs` (2026-09-17); everything else staying in scratch is the repo's
 intentional choice, not a gap.
 
 **Guided tour (obligation 5)**: the app has neither CI nor a preview environment (no
@@ -234,6 +250,16 @@ history (`Merge branch '...' into develop`, then `Merge pull request ...` into
 `main`).
 
 **Where things are recorded**:
+- During the session: `SESSION_NOTES.md` at the root, a working file deleted at the
+  end of the session. Before asking for the commit OK, close it with one entry for
+  each thing learned or decided: **What** (what was implemented), **Why** (the
+  motivation behind the decision), **Note** (gotchas or important details, with the
+  date if it is a measurement), **Where it goes at session end** (`AGENTS.md` if it
+  applies to the whole repo · `doc/guide/<topic>.md` if it is a domain lesson ·
+  `WORKFLOW.md` if it is a session rule · `CLAUDE.md` if it is project state · a
+  comment at the right spot in the code if it is the why of a line). The last field
+  is not decorative: every entry must **already have been written** to its
+  destination before closing.
 - A guided test's outcome: the "Guided testing tooling" section of CLAUDE.md, list
   "Guided tests run with this tooling" — one line for each closed guided test.
 - Project state: CLAUDE.md "Recent Changes" keeps only the latest session's entry;

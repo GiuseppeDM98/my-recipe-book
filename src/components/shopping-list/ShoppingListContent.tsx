@@ -242,6 +242,7 @@ export function ShoppingListContent({
                   adHocGroupId ? onRemoveAdHocItem(adHocGroupId, id) : onRemove(id)
                 }
                 onMove={(row, currentDepartmentId) => setMoveTarget({ ...row, currentDepartmentId })}
+                pantryContext={pantryContext}
               />
             ))}
           </div>
@@ -278,7 +279,9 @@ export function ShoppingListContent({
 
       {/* Ad-hoc groups render as their own recipe-titled sections only in the
           per-recipe view; the department view already folds their rows into
-          the sections above (no group headers there — departments, not recipes). */}
+          the sections above (no group headers there — departments, not recipes).
+          Removing a whole group is therefore possible only here: it is
+          destructive, and must not happen without the group visible as a unit. */}
       {viewMode === 'ricetta' && hasAdHoc && (
         <div className="space-y-3">
           {adHocRecipes.map(group => (

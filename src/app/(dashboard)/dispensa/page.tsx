@@ -108,7 +108,7 @@ export default function DispensaPage() {
   }, [items, positionFilter, search, onlyExpiring]);
 
   const itemsByCategory = useMemo(() => {
-    // 'altro' is now a real category (Spec E): remap unknown/historical slugs
+    // 'altro' is a real category of PANTRY_CATEGORIES: remap unknown/historical slugs
     // into it here so the render below never needs a second fallback section.
     const knownIds = new Set(PANTRY_CATEGORIES.map(c => c.id));
     const map = new Map<string, PantryItem[]>();

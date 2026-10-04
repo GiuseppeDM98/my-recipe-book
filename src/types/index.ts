@@ -38,7 +38,7 @@ export interface User {
   adHocShoppingRecipes?: AdHocShoppingRecipe[] | null;
   /**
    * Manual "ingredient → department" overrides for the shopping list's
-   * per-department view (Spec E). Key = canonicalIngredientKey(name) (stem),
+   * per-department view. Key = canonicalIngredientKey(name) (stem),
    * value = slug in PANTRY_CATEGORIES. Applies permanently to that canonical
    * key. Precedence: loses only to the categoryId of the matched pantry entry.
    * Same pattern as familyProfile/adHocShoppingRecipes: a field on
@@ -140,7 +140,6 @@ export interface Step {
  * CHECKLIST: If you add a season value, update:
  * - SEASON_ICONS, SEASON_LABELS, ALL_SEASONS in lib/constants/seasons.ts
  * - ITALIAN_SEASONAL_INGREDIENTS in api/suggest-category/route.ts
- * - ITALIAN_SEASONAL_INGREDIENTS in api/extract-recipes/route.ts
  */
 export type Season = 'primavera' | 'estate' | 'autunno' | 'inverno' | 'tutte_stagioni';
 
@@ -413,19 +412,15 @@ export interface ParsedRecipe {
 // ============================================
 
 /**
- * Italian daily meal types for the weekly planner.
+ * Meal types of the weekly planner.
  *
- * CONVENTION:
- * - colazione (breakfast): light, typically 7–9am
- * - pranzo (lunch): main meal of the day, typically 12:30–2pm
- * - cena (dinner): second main meal, typically 7:30–9pm
- */
-/**
- * Meal types include both traditional meal slots (colazione/spuntino/pranzo/
- * merenda/cena) and Italian course types (primo/secondo/contorno/dolce).
+ * The five daily meals (colazione, spuntino, pranzo, merenda, cena) are the
+ * only ones a user can select; their canonical day order is
+ * SELECTABLE_MEAL_TYPES (lib/constants/meal-types.ts), not this union.
  *
- * Course types are optional rows added in advanced setup, each optionally
- * associated with a preferred category so the AI picks appropriate recipes.
+ * The Italian course types (primo/secondo/contorno/dolce) are legacy: no flow
+ * creates them any more, they stay in the type only so plans saved with them
+ * still render.
  */
 export type MealType =
   | 'colazione'
@@ -442,6 +437,10 @@ export type MealType =
  * EXISTING RECIPES ONLY: no inline `newRecipe` — variants reference the
  * cookbook. Allowing an inline recipe would duplicate the AI review/save flow
  * and grow the meal_plans document by a full recipe per variant.
+ *
+ * Variants are stored inline in the slot, not in their own collection: about
+ * 120 B each (worst case ~13 KB per plan, against the 1 MiB document limit),
+ * with no new rule, index or extra read per plan.
  *
  * memberIds references FamilyMember.id from the family profile. A member later
  * removed from the profile leaves an "orphan variant": scaling keeps counting

@@ -1,9 +1,9 @@
 # Pantry matching — ingredient ↔ pantry engine
 
-> Domain guide (Spec D, 2026-09-15; Spec E's department classification added 2026-09-16).
+> Domain guide (written 2026-09-15 with the pantry integration; department classification added 2026-09-16).
 > Repo-wide gotchas stay in [AGENTS.md](../../AGENTS.md); this file holds what matters only
 > when touching the pantry ↔ shopping list ↔ cooking integration, including the shopping
-> list's "Per reparto" view. Product decisions and the cross-spec contracts: `specs/00-roadmap.md` §2-3.
+> list's "Per reparto" view.
 
 ## Where it lives
 
@@ -15,14 +15,14 @@
 | End-of-cooking deduction | `src/lib/utils/pantry-deduction.ts` + `components/pantry/PantryDeductionDialog.tsx` |
 | Shopping list wiring | `src/lib/hooks/useShoppingList.ts`, `components/shopping-list/pantry-row-props.ts`, `PantryOwnedSection.tsx` |
 | Firestore writes | `src/lib/firebase/pantry.ts` — `addPantryItemAlias`, `applyPantryBatch`, `applyPantryDeductions` |
-| Department classification (Spec E) | `src/lib/utils/ingredient-departments.ts` (precedence chain + dictionary), `src/lib/utils/shopping-departments.ts` (view model) |
-| Department override persistence (Spec E) | `src/lib/firebase/department-overrides.ts` + `src/lib/hooks/useDepartmentOverrides.ts` |
+| Department classification | `src/lib/utils/ingredient-departments.ts` (precedence chain + dictionary), `src/lib/utils/shopping-departments.ts` (view model) |
+| Department override persistence | `src/lib/firebase/department-overrides.ts` + `src/lib/hooks/useDepartmentOverrides.ts` |
 
 Tests: `ingredient-matching.test.ts`, `ingredient-aggregator.test.ts`, `pantry-batch.test.ts`,
 `pantry-deduction.test.ts`, `ingredient-departments.test.ts`, `shopping-departments.test.ts`
 (all in `src/lib/utils/`).
 
-## Contract (Spec E imports it — don't rename)
+## Contract (the department classification imports it — don't rename)
 
 - `ingredient-matching.ts` exports `canonicalIngredientKey`, `isTrivialIngredient`,
   `matchIngredientToPantry`, `parseQuantity`, `UNIT_ALIASES` (plus the helpers below).
@@ -51,6 +51,9 @@ Suggested: "spaghetti" ↔ "Spaghetti fini", "pomodori" ↔ "Passata di pomodoro
 Not suggested: "sale" ↔ "Salsa di soia", "uva" ↔ "Uva passa" (shared token too short).
 
 ## Alias keys are a persisted format
+
+An alias is permanent and has no management UI: a wrong "Sì, è lo stesso" can only be undone by
+editing the `pantry_items` document, and renaming an entry keeps its aliases.
 
 `PantryItem.aliases` stores `canonicalIngredientKey()` output. Changing `singularizeWord` or
 `canonicalIngredientKey` orphans every confirmed alias with no error — matches just stop
@@ -98,16 +101,19 @@ items left in `shoppingCheckedIds` are inert, like the ids of a recipe that left
 One helper feeds both the list badge ("mancano 50 g") and the batch prefill, so they can't
 disagree: the shortfall when the stock covers part of the need, the whole amount otherwise
 (no stock at all, or an item re-included despite enough stock). The row quantity itself stays
-the recipes' need — since Spec F (2026-09-17) that need is already scaled to the people planned
+the recipes' need — since the family plan (2026-09-17) that need is already scaled to the people planned
 on each meal before it reaches the aggregator (`buildContributions`, legacy slots excepted), so
 stock comparison, badge and prefill see the scaled figure and nothing here needs to know about
 people. The ad-hoc "Voglio preparare questo" rows are never scaled.
 
 ## Checked items → pantry (`buildPantryDraftRows` / `buildPantryBatchOps`)
 
+The flow is a single batch at the end of shopping on purpose: checking items off must never be
+interrupted, so a prompt at every check mark was rejected.
+
 - New entries: mass → g/kg, volume → ml/L, plain counts → pz; any other unit or `q.b.` → 1 pz
   with a "Quantità in lista: …" note; a concatenation sums its same-dimension segments.
-  Category `altro` (honest fallback, formalized by Spec E), position `dispensa`.
+  Category `altro` (the explicit fallback of `PANTRY_CATEGORIES`), position `dispensa`.
 - Existing entries: an increment in the entry's own unit (locked), prefilled with
   `amountToBuyBase`; incomparable units prefill 0 with a note.
 - Several rows on the same entry accumulate into **one** update; new rows with the same name and
@@ -137,7 +143,7 @@ The shopping list's "Per reparto" view groups items by supermarket department in
 recipe. `PANTRY_CATEGORIES` (`pantry-utils.ts`) is the single taxonomy for both the pantry and
 this view — 13 slugs, `altro` an explicit fallback rather than an implicit unknown-slug bucket.
 
-Precedence chain, in order (roadmap contract §3 — same "non-match falls through" philosophy as
+Precedence chain, in order (same "non-match falls through" philosophy as
 matching above):
 1. **Pantry**: the matched pantry entry's `categoryId` (via `matchIngredientToPantry`), only if
    it's a known slug — an unknown/historical slug on the pantry doc does **not** classify, the
@@ -145,13 +151,22 @@ matching above):
 2. **Override**: `users/{uid}.ingredientDepartmentOverrides` (`canonicalKey → slug`), written by
    "Sposta in reparto…" or the custom-item sheet's department select. Ignored if it points to a
    slug that is no longer known.
-3. **Dictionary**: `DEPARTMENT_BY_KEY`, a ~290-entry curated Italian lookup built once from
+3. **Dictionary**: `DEPARTMENT_BY_KEY`, a ~390-entry curated Italian lookup built once from
    `RAW_INGREDIENT_DEPARTMENTS`, keyed on `canonicalIngredientKey()` stems.
 4. **Fallback**: `'altro'`.
 
 A pantry match always wins over a manual override by design (precedence link 1 beats link 2):
 `DepartmentSection` hides the "Sposta in reparto" action on those rows (`source === 'pantry'`),
-since the override would have no visible effect.
+since the override would have no visible effect. To move such an item, change the category of
+the pantry entry it matches. The custom-item sheet's department select has the same limit: the
+override is saved, but when the name matches a pantry entry the toast says where the row really
+is instead of "Spostato in…".
+
+Department rows show the same pantry information as the per-recipe rows (stock badge, alias
+suggestion, "Ce l'ho già"): both go through `buildPantryRowProps()`.
+
+The department view removes single rows only. Removing a whole "Voglio preparare questo" group
+stays in the "Per ricetta" view, where the group is visible as a unit.
 
 **Stem collisions**: the conservative stemmer (`singularizeWord` in `ingredient-aggregator.ts`,
 shared with matching) occasionally maps two unrelated words to the same key — `pesca`/`pesce` and
@@ -168,7 +183,11 @@ map (canonical keys can contain spaces, which `FieldPath` dot-notation can't add
 
 ## Out of scope, by decision
 
-Count ↔ mass density; persisted suggestion rejections; "Aggiungi a lista" from the pantry (it
-would race with the list's debounced full-array writes); `CookableSuggestions` still matches on
+Count ↔ mass density; persisted suggestion rejections (a new persisted field and its whole flush
+circuit for a marginal benefit — a dismissal lasts the session); "Aggiungi a lista" from the
+pantry (it would race with the list's debounced full-array writes); the pantry's "A voce" tab
+(removed as a promise with no design behind it); a one-tap "Consumato" on the desktop row (a flat
+−1 would bring back the per-unit bug on g/ml entries — desktop reaches the proportional chips
+through the quick sheet); `CookableSuggestions` still matches on
 exact lowercase names; custom department ordering per the user's supermarket; a management page
 for existing department overrides (fixed by moving again).

@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { usePantry } from '@/lib/hooks/usePantry';
 import { useDepartmentOverrides } from '@/lib/hooks/useDepartmentOverrides';
 import { useShoppingList } from '@/lib/hooks/useShoppingList';
-import { canonicalIngredientKey } from '@/lib/utils/ingredient-matching';
+import { classifyIngredientDepartment } from '@/lib/utils/ingredient-departments';
 import { ShoppingListContent } from '@/components/shopping-list/ShoppingListContent';
 import { ShoppingViewMode } from '@/components/shopping-list/ShoppingViewToggle';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -80,11 +80,19 @@ export default function ListaSpesaPage() {
   }
 
   // The custom-item sheet's optional department select reuses the override
-  // mechanism (chain link 2, §4.2): no new field on ShoppingItem.
+  // mechanism (the user-override link of the classification chain): no new
+  // field on ShoppingItem.
   function handleAddCustom(name: string, quantity: string, section?: string, departmentId?: string) {
     addCustomItem(name, quantity, section);
     if (departmentId) {
-      setOverride.mutate({ canonicalKey: canonicalIngredientKey(name), departmentId });
+      // A name that matches a pantry entry is classified by that entry, whatever
+      // the user picks here ("Sposta" is hidden on such rows for the same reason).
+      const current = classifyIngredientDepartment(name, pantryItems, departmentOverrides);
+      setOverride.mutate({
+        canonicalKey: current.canonicalKey,
+        departmentId,
+        pantryDepartmentId: current.source === 'pantry' ? current.departmentId : undefined,
+      });
     }
   }
 

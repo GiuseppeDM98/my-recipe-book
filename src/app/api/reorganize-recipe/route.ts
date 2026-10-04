@@ -42,6 +42,11 @@ interface ReorganizeStep {
  * Ids are printed in brackets next to each item so the model can key its answer on
  * them: it has no other way to address an ingredient unambiguously (two ingredients can
  * share a name, e.g. mozzarella in the filling and on top).
+ *
+ * The prompt forbids splits that would need the steps reordered because nothing here
+ * ever reorders the stored arrays: the answer only labels items. Rendering groups steps
+ * by section and numbers them in that order, so non-contiguous sections would shuffle
+ * the step numbers the user already knows.
  */
 function createReorganizePrompt(
   title: string,
@@ -220,6 +225,9 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+
+    // Per-route token accounting (Vercel logs): the baseline for any prompt or effort change.
+    console.info('[ai-usage] reorganize-recipe', message.usage);
 
     const responseText = message.content
       .filter((block) => block.type === 'text')

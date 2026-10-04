@@ -13,7 +13,6 @@ import { AI_MODEL } from '@/lib/utils/constants';
  * based on Italian culinary traditions and ingredient seasonality.
  */
 
-// Same seasonal data as extract-recipes endpoint for consistency.
 // Italian-specific ingredients categorized by traditional growing season.
 const ITALIAN_SEASONAL_INGREDIENTS = {
   primavera: ['asparagi', 'carciofi', 'fave', 'piselli', 'fragole', 'agretti', 'rucola', 'ravanelli', 'cipollotti', 'lattuga'],
@@ -107,7 +106,7 @@ const CATEGORY_SUGGESTION_SCHEMA = {
  * - Requires: recipeTitle and ingredients
  * - Optional: userCategories (for matching existing categories)
  *
- * Error handling: JSON parsing with markdown wrapper removal (defensive).
+ * Error handling: the json_schema output format guarantees the shape; JSON.parse runs as is.
  *
  * Returns: Structured suggestion object with categoryNames (1-3) and season.
  */
@@ -158,6 +157,9 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+
+    // Per-route token accounting (Vercel logs): the baseline for any prompt or effort change.
+    console.info('[ai-usage] suggest-category', message.usage);
 
     const responseText = message.content
       .filter((block) => block.type === 'text')

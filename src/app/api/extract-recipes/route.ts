@@ -82,12 +82,10 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 
 ## ISTRUZIONI SPECIFICHE:
 
-### 1. IDENTIFICAZIONE RICETTE - MOLTO IMPORTANTE
-- Il documento potrebbe contenere un INDICE all'inizio. L'indice NON è una ricetta.
-- Se trovi un indice, usalo come CHECKLIST per verificare di aver estratto tutte le ricette
-- Estrai le ricette nell'ordine in cui appaiono DOPO l'indice
-- NON saltare la prima ricetta
-- Assicurati di estrarre DALLA PRIMA ALL'ULTIMA ricetta del documento
+### 1. IDENTIFICAZIONE RICETTE
+- Il documento potrebbe contenere un indice all'inizio: l'indice non è una ricetta.
+- Se trovi un indice, usalo come checklist per verificare di aver estratto tutte le ricette
+- Estrai le ricette nell'ordine in cui appaiono dopo l'indice: tutte, dalla prima all'ultima, anche quelle brevi o semplici
 - Separa chiaramente ogni ricetta con una doppia linea orizzontale (\`---\`)
 
 ### 2. STRUTTURA FLESSIBILE
@@ -95,9 +93,8 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 - Alcune ricette avranno 2 sezioni, altre 5-6 o più
 - Ogni ricetta può avere una struttura diversa
 
-### 3. NOMI DELLE SEZIONI - REGOLA FONDAMENTALE
-- Copia ESATTAMENTE il nome della sezione come appare nel documento originale
-- NON abbreviare, NON parafrasare, NON modificare
+### 3. NOMI DELLE SEZIONI
+- Copia il nome della sezione parola per parola come appare nel documento originale, senza abbreviarlo né parafrasarlo
 - Mantieni "Per" se presente (es: "Per i pomodori confit" NON "i pomodori confit")
 - Mantieni "La/Il/I/Le" se presente (es: "La genovese" NON "genovese")
 - Mantieni maiuscole/minuscole come nell'originale
@@ -109,10 +106,10 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 - Includi sempre le unità di misura
 - Prefix ogni ingrediente con un riferimento progressivo globale nel formato [ING:n]
 - Esempio corretto ingrediente: "[ING:1] Mele (per cubetti), 300 g"
-- Se uno step usa la quantità di un ingrediente, NON riscrivere il numero nello step: usa il riferimento [QTY:n]
+- Se uno step usa la quantità di un ingrediente, non riscrivere il numero nello step: usa il riferimento [QTY:n]
 - Esempio corretto step: "Taglia [QTY:1] di mele a cubetti"
 - Usa [QTY:n] solo quando il riferimento alla quantità è chiaro e diretto
-- IMPORTANTE: scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
+- Scrivi sempre il nome dell'ingrediente nello step, anche quando usi [QTY:n]
 
 ### 5. PROCEDIMENTO DETTAGLIATO
 - Usa elenchi puntati per tutti i passaggi
@@ -135,31 +132,23 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
 
 ### 7. NOTE E SUGGERIMENTI
 - Includi tutte le "NOTA BENE", suggerimenti, varianti o consigli
-- IMPORTANTE: Le attrezzature necessarie (es: planetaria, fruste elettriche, carta da forno, stampi, ecc.) devono essere riportate SOLO nella sezione "Note aggiuntive" con il prefisso "Attrezzature necessarie:"
-- NON includere MAI le attrezzature come step del procedimento
-- Le attrezzature sono strumenti/utensili, NON sono azioni da eseguire
+- Le attrezzature necessarie (es: planetaria, fruste elettriche, carta da forno, stampi, ecc.) vanno solo nella sezione "Note aggiuntive" con il prefisso "Attrezzature necessarie:", non come step del procedimento: sono strumenti, non azioni da eseguire
 
 ### 8. INFORMAZIONI FINALI
 - Per ogni ricetta riporta: porzioni, tempi di preparazione e cottura (se presenti)
 
-### 9. COMPLETEZZA
-- Assicurati di estrarre TUTTE le ricette presenti nel documento
-- Non omettere nessuna ricetta, anche se breve o semplice
-- Se il documento contiene un indice, usa quello come riferimento per verificare di aver estratto tutto
-
-### 10. FORMATTAZIONE TESTO - REGOLA ASSOLUTA
-- NON usare MAI asterischi (**testo**, *testo*), underscore (__testo__) o altri simboli markdown nel testo degli step, ingredienti o note
-- Scrivi SOLO testo semplice (plain text)
+### 9. FORMATTAZIONE TESTO
+- Step, ingredienti e note sono testo semplice, senza asterischi (**testo**, *testo*), underscore (__testo__) o altri simboli markdown: il testo viene salvato così com'è e i simboli resterebbero visibili
 - Se vuoi enfatizzare una parola, usa le maiuscole: "A TEMPERATURA AMBIENTE" invece di "**A temperatura ambiente**"
 - Esempio SBAGLIATO: "**Fase 1:** cuocere a 180°C"
 - Esempio CORRETTO: "Fase 1: cuocere a 180°C"
 
-### 11. COERENZA INGREDIENTI ↔ PROCEDIMENTO
+### 10. COERENZA INGREDIENTI ↔ PROCEDIMENTO
 - Prima di finalizzare, verifica che ogni ingrediente elencato venga effettivamente usato o menzionato in almeno uno step del procedimento
-- Se un ingrediente NON compare mai in nessuno step, OMETTILO dalla lista ingredienti: è quasi certamente un refuso della fonte (ingrediente orfano)
-- ECCEZIONE FONDAMENTALE (fail-safe): NON omettere nulla quando il procedimento è sintetico o generico — ad esempio se contiene frasi come "aggiungere i restanti ingredienti", "unire il tutto", "incorporare gli altri ingredienti", "aggiustare di sale/spezie" o simili. In questi casi MANTIENI sempre tutti gli ingredienti
-- In caso di dubbio, MANTIENI l'ingrediente. Rimuovi solo quando il procedimento è completo e dettagliato ma l'ingrediente resta chiaramente inutilizzato
-- Lo scopo è eliminare refusi della fonte, NON semplificare o riscrivere la ricetta
+- Se un ingrediente non compare mai in nessuno step, omettilo dalla lista ingredienti: è quasi certamente un refuso della fonte (ingrediente orfano)
+- Eccezione (fail-safe): non omettere nulla quando il procedimento è sintetico o generico — ad esempio se contiene frasi come "aggiungere i restanti ingredienti", "unire il tutto", "incorporare gli altri ingredienti", "aggiustare di sale/spezie" o simili. In questi casi mantieni tutti gli ingredienti
+- In caso di dubbio, mantieni l'ingrediente. Rimuovi solo quando il procedimento è completo e dettagliato ma l'ingrediente resta chiaramente inutilizzato
+- Lo scopo è eliminare refusi della fonte, non semplificare o riscrivere la ricetta
 
 ---`;
 
@@ -293,6 +282,9 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+
+    // Per-route token accounting (Vercel logs): the baseline for any prompt or effort change.
+    console.info('[ai-usage] extract-recipes', message.usage);
 
     // Extract text from response
     const extractedText = message.content

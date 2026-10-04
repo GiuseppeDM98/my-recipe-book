@@ -1,6 +1,6 @@
 import { MacrosPerServing } from '@/types';
 
-/** Below: garnish or error. Above: almost certainly an undivided total. */
+/** Per-serving kcal. Below: garnish or error. Above: almost certainly a garbled estimate. */
 export const MIN_PLAUSIBLE_KCAL = 20;
 export const MAX_PLAUSIBLE_KCAL = 3000;
 
@@ -31,15 +31,16 @@ export interface DerivedNutrition {
 export function deriveNutritionPerServing(raw: unknown, servings: number): DerivedNutrition {
   const estimate = (raw ?? {}) as Record<string, unknown>;
 
-  // kcal: identical to today (the model divides, the server validates 20-3000)
-  const rawCalories = estimate.caloriesPerServing;
-  const caloriesPerServing =
-    typeof rawCalories === 'number' &&
-    Number.isFinite(rawCalories) &&
-    rawCalories >= MIN_PLAUSIBLE_KCAL &&
-    rawCalories <= MAX_PLAUSIBLE_KCAL
-      ? Math.round(rawCalories)
-      : null;
+  // kcal: the model gives the total, the server divides, rounds to the nearest ten and
+  // validates the per-serving value (20-3000)
+  let caloriesPerServing: number | null = null;
+  const rawCalories = estimate.totalCalories;
+  if (typeof rawCalories === 'number' && Number.isFinite(rawCalories)) {
+    const perServing = Math.round(rawCalories / servings / 10) * 10;
+    if (perServing >= MIN_PLAUSIBLE_KCAL && perServing <= MAX_PLAUSIBLE_KCAL) {
+      caloriesPerServing = perServing;
+    }
+  }
 
   // Weight: the model gives the total, the server divides and validates the per-serving value
   let servingWeightGrams: number | null = null;

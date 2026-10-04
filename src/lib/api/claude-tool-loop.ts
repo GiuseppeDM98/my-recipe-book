@@ -57,6 +57,8 @@ export async function createMessageWithToolLoop(
   const maxContinuations = options?.maxContinuations ?? MAX_CONTINUATIONS;
 
   let response = await anthropic.messages.create(params);
+  // Token accounting (Vercel logs), one line per request including resumes.
+  console.info('[ai-usage] tool-loop', response.usage);
   const blocks: Anthropic.Messages.ContentBlock[] = [...response.content];
   const messages = [...params.messages];
   let continuations = 0;
@@ -67,6 +69,7 @@ export async function createMessageWithToolLoop(
     messages.push({ role: 'assistant', content: response.content });
 
     response = await anthropic.messages.create({ ...params, messages });
+    console.info('[ai-usage] tool-loop (resume)', response.usage);
     blocks.push(...response.content);
     continuations += 1;
   }

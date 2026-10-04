@@ -235,8 +235,9 @@ export function orderedSectionNamesFromSteps(steps: Pick<Step, 'section' | 'sect
   steps.forEach((step, index) => {
     const section = step.section;
     if (!section || firstOrderBySection.has(section)) return;
-    // Steps without sectionOrder fall back to their position, the same scale the
-    // collapsible lists use for the analogous fallback.
+    // Steps without sectionOrder (added from the recipe form) fall back to their
+    // position in the array. StepsListCollapsible ranks its groups with this same
+    // function, so the fallback cannot drift between the two columns.
     firstOrderBySection.set(section, step.sectionOrder ?? index);
   });
 

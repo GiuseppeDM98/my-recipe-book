@@ -35,7 +35,8 @@ interface AddCheckedToPantrySheetProps {
   checkedItems: CheckedShoppingEntry[];
 }
 
-// Spec E adds 'altro' to PANTRY_CATEGORIES: don't list it twice when it does.
+// The fallback must always be selectable. 'altro' is part of PANTRY_CATEGORIES,
+// so it is appended only if the taxonomy ever drops it — never listed twice.
 const CATEGORY_OPTIONS = PANTRY_CATEGORIES.some(category => category.id === FALLBACK_PANTRY_CATEGORY_ID)
   ? PANTRY_CATEGORIES
   : [...PANTRY_CATEGORIES, { id: FALLBACK_PANTRY_CATEGORY_ID, name: 'Altro', color: '' }];
