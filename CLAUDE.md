@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-10-04
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-10-12
 
 > Read [WORKFLOW.md](WORKFLOW.md) before starting: session rules (branch,
 > commit, language) and the guided testing protocol.
@@ -151,7 +151,7 @@ Full rules in [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md). The 
 ### AI model and prompts
 - Model string is centralized in `AI_MODEL` (`lib/utils/constants.ts`) — change it there, then update tech-stack docs; never hardcode a model literal in a route
 - On Sonnet 5, `temperature`/`top_p`/`top_k`/`budget_tokens` return **400** — never set them
-- Thinking per endpoint: `extract`/`format`/`estimate-calories`/`reorganize-recipe` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled`; `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
+- Thinking per endpoint: `extract`/`format`/`estimate-calories`/`reorganize-recipe` run `adaptive` + `output_config.effort: 'low'`; `suggest` is `disabled` (a 400 on Sonnet 5.5/Opus 5.5 — change it with any `AI_MODEL` bump); `chat` is adaptive default. `output_config.effort` needs `@anthropic-ai/sdk >= ~0.100`
 - `EXTRACTION_PROMPT` and `FORMAT_RECIPE_PROMPT` drop ingredients never used in the procedure (conservative fail-safe: keep everything if the procedure is terse). Keep the rule mirrored in both prompts
 - The **prescriptive sections rule** ("distinct components → you MUST create sections") is mirrored between `chat-recipe` and `format-recipe` and deliberately absent from `extract-recipes`, which promises fidelity to the PDF. Don't "fix" the asymmetry — same scoping doctrine as the family context and web search
 
@@ -175,18 +175,14 @@ Full rules in [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md). The 
 
 ## Recent Changes (Latest)
 
-### 2026-10-04 — `specs/` retired, and the six gaps its audit found
-- **Specs retired**: the six feature specs and their roadmap (`specs/`, all implemented between 2026-08-24 and 2026-09-17) were audited against the code and deleted; they stay readable in `git log`. No feature was found missing. Every comment and doc line that cited a spec or the roadmap now stands on its own, and the decisions that lived only there moved to code comments, AGENTS.md §5/§9 and the pantry guide
-- **Corrected on the way**: the stale `MealType` JSDoc; the rationale of the legacy scaling invariant (the scaler returns the string untouched at equal servings — it reformats at any OTHER factor); the dictionary size in the guide (~390, not ~290)
-- **Fixes decided by the user on the audit's findings**:
-  - "Per reparto" rows now carry the same pantry information as "Per ricetta" (stock badge with "mancano N", "Forse ce l'hai già", "Ce l'ho già"): `DepartmentSection` takes the shared `ShoppingPantryContext` and calls `buildPantryRowProps` like `ShoppingSection`/`AdHocRecipeGroup`
-  - Custom item + department select: when the name matches a pantry entry the override is still saved but the toast says where the row really is ("È già in dispensa: resta in …") — `pantryDepartmentId` on `useDepartmentOverrides`' mutation; precedence chain unchanged
-  - `estimate-calories` prompt: one "count only what ends up on the plate" rule under **Regole**, for kcal, macros and weight (the weight section used to refer to a kcal rule that no longer existed). **Not exercised against the real model** in this session
-  - Section order: `StepsListCollapsible` ranks its groups with `orderedSectionNamesFromSteps()`, the same function the ingredient column is ordered with — the two had separate fallbacks that disagreed on recipes mixing steps with and without `sectionOrder`
-  - Planner: the whole filled cell opens the slot editor (the title stays a real button; ↺, "Salva nel ricettario" and "Vai alla ricetta" keep their own action)
-  - Firestore rules: `users/{uid}` is readable by its owner only (was any authenticated user). Deployed on 2026-10-04 with `firebase deploy --only firestore:rules` (rules only, indexes untouched)
-- **Verified** (2026-10-04): `npx tsc --noEmit` exit 0 · `npm test` 328/328 (22 suites; new `DepartmentSection.test.tsx`, `MealSlotCell.test.tsx`, `steps-list-collapsible.test.tsx`) · `npx next build --webpack` exit 0 · rules check on the emulators: see "Guided testing tooling" below
-- **Not seen by eye**: the department rows with badge/suggestion and the planner cell tap were asserted by component tests only, no visual pass on the dev server
+### 2026-10-12 — Tagliando: the 2026-10-04 prompt audit's open low flags, rename leftovers, dead scripts
+- **Rename leftovers** (repo `il-mio-ricettario` → `my-recipe-book`): `package.json`/`package-lock.json` name; clone/`cd`, Vercel import, Docker image and GitHub issue/discussion links in README.md and SETUP.md; README's «Back to Top» anchor (`#my-recipe-book`). The Firebase project id in `.firebaserc` keeps the old name on purpose (a project id never changes)
+- **Dead scripts removed**: `lint` (`next lint`, gone in Next 16; no ESLint config exists, so no CLI equivalent to point it at) and `export` (`next export`, gone since Next 14; the app builds `output: 'standalone'`, and the Firebase Hosting guide already does a static export via `output: 'export'` + `npm run build`). README's scripts table and review checklist, WORKFLOW.md and AGENTS.md aligned. The unwired `eslint`/`eslint-config-next` devDependencies are removed too (owner's call); lint, if it comes back, is ESLint 9 + `eslint-config-next` 16 with a flat config
+- **Family context off PDF extraction, server-side too** (audit L7): `extract-recipes` no longer reads `useFamilyContext`/`familyProfile`, and the PDF handler of `assistente-ai` stopped sending them (the UI already forced the toggle off). **Not exercised against the real route** (a call costs a real extraction); the change only removes code
+- **`suggest-category` thinking** (audit L1): `{ type: 'disabled' }` stays — valid on `claude-sonnet-5`, the model `AI_MODEL` names. Sonnet 5.5 and Opus 5.5 answer it with a 400, so the route, `AI_MODEL`'s warning, AGENTS.md §7 and the thinking line above now say to switch it with any bump (`adaptive` + `effort: 'low'`, or `between_tools` on Sonnet 5.5)
+- **`AI_MODEL` comment** (audit L8) lists all six endpoints
+- **Kept as they are**: L2 (`[RISPOSTA]`/`[RICETTE]` delimiters, a reasoned choice), L3 (Atwater self-check in the prompt), L5 (migration wording in AGENTS.md, a guard against looking for `/api/plan-meals`), L4 (moderate caps in the reorganize prompt: no replacement text proposed, and the ids rule is a hard data contract), L6 (the guided-test register is the method)
+- **Verified** (2026-10-12): `npx tsc --noEmit` exit 0 · `npm test` 328/328 (22 suites) · `npx next build --webpack` exit 0
 
 Older entries live in `git log` (each feature ships as one squashed PR, e.g. "feat: integrate pantry with shopping list and cooking"), not here.
 

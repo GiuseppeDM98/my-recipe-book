@@ -175,8 +175,8 @@ The project includes owner-based security rules that ensure users can only acces
 
 **Clone the Repository** (if not already done):
 ```bash
-git clone https://github.com/GiuseppeDM98/il-mio-ricettario.git
-cd il-mio-ricettario
+git clone https://github.com/GiuseppeDM98/my-recipe-book.git
+cd my-recipe-book
 ```
 
 **Login to Firebase**:
@@ -262,7 +262,7 @@ After you have your Vercel deployment URL:
 3. By default, only `localhost` and `*.firebaseapp.com` are authorized
 4. Click "**Add domain**"
 5. Enter your Vercel deployment URL (without `https://`):
-   - Example: `il-mio-ricettario-abc123.vercel.app`
+   - Example: `my-recipe-book-abc123.vercel.app`
 6. Click "**Add**"
 
 **If using a custom domain**, add it here as well:
@@ -322,7 +322,7 @@ Deploy the Next.js application to Vercel.
 Ensure your code is pushed to GitHub:
 
 ```bash
-cd il-mio-ricettario
+cd my-recipe-book
 git status                        # Check for uncommitted changes
 git add .                         # Stage all changes
 git commit -m "Prepare for production deployment"
@@ -340,7 +340,7 @@ git push origin main              # Push to GitHub
 3. Choose "**Continue with GitHub**"
 4. Authorize Vercel to access your GitHub account
 5. Select which repositories Vercel can access:
-   - **Recommended**: "Only select repositories" → Select `il-mio-ricettario`
+   - **Recommended**: "Only select repositories" → Select `my-recipe-book`
    - Alternative: "All repositories" (not recommended for security)
 
 **Verification**: You should see the Vercel dashboard
@@ -350,7 +350,7 @@ git push origin main              # Push to GitHub
 ### Step 3: Import Project
 
 1. In Vercel Dashboard, click "**Add New...**" → "**Project**"
-2. **Import Git Repository**: Find `il-mio-ricettario` in the list
+2. **Import Git Repository**: Find `my-recipe-book` in the list
 3. Click "**Import**"
 
 **Project Configuration** (auto-detected):
@@ -438,8 +438,8 @@ After successful deployment:
 
 1. Vercel shows "**Congratulations!**" screen
 2. Copy your deployment URL:
-   - Format: `https://il-mio-ricettario-[random-id].vercel.app`
-   - Example: `https://il-mio-ricettario-7xk2p9m1.vercel.app`
+   - Format: `https://my-recipe-book-[random-id].vercel.app`
+   - Example: `https://my-recipe-book-7xk2p9m1.vercel.app`
 
 **Save this URL** - you need it for Firebase authorized domains (next step)
 
@@ -452,7 +452,7 @@ After successful deployment:
 1. Firebase Console → **Authentication** → **Settings** → **Authorized domains**
 2. Click "**Add domain**"
 3. Enter your Vercel URL (without `https://`):
-   - Example: `il-mio-ricettario-7xk2p9m1.vercel.app`
+   - Example: `my-recipe-book-7xk2p9m1.vercel.app`
 4. Click "**Add**"
 
 **Verification**: Domain should appear in the authorized list
@@ -1507,4 +1507,4 @@ Your application is now live and ready for use. Monitor logs, gather user feedba
 For questions or issues:
 - Check [Troubleshooting](#troubleshooting)
 - Review [README.md](README.md) for project documentation
-- Open an issue on [GitHub](https://github.com/GiuseppeDM98/il-mio-ricettario/issues)
+- Open an issue on [GitHub](https://github.com/GiuseppeDM98/my-recipe-book/issues)

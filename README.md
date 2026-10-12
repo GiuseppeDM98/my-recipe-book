@@ -248,8 +248,8 @@ Get up and running in less than 5 minutes.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/GiuseppeDM98/il-mio-ricettario.git
-cd il-mio-ricettario
+git clone https://github.com/GiuseppeDM98/my-recipe-book.git
+cd my-recipe-book
 
 # 2. Install dependencies
 npm install
@@ -578,11 +578,6 @@ The application will start at [http://localhost:3000](http://localhost:3000)
   - User-centric testing approach
   - Best practices encouraged
   - Accessible queries
-
-- **[ESLint 8.x](https://eslint.org/)** - Code linting
-  - Next.js recommended rules
-  - Catches common errors
-  - Enforces code style
 
 ### Security
 
@@ -941,9 +936,11 @@ Guide for developers working on the codebase.
 | **Development** | `npm run dev` | Start Next.js development server on port 3000 with hot reload |
 | **Build** | `npm run build` | Create production build (standalone mode) |
 | **Start** | `npm run start` | Start production server (requires build first) |
-| **Export** | `npm run export` | Build and export static site for Firebase Hosting |
 | **Test** | `npm run test` | Run Jest test suite |
-| **Lint** | `npm run lint` | Run ESLint checks |
+| **Emulators** | `npm run emulators` | Start the Firebase Auth/Firestore/Storage emulators |
+| **E2E** | `npm run test:e2e` | Run the Playwright specs in `e2e/` |
+
+There is no lint script: Next 16 removed `next lint` and the repo has no ESLint configuration, so `npx tsc --noEmit` and the build are the static checks.
 
 ### Coding Conventions
 
@@ -1235,7 +1232,7 @@ Deploy Il Mio Ricettario to production. For detailed deployment instructions, se
 2. Build: `npm run build`
 3. Deploy: `firebase deploy --only hosting`
 
-**Full guide**: [SETUP.md - Firebase Hosting](SETUP.md#firebase-hosting)
+**Full guide**: [SETUP.md - Firebase Hosting](SETUP.md#alternative-firebase-hosting)
 
 ---
 
@@ -1292,12 +1289,12 @@ docker build \
   --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id \
   --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id \
   --build-arg NEXT_PUBLIC_REGISTRATIONS_ENABLED=true \
-  -t il-mio-ricettario .
+  -t my-recipe-book .
 
 docker run --rm -p 3000:3000 \
   -e ANTHROPIC_API_KEY=your_anthropic_api_key_here \
   -e FIREBASE_ADMIN_CREDENTIALS_BASE64=your_base64_service_account_json \
-  il-mio-ricettario
+  my-recipe-book
 ```
 
 **Common Docker Compose commands**:
@@ -1749,7 +1746,7 @@ We welcome contributions from the community! Here's how to get started.
 
 1. **Fork the Repository**
    - Click "Fork" on GitHub
-   - Clone your fork: `git clone https://github.com/YOUR_USERNAME/il-mio-ricettario.git`
+   - Clone your fork: `git clone https://github.com/YOUR_USERNAME/my-recipe-book.git`
 
 2. **Create a Feature Branch**
    ```bash
@@ -1789,7 +1786,6 @@ We welcome contributions from the community! Here's how to get started.
 Before submitting, ensure:
 
 - [ ] **TypeScript**: Strict mode passes without errors (`npx tsc --noEmit`)
-- [ ] **Linting**: ESLint passes (`npm run lint`)
 - [ ] **Tests**: All tests pass (`npm test`)
 - [ ] **Build**: Production build succeeds (`npm run build`)
 - [ ] **Firestore Rules**: Updated if new collections added
@@ -1849,8 +1845,8 @@ Looking for where to start? Try these:
 ### Questions?
 
 - **Documentation**: Check [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md), [COMMENTS.md](COMMENTS.md)
-- **Bug Reports**: Open an issue on [GitHub Issues](https://github.com/GiuseppeDM98/il-mio-ricettario/issues)
-- **Discussions**: Use [GitHub Discussions](https://github.com/GiuseppeDM98/il-mio-ricettario/discussions) for questions
+- **Bug Reports**: Open an issue on [GitHub Issues](https://github.com/GiuseppeDM98/my-recipe-book/issues)
+- **Discussions**: Use [GitHub Discussions](https://github.com/GiuseppeDM98/my-recipe-book/discussions) for questions
 
 ---
 
@@ -2119,7 +2115,7 @@ See `package.json` for the complete list of dependencies and their licenses.
 
 **Bug Reports**:
 
-Found a bug? Open an issue on [GitHub Issues](https://github.com/GiuseppeDM98/il-mio-ricettario/issues) with:
+Found a bug? Open an issue on [GitHub Issues](https://github.com/GiuseppeDM98/my-recipe-book/issues) with:
 - Clear description of the problem
 - Steps to reproduce
 - Expected behavior vs actual behavior
@@ -2128,7 +2124,7 @@ Found a bug? Open an issue on [GitHub Issues](https://github.com/GiuseppeDM98/il
 
 **Feature Requests**:
 
-Have an idea? Open a feature request on [GitHub Issues](https://github.com/GiuseppeDM98/il-mio-ricettario/issues) with the "enhancement" label:
+Have an idea? Open a feature request on [GitHub Issues](https://github.com/GiuseppeDM98/my-recipe-book/issues) with the "enhancement" label:
 - Describe the use case
 - Explain the problem it solves
 - Propose a solution (optional)
@@ -2136,7 +2132,7 @@ Have an idea? Open a feature request on [GitHub Issues](https://github.com/Giuse
 
 **Discussions**:
 
-For questions, ideas, or general discussion, use [GitHub Discussions](https://github.com/GiuseppeDM98/il-mio-ricettario/discussions).
+For questions, ideas, or general discussion, use [GitHub Discussions](https://github.com/GiuseppeDM98/my-recipe-book/discussions).
 
 ### Author & Maintainer
 
@@ -2155,4 +2151,4 @@ For questions, ideas, or general discussion, use [GitHub Discussions](https://gi
 
 Made with TypeScript and passion for good food.
 
-[⬆ Back to Top](#il-mio-ricettario)
+[⬆ Back to Top](#my-recipe-book)
