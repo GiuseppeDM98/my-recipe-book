@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { requireAuthenticatedUser } from '@/lib/api/require-user';
-import { buildFamilyContextPrompt, validateFamilyContextUsage } from '@/lib/utils/family-context';
 import { AI_MODEL } from '@/lib/utils/constants';
-import { FamilyProfile } from '@/types';
 
 /**
  * PDF Recipe Extraction API
@@ -164,6 +162,10 @@ const EXTRACTION_PROMPT = `Analizza il PDF allegato ed estrai **TUTTE le ricette
  *
  * Returns: Markdown-formatted recipes ready for parsing by recipe-parser.ts
  *
+ * No family context: extraction promises fidelity to the PDF, so the route reads
+ * neither `useFamilyContext` nor `familyProfile`, even if a client sends them
+ * (AGENTS.md §7 "Family Context Scope").
+ *
  * Side effects: None (stateless API endpoint)
  */
 export async function POST(request: NextRequest) {
@@ -185,8 +187,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const userCategoriesJson = formData.get('userCategories') as string;
-    const useFamilyContext = formData.get('useFamilyContext') === 'true';
-    const familyProfileJson = formData.get('familyProfile') as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -194,25 +194,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    let familyProfile: FamilyProfile | null = null;
-    if (familyProfileJson) {
-      try {
-        familyProfile = JSON.parse(familyProfileJson) as FamilyProfile;
-      } catch (e) {
-        console.error('Error parsing family profile:', e);
-      }
-    }
-
-    const familyContextError = validateFamilyContextUsage(useFamilyContext, familyProfile);
-    if (familyContextError) {
-      return NextResponse.json(
-        { error: familyContextError },
-        { status: 400 }
-      );
-    }
-
-    const familyPromptContext = buildFamilyContextPrompt(familyProfile, useFamilyContext);
 
     // Parse user categories if provided
     let userCategories: { name: string }[] = [];
@@ -276,7 +257,7 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `${familyPromptContext}${EXTRACTION_PROMPT}`,
+              text: EXTRACTION_PROMPT,
             },
           ],
         },

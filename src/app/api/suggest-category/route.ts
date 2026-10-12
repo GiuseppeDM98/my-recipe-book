@@ -146,6 +146,9 @@ export async function POST(request: NextRequest) {
       model: AI_MODEL,
       max_tokens: 700,
       // Deterministic JSON classification: disable adaptive thinking (Sonnet 5 default on).
+      // Accepted by claude-sonnet-5, but Sonnet 5.5 and Opus 5.5 reject `disabled` with a 400:
+      // on a bump of AI_MODEL switch to `{ type: 'adaptive' }` + `output_config.effort: 'low'`
+      // (or, on Sonnet 5.5, `{ type: 'between_tools' }` to keep thinking off).
       thinking: { type: 'disabled' },
       output_config: {
         format: { type: 'json_schema', schema: CATEGORY_SUGGESTION_SCHEMA },

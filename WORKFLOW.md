@@ -117,8 +117,9 @@ commands and paths.
 
 **Verified commands** (`package.json`):
 - `npm run test` → Jest (unit/integration)
-- No lint step: the `lint` script calls `next lint`, which Next 16 removed (see
-  AGENTS.md) — type-check and build below cover it
+- No lint step: Next 16 removed `next lint` and the repo has no ESLint
+  configuration, so `package.json` has no `lint` script (see AGENTS.md) —
+  type-check and build below cover it
 - `npx tsc --noEmit` → type-check (no dedicated script in `package.json`, but
   `tsconfig.json` is present and `tsc` resolves the project)
 - `npx next build --webpack` → verification build (the command recommended by

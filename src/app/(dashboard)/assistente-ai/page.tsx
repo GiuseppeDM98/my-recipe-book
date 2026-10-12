@@ -237,10 +237,6 @@ export default function RecipeExtractorPage() {
       return;
     }
 
-    if (!validateFamilyToggle()) {
-      return;
-    }
-
     setIsExtracting(true);
     setError(null);
     setExtractedRecipes([]);
@@ -252,8 +248,7 @@ export default function RecipeExtractorPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('userCategories', JSON.stringify(userCategories.map(c => ({ name: c.name }))));
-      formData.append('useFamilyContext', JSON.stringify(useFamilyContext));
-      formData.append('familyProfile', JSON.stringify(familyProfile));
+      // No family context on PDF extraction: the route ignores it by design (fidelity to the source).
 
       const response = await fetch('/api/extract-recipes', {
         method: 'POST',
