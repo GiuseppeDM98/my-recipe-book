@@ -1,6 +1,6 @@
 # Il Mio Ricettario - AI Developer Reference
 
-> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-10-12
+> **Status**: Phase 1 MVP - Production Ready | **Updated**: 2026-10-23
 
 > Read [WORKFLOW.md](WORKFLOW.md) before starting: session rules (branch,
 > commit, language) and the guided testing protocol.
@@ -44,7 +44,7 @@ Privacy-first architecture: every user-owned document is isolated through Fireba
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js 16.2.10, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
+| Frontend | Next.js 16.4.2, React 18.2, TypeScript 5.3, Tailwind CSS 3.4 |
 | Typography | Bodoni Moda + Jost via `next/font/google` |
 | Theming | `next-themes` (light / dark / system, `darkMode: 'class'`) |
 | Backend | Firebase Auth, Firestore, Firebase Storage |
@@ -175,14 +175,9 @@ Full rules in [doc/guide/pantry-matching.md](doc/guide/pantry-matching.md). The 
 
 ## Recent Changes (Latest)
 
-### 2026-10-12 — Tagliando: the 2026-10-04 prompt audit's open low flags, rename leftovers, dead scripts
-- **Rename leftovers** (repo `il-mio-ricettario` → `my-recipe-book`): `package.json`/`package-lock.json` name; clone/`cd`, Vercel import, Docker image and GitHub issue/discussion links in README.md and SETUP.md; README's «Back to Top» anchor (`#my-recipe-book`). The Firebase project id in `.firebaserc` keeps the old name on purpose (a project id never changes)
-- **Dead scripts removed**: `lint` (`next lint`, gone in Next 16; no ESLint config exists, so no CLI equivalent to point it at) and `export` (`next export`, gone since Next 14; the app builds `output: 'standalone'`, and the Firebase Hosting guide already does a static export via `output: 'export'` + `npm run build`). README's scripts table and review checklist, WORKFLOW.md and AGENTS.md aligned. The unwired `eslint`/`eslint-config-next` devDependencies are removed too (owner's call); lint, if it comes back, is ESLint 9 + `eslint-config-next` 16 with a flat config
-- **Family context off PDF extraction, server-side too** (audit L7): `extract-recipes` no longer reads `useFamilyContext`/`familyProfile`, and the PDF handler of `assistente-ai` stopped sending them (the UI already forced the toggle off). **Not exercised against the real route** (a call costs a real extraction); the change only removes code
-- **`suggest-category` thinking** (audit L1): `{ type: 'disabled' }` stays — valid on `claude-sonnet-5`, the model `AI_MODEL` names. Sonnet 5.5 and Opus 5.5 answer it with a 400, so the route, `AI_MODEL`'s warning, AGENTS.md §7 and the thinking line above now say to switch it with any bump (`adaptive` + `effort: 'low'`, or `between_tools` on Sonnet 5.5)
-- **`AI_MODEL` comment** (audit L8) lists all six endpoints
-- **Kept as they are**: L2 (`[RISPOSTA]`/`[RICETTE]` delimiters, a reasoned choice), L3 (Atwater self-check in the prompt), L5 (migration wording in AGENTS.md, a guard against looking for `/api/plan-meals`), L4 (moderate caps in the reorganize prompt: no replacement text proposed, and the ids rule is a hard data contract), L6 (the guided-test register is the method)
-- **Verified** (2026-10-12): `npx tsc --noEmit` exit 0 · `npm test` 328/328 (22 suites) · `npx next build --webpack` exit 0
+### 2026-10-23 — Next.js 16.4.2 (security)
+- **Next.js 16.2.10 → 16.4.2**: 16.0.0-16.4.0 carry critical advisories, among them unauthenticated remote code execution in the Image Optimization API (GHSA-2464-fhr4-w9xw) and in `use cache` functions (GHSA-673q-mjm6-r5xr). The lockfile also moves Next's own dependencies (sharp, postcss, nanoid, semver); no app code changes
+- **Open**: React 18 is deprecated in Next 16 and goes away with Next 17 (build warning); `npm audit` still lists advisories outside Next (firebase/grpc, handlebars, websocket-driver and others), left for a session of their own
 
 Older entries live in `git log` (each feature ships as one squashed PR, e.g. "feat: integrate pantry with shopping list and cooking"), not here.
 
