@@ -5,7 +5,7 @@
 Designed for home cooks who want to digitize their recipe collections without compromising on simplicity and speed.
 
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
-![Next.js](https://img.shields.io/badge/Next.js-16.2.10-black)
+![Next.js](https://img.shields.io/badge/Next.js-16.4.2-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)
 ![Firebase](https://img.shields.io/badge/Firebase-10.7-orange)
 
@@ -477,7 +477,7 @@ The application will start at [http://localhost:3000](http://localhost:3000)
 
 ### Frontend
 
-- **[Next.js 16.2.10](https://nextjs.org/)** - React framework with App Router
+- **[Next.js 16.4.2](https://nextjs.org/)** - React framework with App Router
   - Server and client components
   - File-based routing
   - API routes for backend functionality

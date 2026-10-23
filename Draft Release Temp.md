@@ -228,6 +228,7 @@
 - Applied further dependency security patches via npm audit (Next.js, and other transitive packages), resolving several high and critical severity advisories
 - Test account credentials are no longer shown on the login page by default — they must be explicitly enabled for development environments
 - Updated the app to a patched Next.js release to address current framework security advisories
+- Updated Next.js to 16.4.2, which fixes critical remote code execution advisories in image optimization (GHSA-2464-fhr4-w9xw) and in cached functions (GHSA-673q-mjm6-r5xr), plus a denial of service in Server Actions (GHSA-p3m5-59mp-jv5r)
 - Added server-side authentication checks to all AI-powered endpoints to block unauthenticated access
 - Tightened Firebase Storage access rules so authenticated users are limited to their own recipe file paths
 - Tightened database access rules so your profile data (family profile, extra shopping items, department preferences) can be read only by you
