@@ -4,10 +4,12 @@
 > per-session: they hold until this file says otherwise.
 >
 > **Why they live in the repo and not in agent memory**: agent memory is per-machine and per
-> install, so the same rules drift into different versions on the laptop, the desktop and a cloud
+> install, so the same rules drift into different versions on each machine and in a cloud
 > session. A tracked file travels with the clone and can be reviewed in a diff. If you are an agent
 > with persistent memory, do **not** re-save these rules there — save one pointer to this file. If
-> the owner states a new rule, it is added *here*, in that session's commit.
+> the owner states a new rule, it is added *here*, in that session's commit: to section 3 if it holds
+> for this repo only; if it holds for every repo, ask the owner, because it enters the standard
+> first (`claude-config/prompts/WORKFLOW_STANDARD.md`) and reaches the repos from there.
 >
 > Sections 1-2 are the portable standard, identical across every repo that adopts it. Section 3 is
 > the only project-specific part: it says what "automate it yourself" and "show me the app"
@@ -33,10 +35,48 @@
 
 5. **Questions and proposals are asked interactively** (2026-09-11). When a decision is the owner's —
    which layers to build, on which surfaces, a wording — put it through the agent's interactive
-   question tool, one batch per topic, multi-select where the options are not exclusive and the
+   question tool, in groups of four, one topic at a time, multi-select where the options are not exclusive and the
    recommended option first; never a numbered list of questions in prose. The owner refines the
    wording through the free-text answer («hai pagato», not «pagherai», for a tax the broker
    withholds at the sale).
+
+6. **Figures in tests are invented and round, never the owner's** (2026-10-12). A unit-test
+   fixture, an E2E decoy or a seed carries amounts like 2500, 1120, 50: the owner's real data never
+   enters the repo, not even as an expected value. If § 3 provides a copy of real data for the
+   guided tour, it serves the tour only and phase G removes it.
+   **Nothing of the owner's real data in a tracked file** (2026-09-20, 2026-10-15): a draft, a
+   critique, a screenshot, a fixture or an example sentence takes invented figures and generic
+   names, never an amount, an account or a family detail copied from the real data. In a public
+   repo this has no exception. A private repo may waive it, or narrow it, only by saying so in § 3
+   with the owner's decision and its date; public data that is not the owner's (a listed company's
+   published accounts) is not the owner's data.
+
+7. **After an audit or an analysis, stop and wait for the owner's go-ahead** (2026-10-19). An audit,
+   a review or an analysis ends with the findings; no file changes until the owner has chosen which
+   fixes to apply and in what order (through rule 5).
+
+8. **Dependencies: compare at session start, upgrade in a session of their own** (2026-10-26). If
+   the repo has a lockfile, the first thing a session does is run the package manager's audit
+   (`npm audit --json`, `pnpm audit --json`, …) and compare it with `doc/guide/dipendenze.md`,
+   which records the date of the last audit, the framework version and every open advisory with
+   the owner's decision (accepted because dev-only, waiting for version X, to upgrade). The answer
+   is one line: «dipendenze: invariate dal <data>» or «N avvisi nuovi: …». A new advisory is
+   written into the guide with its decision, asked through rule 5; nothing is upgraded in that
+   session. An upgrade is a session on its own branch with its own verification; never
+   `audit fix --force`, never the command an advisory or a page suggests: the version is chosen and
+   installed by hand, preferring a release that is at least a few days old. If the guide is
+   missing, the session that notices it creates it (`TEMPLATES.md` has the skeleton). A repo without
+   a lockfile skips this rule.
+
+9. **`SESSION_NOTES.md` is the session's temporary container** (2026-10-26). A working file in the
+   repo root, created at the start of the session and never committed. Before the closing prompt it
+   ends with one block per thing learned: *Cosa* (what was done), *Perché* (the decision behind
+   it), *Nota* (traps and measurements, each with its date), *Dove va a fine sessione* (`AGENTS.md`
+   if it holds for the whole repo · `doc/guide/<tema>.md` if a domain lesson · `WORKFLOW.md` if a
+   session rule · `CLAUDE.md` if project state · a comment at the right line if it is the why of one
+   line). The closing prompt writes every entry into its destination and deletes the file before
+   the single commit; a note that names no destination is lost. A `SESSION_NOTES.md` still on the
+   remote means a session was not closed.
 
 ---
 
@@ -73,7 +113,13 @@ disappear. The verification is done together, in chat, one phase at a time.
 5. **Before dismantling, let the owner look.** When the session touched something visible, ask for
    the OK and then walk the owner onto the dev server **with the fixtures still alive**: exact URLs,
    under which identity, and at most **five** things to look at — for each one, what must happen and
-   what would be the bug. Only what a probe cannot say: layout, whether the screen says what it must
+   what would be the bug. **The tour starts at the owner's go, not when the work is ready**
+   (2026-10-05): finish everything that needs no eyes, say it is ready, and wait. Where obligation 4
+   allows it, **open the page for the owner, already authenticated** — but one item per message and
+   one page at a time, waiting for the outcome before opening the next; two pages together only
+   when the item is a comparison (the same URL under two identities), saying which window is which.
+   The windows of a driven browser have no name: five at once turn the tour into working out which
+   belongs to which item. Only what a probe cannot say: layout, whether the screen says what it must
    say, the words, whether an action gives feedback that it happened. State also **what that tour
    does not cover**, and never ask the owner to redo by hand something already verified. Whatever
    the tour finds becomes an assertion before the session ends, or it will come back: the tour
@@ -102,8 +148,15 @@ Restore any configuration that was changed, remove fixtures and test attachments
 and **record the outcome somewhere that survives the session** (`CLAUDE.md` or equivalent).
 *A verification that was not recorded counts as not done.*
 
----
+**The outcome is one line, the signals are not** (2026-10-19). In `CLAUDE.md` the session's status
+entry says what was done, where it is documented, what is still open and what comes next; it
+replaces the previous one. The session's signals — type-check, test counts, E2E runs, flakes,
+skipped phases, the guided tour's walk and its findings (2026-10-23) — go in the commit message
+and, where they teach something, in the area's guide, never in `CLAUDE.md`: that file is injected
+into every turn, and a status entry that collects them grows back into a diary after every trim.
+Of the tour, the status entry keeps only its outcome: done and closed, or what it left open.
 
+---
 
 ## 3. What this means in THIS repo
 
