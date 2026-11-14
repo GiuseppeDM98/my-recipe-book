@@ -209,6 +209,9 @@ testing tooling" section in [CLAUDE.md](CLAUDE.md)); below are only the concrete
 commands and paths.
 
 **Verified commands** (`package.json`):
+- `node ~/.claude/processi-collaudo.mjs` → collaudo count, **the first gate**: zero collaudo
+  trees and forgotten services (the Firebase emulators, the Next `dev` server), or the gates
+  below do not start (§ 2)
 - `npm run test` → Jest (unit/integration)
 - No lint step: Next 16 removed `next lint` and the repo has no ESLint
   configuration, so `package.json` has no `lint` script (see AGENTS.md) —
